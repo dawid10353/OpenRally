@@ -6,6 +6,18 @@
 
 **OpenRally** to projekt otwartoźródłowej gry rajdowej (open-source rally game project).
 
+## Jak uruchomić (How to run)
+
+1. Zainstaluj zależności (Install dependencies):
+   ```bash
+   npm install
+   ```
+2. Uruchom serwer deweloperski (Start the development server):
+   ```bash
+   npm run dev
+   ```
+3. Otwórz w przeglądarce adres, który pojawi się w konsoli (zazwyczaj `http://localhost:5173`).
+
 ---
 
 ## Development Setup
