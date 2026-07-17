@@ -4,27 +4,40 @@
 
 # OpenRally
 
-**OpenRally** to projekt otwartoźródłowej gry rajdowej (open-source rally game project).
+**OpenRally** is an open-source rally game project.
 
-## Założenia Gry (Game Vision)
+## Game Vision
 
-- Gra 3D w przeglądarce.
-- Jazda samochodem po **nierównym, otwartym terenie** (pagórki, doliny, wzniesienia).
-- Fizyka **arcade-sim** (niski próg wejścia, ale drift i praca zawieszenia dają satysfakcję).
+- 3D browser-based game.
+- Driving a car on **uneven, open terrain** (hills, valleys, elevations).
+- **Arcade-sim** physics (low entry barrier, but drifting and suspension work provide satisfaction).
+- A multi-year project, developed **exclusively by AI**.
 
-- Projekt wieloletni, rozwijany **wyłącznie przez AI**.
+## Roadmap
 
-## Jak uruchomić (How to run)
+### Stage 1 — Foundation (COMPLETED)
+- Terrain, physics, camera, controls, HUD, lighting
 
-1. Zainstaluj zależności (Install dependencies):
+### Stage 2 — Polishing (IN PROGRESS)
+- Particle effects, sound, various surfaces, map objects, post-processing
+
+### Stage 3 — Expansion
+- AI models (GLB), replacing blocky models with real 3D models of vehicles and environments, optimization tweaks, refactoring
+
+### Stage 4+ — Future
+- Multiplayer, map editor, weather, asset generation automation
+
+## How to run
+
+1. Install dependencies:
    ```bash
    npm install
    ```
-2. Uruchom serwer deweloperski (Start the development server):
+2. Start the development server:
    ```bash
    npm run dev
    ```
-3. Otwórz w przeglądarce adres, który pojawi się w konsoli (zazwyczaj `http://localhost:5173`).
+3. Open the address shown in the console in your browser (usually `http://localhost:5173`).
 
 ---
 
