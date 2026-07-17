@@ -46,17 +46,17 @@ export const WATER_FOAM_COLOR = new Color(0xffffff);
 /** Shallow water color (near shores) */
 export const WATER_SHALLOW_COLOR = new Color(0x27a599);
 
-// ─── Gerstner Waves ─────────────────────────────────────────────────
+// ─── Gerstner Waves (Calm water for Rally) ──────────────────────────
 
 export const WATER_WAVE_A_DIR = new Vector2(1.0, 0.5).normalize();
-export const WATER_WAVE_A_STEEPNESS = 0.15;
-export const WATER_WAVE_A_WAVELENGTH = 80.0;
+export const WATER_WAVE_A_STEEPNESS = 0.015;
+export const WATER_WAVE_A_WAVELENGTH = 30.0;
 
 export const WATER_WAVE_B_DIR = new Vector2(0.5, 1.0).normalize();
-export const WATER_WAVE_B_STEEPNESS = 0.15;
-export const WATER_WAVE_B_WAVELENGTH = 45.0;
+export const WATER_WAVE_B_STEEPNESS = 0.01;
+export const WATER_WAVE_B_WAVELENGTH = 20.0;
 
 export const WATER_WAVE_C_DIR = new Vector2(-0.2, 0.5).normalize();
-export const WATER_WAVE_C_STEEPNESS = 0.15;
-export const WATER_WAVE_C_WAVELENGTH = 25.0;
+export const WATER_WAVE_C_STEEPNESS = 0.005;
+export const WATER_WAVE_C_WAVELENGTH = 10.0;
 

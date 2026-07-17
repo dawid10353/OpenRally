@@ -91,8 +91,8 @@ export function generateHeightmap(config: TerrainConfig): HeightmapData {
       const trackBaseRadius = 220;
       const trackVariance = 80;
       const trackRadius = trackBaseRadius + trackWiggle * trackVariance;
-      const trackWidth = 12;
-      const trackFalloff = 45; // increased significantly for smooth rolling hills
+      const trackWidth = 22; // Szeroka droga, by pomieścić pojazd bez kolizji z uskokami
+      const trackFalloff = 40; // gładki spadek zanikania śladu
       
       let trackMask = 0;
       const distToTrack = Math.abs(distFromCenter - trackRadius);
@@ -100,20 +100,35 @@ export function generateHeightmap(config: TerrainConfig): HeightmapData {
       if (distToTrack < trackWidth) {
         trackMask = 1.0;
       } else if (distToTrack < trackWidth + trackFalloff) {
-        // Smoothstep interpolation for natural, non-angular terrain transitions
+        // Smoothstep interpolation for muddy track falloff
         const t = 1.0 - (distToTrack - trackWidth) / trackFalloff;
         trackMask = t * t * (3 - 2 * t);
       }
 
-      // Only apply track if we are somewhat outside the spawn clearing
       if (distFromCenter > 40 && trackMask > 0) {
-        // Flatten the track towards a slightly lower base height
-        const trackTargetHeight = -2.0; 
-        // Use 80% carving strength to keep minor bumps on the track itself
-        const carveStrength = trackMask * 0.8;
+        const trackTargetHeight = -0.5; // płyciutkie, by siatka nie dostała cieni
+        const carveStrength = trackMask * 0.9; // 90% siły, tworzy gładki i stabilny teren do jazdy (brak bocznych pochyłości na klifach)
         value = value * (1 - carveStrength) + trackTargetHeight * carveStrength;
-      } else {
+      }
+
+      if (distFromCenter <= 40) {
         trackMask = 0; // ensure spawn is clean
+      }
+
+      // --- Huge Mountain Challenge ---
+      const mountWorldX = cx * config.width;
+      const mountWorldZ = cz * config.depth;
+      const mountCenterX = 280; // near the top-right edge (max is 400)
+      const mountCenterZ = -280; // changed to negative Z to not overlap too much with the start
+      const mountDist = Math.sqrt((mountWorldX - mountCenterX) ** 2 + (mountWorldZ - mountCenterZ) ** 2);
+      const mountRadius = 180;
+      
+      if (mountDist < mountRadius) {
+        const t = 1.0 - (mountDist / mountRadius);
+        // A power of 1.5 gives a nice steep slope that is somewhat smooth
+        const mountProfile = Math.pow(t, 1.5); 
+        const mountHeight = 160; // Very high mountain
+        value += mountProfile * mountHeight;
       }
 
       // Map edges fade to underwater to avoid sharp cutoffs
@@ -124,8 +139,12 @@ export function generateHeightmap(config: TerrainConfig): HeightmapData {
 
       if (minEdgeDist < edgeFalloff) {
         const edgeFactor = Math.max(0, minEdgeDist / edgeFalloff);
-        const smoothEdge = edgeFactor * edgeFactor * (3 - 2 * edgeFactor); // Ease in-out
-        const underwaterDepth = -15; // Ocean is at -8
+        let smoothEdge = edgeFactor * edgeFactor * (3 - 2 * edgeFactor); // Ease in-out
+        
+        // Zabezpiecz drogę (trackMask) przed wpadaniem do wody - tworzymy łagodne przewężenie lądowe
+        smoothEdge = Math.min(1.0, smoothEdge + trackMask);
+        
+        const underwaterDepth = -15; // Ocean is at -15
         value = underwaterDepth + (value - underwaterDepth) * smoothEdge;
       }
 

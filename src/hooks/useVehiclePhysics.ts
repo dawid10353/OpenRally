@@ -19,6 +19,7 @@ import {
   SAND_ELEVATION_THRESHOLD,
   FALL_RESET_Y,
   RESET_SPAWN_POSITION,
+  RESET_SPAWN_ROTATION_Y,
   MAX_DELTA,
   GEAR_RATIOS,
   SHIFT_UP_SPEEDS,
@@ -289,7 +290,10 @@ export function useVehiclePhysics(
     const resetState = useGameStore.getState();
     if (pos.y < FALL_RESET_Y || input.reset || resetState.pendingReset) {
       body.setTranslation({ x: RESET_SPAWN_POSITION[0], y: RESET_SPAWN_POSITION[1], z: RESET_SPAWN_POSITION[2] }, true);
-      body.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true);
+      
+      const spawnQuat = new Quaternion().setFromEuler(new Euler(0, RESET_SPAWN_ROTATION_Y, 0));
+      body.setRotation({ x: spawnQuat.x, y: spawnQuat.y, z: spawnQuat.z, w: spawnQuat.w }, true);
+
       body.setLinvel({ x: 0, y: 0, z: 0 }, true);
       body.setAngvel({ x: 0, y: 0, z: 0 }, true);
 

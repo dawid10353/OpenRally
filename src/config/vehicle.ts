@@ -39,7 +39,10 @@ export const SAND_ELEVATION_THRESHOLD = 0;
 export const FALL_RESET_Y = -8.25;
 
 /** Position the vehicle resets to after falling (spawned on the track) */
-export const RESET_SPAWN_POSITION: [number, number, number] = [220, 10, 0];
+export const RESET_SPAWN_POSITION: [number, number, number] = [-220, 0.5, 0];
+
+/** Euler Y rotation (heading in radians) when spawned/reset */
+export const RESET_SPAWN_ROTATION_Y = Math.PI + 0.7;
 
 // ─── Frame Clamping ──────────────────────────────────────────────────
 /** Maximum frame delta (seconds) to prevent physics explosion after tab switch */

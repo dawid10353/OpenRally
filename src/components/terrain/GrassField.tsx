@@ -144,7 +144,7 @@ export function GrassField() {
   const meshRefs = useRef<(InstancedMesh | null)[]>([]);
   
   const { chunksData, geometry } = useMemo(() => {
-    const { heights, rows, cols, minHeight, maxHeight } = heightmapData;
+    const { heights, trackMasks, rows, cols, minHeight, maxHeight } = heightmapData;
     const mapWidth = config.width;
     const mapDepth = config.depth;
 
@@ -180,6 +180,15 @@ export function GrassField() {
       if (noiseVal < -0.1) continue;
 
       if (Math.abs(x) < GRASS_CLEARING_RADIUS && Math.abs(z) < GRASS_CLEARING_RADIUS) continue;
+
+      // Track mask check - prevent grass on the muddy track
+      const nx = (x + mapWidth / 2) / mapWidth;
+      const nz = (z + mapDepth / 2) / mapDepth;
+      const col = Math.floor(nx * (cols - 1));
+      const row = Math.floor(nz * (rows - 1));
+      if (col >= 0 && col < cols && row >= 0 && row < rows) {
+        if (trackMasks[row * cols + col] > 0.1) continue;
+      }
 
       const y = getInterpolatedHeight(x, z, heights, rows, cols, mapWidth, mapDepth);
       const normalizedHeight = mapRange(y, minHeight, maxHeight, 0, 1);
