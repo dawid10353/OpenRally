@@ -11,6 +11,7 @@
 - Gra 3D w przeglądarce.
 - Jazda samochodem po **nierównym, otwartym terenie** (pagórki, doliny, wzniesienia).
 - Fizyka **arcade-sim** (niski próg wejścia, ale drift i praca zawieszenia dają satysfakcję).
+
 - Projekt wieloletni, rozwijany **wyłącznie przez AI**.
 
 ## Jak uruchomić (How to run)
