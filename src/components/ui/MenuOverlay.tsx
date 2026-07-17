@@ -1,14 +1,24 @@
+import { useState } from 'react';
 import { useGameStore } from '@/store/gameStore';
+import { useSettingsStore } from '@/store/settingsStore';
 
 /**
  * Overlay rendering the Main Menu or Pause Menu
- * Features a modern glassmorphism aesthetic.
+ * Features loading-screen style for main menu, and glassmorphism for pause.
  */
 export function MenuOverlay() {
   const gameState = useGameStore((s) => s.gameState);
   const setGameState = useGameStore((s) => s.setGameState);
+  const [view, setView] = useState<'main' | 'options' | 'controls'>('main');
 
-  if (gameState === 'playing' || gameState === 'loading') {
+  const { 
+    graphicsQuality, setGraphicsQuality, 
+    shadowsEnabled, toggleShadows, 
+    postProcessingEnabled, togglePostProcessing,
+    sfxVolume, setSfxVolume
+  } = useSettingsStore();
+
+  if (gameState === 'playing') {
     return null;
   }
 
@@ -23,63 +33,214 @@ export function MenuOverlay() {
     setGameState('playing');
   };
 
-  return (
-    <div style={styles.overlay}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>{isPause ? 'ZAPAUZOWANO' : 'OPENRALLY'}</h1>
-        <p style={styles.subtitle}>
-          {isPause ? 'Zrób przerwę albo wracaj na trasę.' : 'Naciśnij Play, by rozpocząć jazdę!'}
-        </p>
+  const currentOverlayStyle = styles.overlayMenu;
+  const currentCardStyle = styles.cardMenu;
+  const textColor = '#333333';
+  const subtitleColor = '#666666';
 
-        <div style={styles.buttonGroup}>
-          <button style={styles.button} onClick={handlePlay}>
-            {isPause ? 'Wznów grę (ESC)' : 'Graj'}
+  const renderMainView = () => (
+    <div style={styles.buttonGroup}>
+      <button style={styles.button} onClick={handlePlay}>
+        {isPause ? 'Resume (ESC)' : 'Free Roam'}
+      </button>
+      
+      {isPause && (
+        <>
+          <button 
+            style={{ 
+              ...styles.button, 
+              ...styles.secondaryButton,
+              color: textColor,
+              borderColor: 'rgba(0, 0, 0, 0.2)'
+            }} 
+            onClick={handleReset}
+          >
+            Reset vehicle to start
           </button>
           
-          <button style={{ ...styles.button, ...styles.secondaryButton }} onClick={handleReset}>
-            Resetuj pojazd do startu
+          <button 
+            style={{ 
+              ...styles.button, 
+              ...styles.secondaryButton,
+              color: textColor,
+              borderColor: 'rgba(0, 0, 0, 0.2)'
+            }} 
+            onClick={() => {
+              useGameStore.getState().triggerReset(true);
+              setGameState('menu');
+            }}
+          >
+            Return to Main Menu
           </button>
+        </>
+      )}
+
+      <button 
+        style={{ 
+          ...styles.button, 
+          ...styles.secondaryButton,
+          color: textColor,
+          borderColor: 'rgba(0, 0, 0, 0.2)'
+        }} 
+        onClick={() => setView('options')}
+      >
+        Options
+      </button>
+
+      <button 
+        style={{ 
+          ...styles.button, 
+          ...styles.secondaryButton,
+          color: textColor,
+          borderColor: 'rgba(0, 0, 0, 0.2)'
+        }} 
+        onClick={() => setView('controls')}
+      >
+        Controls
+      </button>
+    </div>
+  );
+
+  const renderOptionsView = () => (
+    <div style={{ ...styles.subView, color: textColor }}>
+      <h2 style={styles.subViewTitle}>Options</h2>
+      
+      <div style={styles.optionRow}>
+        <span>Graphics Quality</span>
+        <select 
+          value={graphicsQuality} 
+          onChange={(e) => setGraphicsQuality(e.target.value as any)}
+          style={styles.select}
+        >
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+      </div>
+
+      <div style={styles.optionRow}>
+        <span>Real-time Shadows</span>
+        <input 
+          type="checkbox" 
+          checked={shadowsEnabled} 
+          onChange={toggleShadows}
+          style={styles.checkbox}
+        />
+      </div>
+
+      <div style={styles.optionRow}>
+        <span>Post Processing</span>
+        <input 
+          type="checkbox" 
+          checked={postProcessingEnabled} 
+          onChange={togglePostProcessing}
+          style={styles.checkbox}
+        />
+      </div>
+
+      <div style={styles.optionRow}>
+        <span>SFX Volume</span>
+        <input 
+          type="range" 
+          min="0" 
+          max="1" 
+          step="0.05"
+          value={sfxVolume}
+          onChange={(e) => setSfxVolume(parseFloat(e.target.value))}
+          style={{ cursor: 'pointer' }}
+        />
+      </div>
+
+      <button 
+        style={{ ...styles.button, marginTop: '20px', width: '100%' }} 
+        onClick={() => setView('main')}
+      >
+        Back
+      </button>
+    </div>
+  );
+
+  const renderControlsView = () => (
+    <div style={{ ...styles.subView, color: textColor }}>
+      <h2 style={styles.subViewTitle}>Controls</h2>
+      <div style={{
+        ...styles.controlsHelp,
+        background: 'rgba(0,0,0,0.05)',
+        color: '#666666'
+      }}>
+        <p style={styles.controlRow}><strong>WASD / Arrows</strong> <span>Steering</span></p>
+        <p style={styles.controlRow}><strong>Space</strong> <span>Handbrake</span></p>
+        <p style={styles.controlRow}><strong>C</strong> <span>Change camera</span></p>
+        <p style={styles.controlRow}><strong>R</strong> <span>Reset position</span></p>
+        <p style={styles.controlRow}><strong>ESC</strong> <span>Pause</span></p>
+      </div>
+      <button 
+        style={{ ...styles.button, marginTop: '20px', width: '100%' }} 
+        onClick={() => setView('main')}
+      >
+        Back
+      </button>
+    </div>
+  );
+
+  return (
+    <div style={currentOverlayStyle}>
+      <div style={{ ...currentCardStyle, color: textColor }}>
+        
+        {/* Game Logo */}
+        <div style={styles.logoContainer}>
+          <img src="/openrally_logo.png" alt="OpenRally Logo" style={styles.logoImage} />
         </div>
 
-        <div style={styles.controlsHelp}>
-          <p><strong>WASD / Strzałki</strong> - Sterowanie</p>
-          <p><strong>Spacja</strong> - Hamulec ręczny</p>
-          <p><strong>C</strong> - Zmiana kamery</p>
-          <p><strong>R</strong> - Resetowanie pozycji</p>
-          <p><strong>ESC</strong> - Pauza</p>
-        </div>
+        {isPause && view === 'main' && (
+          <h1 style={styles.pauseTitle}>PAUSED</h1>
+        )}
+
+        {view === 'main' && (
+          <p style={{ ...styles.subtitle, color: subtitleColor }}>
+            {isPause ? 'Take a break or get back on track.' : 'Press Free Roam to start driving!'}
+          </p>
+        )}
+
+        {view === 'main' && renderMainView()}
+        {view === 'options' && renderOptionsView()}
+        {view === 'controls' && renderControlsView()}
+
       </div>
     </div>
   );
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  overlay: {
+  overlayMenu: {
     position: 'absolute',
     inset: 0,
     zIndex: 50,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: 'rgba(10, 10, 30, 0.4)',
-    backdropFilter: 'blur(12px)',
-    WebkitBackdropFilter: 'blur(12px)', // for Safari
+    background: 'rgba(255, 255, 255, 0.95)',
+    backdropFilter: 'blur(8px)',
+    WebkitBackdropFilter: 'blur(8px)',
     fontFamily: "'Inter', 'Segoe UI', sans-serif",
   },
-  card: {
-    background: 'rgba(255, 255, 255, 0.05)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-    borderRadius: '24px',
-    padding: '40px 60px',
+  cardMenu: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
-    color: '#fff',
     minWidth: '400px',
+    gap: '8px',
   },
-  title: {
-    fontSize: '32px',
+  logoContainer: {
+    marginBottom: '10px',
+  },
+  logoImage: {
+    maxWidth: '400px',
+    maxHeight: '200px',
+    objectFit: 'contain',
+  },
+  pauseTitle: {
+    fontSize: '28px',
     fontWeight: 800,
     letterSpacing: '4px',
     margin: '0 0 10px 0',
@@ -90,8 +251,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   subtitle: {
     fontSize: '14px',
-    color: 'rgba(255,255,255,0.6)',
-    marginBottom: '40px',
+    marginBottom: '30px',
+    fontWeight: 500,
   },
   buttonGroup: {
     display: 'flex',
@@ -104,29 +265,73 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '16px 24px',
     borderRadius: '12px',
     border: 'none',
-    background: 'linear-gradient(90deg, #00d4ff, #00b4d8)',
+    background: 'linear-gradient(90deg, #1B365D, #E31837)', // matches loading screen theme
     color: '#fff',
     fontSize: '16px',
     fontWeight: 600,
     cursor: 'pointer',
     transition: 'transform 0.2s, filter 0.2s',
     outline: 'none',
-    boxShadow: '0 4px 15px rgba(0, 212, 255, 0.3)',
+    boxShadow: '0 4px 15px rgba(227, 24, 55, 0.3)',
   },
   secondaryButton: {
-    background: 'rgba(255, 255, 255, 0.1)',
+    background: 'transparent',
     boxShadow: 'none',
-    border: '1px solid rgba(255, 255, 255, 0.2)',
+    border: '1px solid',
   },
   controlsHelp: {
     width: '100%',
-    background: 'rgba(0,0,0,0.3)',
     borderRadius: '12px',
     padding: '20px',
     fontSize: '13px',
-    color: 'rgba(255,255,255,0.7)',
     display: 'flex',
     flexDirection: 'column',
     gap: '8px',
+  },
+  controlRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    margin: 0,
+  },
+  subView: {
+    display: 'flex',
+    flexDirection: 'column',
+    width: '100%',
+    gap: '12px',
+    alignItems: 'center',
+    marginBottom: '20px',
+  },
+  subViewTitle: {
+    margin: '0 0 16px 0',
+    fontSize: '20px',
+    fontWeight: 600,
+  },
+  optionRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    padding: '12px 16px',
+    background: 'rgba(0,0,0,0.1)',
+    borderRadius: '8px',
+    fontSize: '15px',
+    fontWeight: 500,
+  },
+  select: {
+    padding: '6px 12px',
+    borderRadius: '6px',
+    background: '#fff',
+    color: '#000',
+    border: 'none',
+    outline: 'none',
+    fontSize: '14px',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  checkbox: {
+    width: '20px',
+    height: '20px',
+    cursor: 'pointer',
   }
 };
+

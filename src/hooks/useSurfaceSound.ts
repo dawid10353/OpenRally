@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useFrame } from '@react-three/fiber';
+import { Object3D } from 'three';
 import {
-  ENGINE_VOLUME,
-  IDLE_PITCH,
-  PITCH_PER_KMH,
-  IDLE_FILTER_CUTOFF,
-  FILTER_CUTOFF_PER_KMH,
+  SURFACE_MAX_VOLUME,
+  SURFACE_SPEED_FOR_MAX_VOL,
+  SURFACE_MIN_SPEED,
+  SURFACE_BASE_PITCH,
+  SURFACE_PITCH_PER_KMH,
   AUDIO_RAMP_TIME,
   GAIN_RAMP_TIME,
 } from '@/config/sound';
@@ -18,22 +19,21 @@ interface WebkitWindow extends Window {
 }
 
 /**
- * Procedural engine sound generator using Web Audio API.
- * Modulates pitch and filter based on vehicle speed.
+ * Procedural surface/tire rolling sound generator using Web Audio API.
+ * Modulates volume based on vehicle speed and ground contact.
  */
-export function useEngineSound() {
+export function useSurfaceSound(wheelsRef: React.RefObject<(Object3D | null)[]>) {
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Audio nodes
   const ctxRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const gainRef = useRef<GainNode | null>(null);
-  const filterRef = useRef<BiquadFilterNode | null>(null);
 
   const gameState = useGameStore((s) => s.gameState);
   const sfxVolume = useSettingsStore((s) => s.sfxVolume);
 
-  // Initialize audio on first 'playing' state (user gesture required)
+  // Initialize audio on first 'playing' state
   useEffect(() => {
     if (gameState === 'playing' && !isInitialized) {
       const initAudio = async () => {
@@ -42,38 +42,31 @@ export function useEngineSound() {
           if (!AudioCtx) return;
           const ctx = new AudioCtx();
 
-          // Master gain
+          // Master gain for surface sound
           const masterGain = ctx.createGain();
-          masterGain.gain.value = ENGINE_VOLUME * sfxVolume;
+          masterGain.gain.value = 0; // Starts silent (speed is 0)
           masterGain.connect(ctx.destination);
 
-          // Engine Filter to make it sound muffled/bassy
-          const filter = ctx.createBiquadFilter();
-          filter.type = 'lowpass';
-          filter.frequency.value = IDLE_FILTER_CUTOFF;
-          filter.connect(masterGain);
-
           // Fetch and decode audio file
-          const response = await fetch('/sounds/engine-loop.mp3');
+          const response = await fetch('/sounds/sand-loop.mp3');
           const arrayBuffer = await response.arrayBuffer();
           const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
 
-          // Audio buffer source for the engine loop
+          // Audio buffer source for the surface loop
           const source = ctx.createBufferSource();
           source.buffer = audioBuffer;
           source.loop = true;
-          source.playbackRate.value = IDLE_PITCH;
-          source.connect(filter);
+          source.playbackRate.value = SURFACE_BASE_PITCH;
+          source.connect(masterGain);
           source.start();
 
           ctxRef.current = ctx;
           sourceRef.current = source;
           gainRef.current = masterGain;
-          filterRef.current = filter;
 
           setIsInitialized(true);
         } catch (e) {
-          console.warn('AudioContext or audio fetching failed', e);
+          console.warn('Surface audio fetch/decode failed', e);
         }
       };
 
@@ -81,12 +74,12 @@ export function useEngineSound() {
     }
   }, [gameState, isInitialized]); // We intentionally do not include sfxVolume here to avoid re-init
 
-  // Mute/Resume audio based on game state and global sfx volume
+  // Mute audio when paused
   useEffect(() => {
     if (ctxRef.current && gainRef.current) {
       if (gameState === 'playing') {
         if (ctxRef.current.state === 'suspended') ctxRef.current.resume();
-        gainRef.current.gain.setTargetAtTime(ENGINE_VOLUME * sfxVolume, ctxRef.current.currentTime, GAIN_RAMP_TIME);
+        // The volume itself is updated in useFrame, so we don't set it to max here.
       } else {
         // Mute when paused/menu
         gainRef.current.gain.setTargetAtTime(0, ctxRef.current.currentTime, GAIN_RAMP_TIME);
@@ -94,25 +87,39 @@ export function useEngineSound() {
     }
   }, [gameState, sfxVolume]);
 
-  // Update pitch based on speed
+  // Update volume based on speed, ground contact, and global sfxVolume
   useFrame(() => {
-    if (!isInitialized || !sourceRef.current || !ctxRef.current) return;
+    if (!isInitialized || !sourceRef.current || !ctxRef.current || !gainRef.current || gameState !== 'playing') return;
+
+    // Check if at least one wheel is touching the ground (suspension is compressed)
+    let isGrounded = false;
+    if (wheelsRef.current) {
+      for (let i = 0; i < 4; i++) {
+        const wheel = wheelsRef.current[i];
+        if (wheel && wheel.position.y > -0.49) {
+          isGrounded = true;
+          break;
+        }
+      }
+    }
 
     const speed = useGameStore.getState().speed;
     const absSpeed = Math.abs(speed);
 
-    // Pitch increases with speed
-    const targetPitch = IDLE_PITCH + absSpeed * PITCH_PER_KMH;
-    sourceRef.current.playbackRate.setTargetAtTime(targetPitch, ctxRef.current.currentTime, AUDIO_RAMP_TIME);
-
-    // Filter opens up at higher speeds
-    if (filterRef.current) {
-      filterRef.current.frequency.setTargetAtTime(
-        IDLE_FILTER_CUTOFF + absSpeed * FILTER_CUTOFF_PER_KMH,
-        ctxRef.current.currentTime,
-        AUDIO_RAMP_TIME,
-      );
+    // Calculate volume: 0 below MIN_SPEED or if in the air
+    let targetVolume = 0;
+    if (isGrounded && absSpeed > SURFACE_MIN_SPEED) {
+      const speedFactor = Math.min((absSpeed - SURFACE_MIN_SPEED) / (SURFACE_SPEED_FOR_MAX_VOL - SURFACE_MIN_SPEED), 1);
+      targetVolume = speedFactor * SURFACE_MAX_VOLUME * sfxVolume;
     }
+
+    // Faster ramp down when losing contact with ground, normal ramp otherwise
+    const rampTime = isGrounded ? AUDIO_RAMP_TIME : 0.05; 
+    gainRef.current.gain.setTargetAtTime(targetVolume, ctxRef.current.currentTime, rampTime);
+
+    // Pitch increases slightly with speed for more realism
+    const targetPitch = SURFACE_BASE_PITCH + absSpeed * SURFACE_PITCH_PER_KMH;
+    sourceRef.current.playbackRate.setTargetAtTime(targetPitch, ctxRef.current.currentTime, AUDIO_RAMP_TIME);
   });
 
   // Cleanup on unmount

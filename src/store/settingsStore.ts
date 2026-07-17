@@ -14,6 +14,8 @@ interface SettingsStore {
   sensitivity: number;
   /** Whether physics debug wireframes are shown */
   debugPhysics: boolean;
+  /** Global sound effects volume (0.0 to 1.0) */
+  sfxVolume: number;
 
   // Actions
   setGraphicsQuality: (quality: 'low' | 'medium' | 'high') => void;
@@ -21,6 +23,7 @@ interface SettingsStore {
   togglePostProcessing: () => void;
   setSensitivity: (sensitivity: number) => void;
   toggleDebugPhysics: () => void;
+  setSfxVolume: (vol: number) => void;
 }
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
@@ -29,6 +32,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   postProcessingEnabled: false,
   sensitivity: 1.0,
   debugPhysics: false,
+  sfxVolume: 1.0,
 
   setGraphicsQuality: (graphicsQuality) => set({ graphicsQuality }),
   toggleShadows: () => set((s) => ({ shadowsEnabled: !s.shadowsEnabled })),
@@ -37,4 +41,5 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   setSensitivity: (sensitivity) => set({ sensitivity }),
   toggleDebugPhysics: () =>
     set((s) => ({ debugPhysics: !s.debugPhysics })),
+  setSfxVolume: (sfxVolume) => set({ sfxVolume }),
 }));

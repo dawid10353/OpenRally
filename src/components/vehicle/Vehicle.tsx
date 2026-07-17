@@ -9,6 +9,7 @@ import { useChaseCamera } from '@/hooks/useChaseCamera';
 import { useBumperCamera } from '@/hooks/useBumperCamera';
 import { FreeCamera } from '@/components/vehicle/FreeCamera';
 import { useEngineSound } from '@/hooks/useEngineSound';
+import { useSurfaceSound } from '@/hooks/useSurfaceSound';
 import { DustParticles } from '@/components/vehicle/DustParticles';
 import { TireTracks } from '@/components/vehicle/TireTracks';
 import { useGLTF, Clone, Detailed } from '@react-three/drei';
@@ -38,6 +39,9 @@ export function Vehicle() {
 
   // Attach engine sound
   useEngineSound();
+  
+  // Attach surface sound
+  useSurfaceSound(wheelObjectsRef);
 
   const config = DEFAULT_VEHICLE_CONFIG;
 
