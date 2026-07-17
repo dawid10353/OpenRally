@@ -121,6 +121,12 @@ export function DustParticles({ wheelsRef, chassisRef }: DustParticlesProps) {
             p.active = true;
             // Get wheel world position
             wheel.getWorldPosition(p.position);
+            
+            // Do not emit dust if the wheel is in the water
+            if (p.position.y - 0.35 <= -8.0) {
+              p.active = false;
+              return;
+            }
             p.position.y -= GROUND_OFFSET;
 
             // Burst velocity from wheel spinning

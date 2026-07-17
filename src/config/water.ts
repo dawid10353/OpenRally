@@ -1,3 +1,5 @@
+import { Color, Vector2 } from 'three';
+
 // ─── Water / Ocean Config ────────────────────────────────────────────
 
 /** Deep water color */
@@ -29,3 +31,32 @@ export const WATER_SEGMENTS = 64;
 
 /** Speed multiplier for wave animation (higher = faster waves) */
 export const WATER_WAVE_SPEED = 0.4;
+
+// ─── Depth & Foam ───────────────────────────────────────────────────
+
+/** Threshold for foam rendering (distance from geometry intersection in world units) */
+export const WATER_FOAM_THRESHOLD = 0.8;
+
+/** Threshold for depth color (distance in world units to transition to deep water color) */
+export const WATER_DEPTH_THRESHOLD = 15.0;
+
+/** Color of the foam at intersections */
+export const WATER_FOAM_COLOR = new Color(0xffffff);
+
+/** Shallow water color (near shores) */
+export const WATER_SHALLOW_COLOR = new Color(0x27a599);
+
+// ─── Gerstner Waves ─────────────────────────────────────────────────
+
+export const WATER_WAVE_A_DIR = new Vector2(1.0, 0.5).normalize();
+export const WATER_WAVE_A_STEEPNESS = 0.2;
+export const WATER_WAVE_A_WAVELENGTH = 60.0;
+
+export const WATER_WAVE_B_DIR = new Vector2(0.5, 1.0).normalize();
+export const WATER_WAVE_B_STEEPNESS = 0.2;
+export const WATER_WAVE_B_WAVELENGTH = 31.0;
+
+export const WATER_WAVE_C_DIR = new Vector2(-0.2, 0.5).normalize();
+export const WATER_WAVE_C_STEEPNESS = 0.2;
+export const WATER_WAVE_C_WAVELENGTH = 18.0;
+

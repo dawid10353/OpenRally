@@ -43,3 +43,9 @@ export const GRASS_COLOR_LIGHT = new Color('#a39a48');
 
 /** Darkest grass tuft color (dry brownish green) */
 export const GRASS_COLOR_DARK = new Color('#756c2e');
+
+// ─── Chunking (Performance) ─────────────────────────────────────────
+
+/** Number of chunks to divide the grass into (e.g. 5 = 5x5 grid = 25 chunks) */
+export const GRASS_CHUNKS = 5;
+

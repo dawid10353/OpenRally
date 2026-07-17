@@ -1,15 +1,13 @@
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import {
-  InstancedMesh,
-  ShaderMaterial,
   Color,
   Object3D,
   DoubleSide,
   BufferGeometry,
   Float32BufferAttribute,
-  InstancedBufferAttribute,
   Vector3,
+  MeshLambertMaterial,
 } from 'three';
 import { createNoise2D } from 'simplex-noise';
 import { useTerrainData } from '@/components/terrain/TerrainContext';
@@ -28,103 +26,13 @@ import {
   GRASS_EDGE_MARGIN,
   GRASS_COLOR_LIGHT,
   GRASS_COLOR_DARK,
+  GRASS_CHUNKS,
 } from '@/config/grass';
 
-// ─── Vertex Shader ──────────────────────────────────────────────────
-const grassVertexShader = /* glsl */ `
-  uniform float u_time;
-  uniform float u_windSpeed;
-  uniform float u_windStrength;
-  uniform vec3 u_carPosition;
-
-  attribute float bladeTip;
-  attribute vec3 aColor;
-
-  varying vec3 vColor;
-  varying float vBladeTip;
-  varying vec2 vUv;
-  varying vec3 vNormal;
-
-  void main() {
-    vColor = aColor;
-    vBladeTip = bladeTip;
-    vUv = uv;
-    
-    // Pass normal to fragment shader for basic lighting
-    vNormal = normalize(normalMatrix * mat3(instanceMatrix) * normal);
-
-    vec3 pos = position;
-    vec4 worldPos = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
-
-    // Wind: gentle sway on blade tips only
-    if (bladeTip > 0.5) {
-      float phase = worldPos.x * 0.7 + worldPos.z * 1.1;
-      pos.x += sin(u_time * u_windSpeed + phase) * u_windStrength;
-      pos.z += cos(u_time * u_windSpeed * 0.6 + phase * 0.8) * u_windStrength * 0.5;
-    }
-
-    vec4 instanceWorldPos = instanceMatrix * vec4(pos, 1.0);
-
-    // Car Interaction: bend grass away if car is near
-    float distToCar = distance(instanceWorldPos.xyz, u_carPosition);
-    float bendRadius = 2.0;
-    if (distToCar < bendRadius && bladeTip > 0.1) {
-      // Calculate push direction away from car
-      vec3 pushDir = normalize(instanceWorldPos.xyz - u_carPosition);
-      pushDir.y = 0.0; // Push horizontally only
-      
-      // The closer the car, the stronger the push
-      float pushStrength = (1.0 - (distToCar / bendRadius)) * 0.8;
-      
-      // Apply push mainly to the tip
-      pos.x += pushDir.x * pushStrength * bladeTip;
-      pos.z += pushDir.z * pushStrength * bladeTip;
-      pos.y -= pushStrength * 0.5 * bladeTip; // Flatten it a bit
-    }
-
-    vec4 mvPosition = viewMatrix * instanceMatrix * vec4(pos, 1.0);
-    gl_Position = projectionMatrix * mvPosition;
-  }
-`;
-
-// ─── Fragment Shader ────────────────────────────────────────────────
-const grassFragmentShader = /* glsl */ `
-  varying vec3 vColor;
-  varying float vBladeTip;
-  varying vec2 vUv;
-  varying vec3 vNormal;
-
-  void main() {
-    // Procedural Alpha: Carve a leaf shape using UVs
-    // vUv.x goes 0 to 1 across the blade. vUv.y goes 0 (base) to 1 (tip).
-    // Width of the leaf tapers quadratically towards the tip.
-    float expectedWidth = 1.0 - pow(vUv.y, 2.5); 
-    float distFromCenter = abs(vUv.x - 0.5) * 2.0; // 0 at center, 1 at edges
-    
-    // Discard pixels outside the leaf shape to make it look like a blade, not a triangle
-    if (distFromCenter > expectedWidth) {
-      discard;
-    }
-
-    // Subtle darkening at base, brighter tips
-    float gradient = mix(0.5, 1.05, vBladeTip);
-    
-    // Fake directional sunlight coming from above/angle
-    vec3 lightDir = normalize(vec3(0.5, 1.0, 0.3));
-    
-    // Simple diffuse lighting, clamped to avoid pitch black
-    float diffuse = max(0.4, dot(vNormal, lightDir));
-    
-    vec3 finalColor = vColor * gradient * diffuse;
-    gl_FragColor = vec4(finalColor, 1.0);
-  }
-`;
-
 /**
- * Creates a grass tuft geometry: 2 crossed quads (at 90°),
- * Looks like a small grass clump from any angle.
+ * Creates a base grass tuft geometry (without instance attributes).
  */
-function createGrassTuftGeometry(colorData: Float32Array): BufferGeometry {
+function createGrassTuftGeometry(): BufferGeometry {
   const bw = GRASS_WIDTH * 0.5;
   const tw = bw * GRASS_TIP_WIDTH;
   const h = 1.0;
@@ -132,7 +40,7 @@ function createGrassTuftGeometry(colorData: Float32Array): BufferGeometry {
   const verts: number[] = [];
   const tips: number[] = [];
   const uvs: number[] = [];
-  const normals: number[] = []; // We will compute normals manually to point outwards slightly
+  const normals: number[] = []; 
 
   const angles = [0, Math.PI / 2];
 
@@ -140,14 +48,11 @@ function createGrassTuftGeometry(colorData: Float32Array): BufferGeometry {
     const c = Math.cos(angle);
     const s = Math.sin(angle);
 
-    // Base and tip positions
     const blX = -bw * c, blZ = -bw * s;
     const brX =  bw * c, brZ =  bw * s;
     const tlX = -tw * c, tlZ = -tw * s;
     const trX =  tw * c, trZ =  tw * s;
 
-    // Normal for this plane (perpendicular to the plane)
-    // To make it look "fluffy", we point the normal slightly upwards as well
     const normX = -s, normZ = c; 
 
     // Tri 1: base-left → base-right → tip-right
@@ -168,18 +73,15 @@ function createGrassTuftGeometry(colorData: Float32Array): BufferGeometry {
   geo.setAttribute('bladeTip', new Float32BufferAttribute(new Float32Array(tips), 1));
   geo.setAttribute('uv', new Float32BufferAttribute(new Float32Array(uvs), 2));
   geo.setAttribute('normal', new Float32BufferAttribute(new Float32Array(normals), 3));
-  geo.setAttribute('aColor', new InstancedBufferAttribute(colorData, 3));
 
   return geo;
 }
 
-/** Seeded PRNG */
 function seededRandom(seed: number): number {
   const x = Math.sin(seed) * 10000;
   return x - Math.floor(x);
 }
 
-/** Simple determinism wrapper for noise */
 function getSeededRandomFn(seed: number) {
   let s = seed | 0;
   return () => {
@@ -222,30 +124,40 @@ function getInterpolatedHeight(
   return h0 + (h1 - h0) * fz;
 }
 
+interface GrassChunkData {
+  matrices: number[][];
+  colors: Color[];
+}
+
 export function GrassField() {
   const { heightmapData, config } = useTerrainData();
-  const materialRef = useRef<ShaderMaterial>(null);
   
-  // Track car position using zustand transient subscription (no re-renders)
+  // We'll store all the uniform references so we can update them every frame
+  const shaderUniformsRef = useRef<{ [key: string]: any }[]>([]);
   const carPosRef = useRef(new Vector3(0, 0, 0));
 
-  const { mesh, material } = useMemo(() => {
+  const { chunksData, geometry } = useMemo(() => {
     const { heights, rows, cols, minHeight, maxHeight } = heightmapData;
     const mapWidth = config.width;
     const mapDepth = config.depth;
 
-    const colorFloats: number[] = [];
     const dummy = new Object3D();
     const tempColor = new Color();
-    const instanceMatrices: number[][] = [];
-
-    // Create noise generator for clumping (grass patches)
     const rng = getSeededRandomFn(999);
     const clumpNoise = createNoise2D(rng);
 
+    const chunkWidth = mapWidth / GRASS_CHUNKS;
+    const chunkDepth = mapDepth / GRASS_CHUNKS;
+
+    // Initialize chunks
+    const chunks: GrassChunkData[] = Array.from({ length: GRASS_CHUNKS * GRASS_CHUNKS }, () => ({
+      matrices: [],
+      colors: [],
+    }));
+
     let placed = 0;
     let attempt = 0;
-    const maxAttempts = GRASS_COUNT * 8; // Increased attempts to allow for noise culling
+    const maxAttempts = GRASS_COUNT * 8;
 
     while (placed < GRASS_COUNT && attempt < maxAttempts) {
       attempt++;
@@ -254,32 +166,17 @@ export function GrassField() {
       const x = (seededRandom(seed) - 0.5) * mapWidth * GRASS_EDGE_MARGIN;
       const z = (seededRandom(seed + 1) - 0.5) * mapDepth * GRASS_EDGE_MARGIN;
 
-      // Noise Clumping: evaluate noise at this position
-      // Scale coordinates so noise isn't too dense or sparse
       const noiseVal = clumpNoise(x * 0.05, z * 0.05); 
-      // If noise is low, this area is a "bald spot" (sand), skip grass
-      if (noiseVal < -0.1) {
-        continue;
-      }
+      if (noiseVal < -0.1) continue;
 
-      // Skip spawn zone
-      if (Math.abs(x) < GRASS_CLEARING_RADIUS && Math.abs(z) < GRASS_CLEARING_RADIUS) {
-        continue;
-      }
+      if (Math.abs(x) < GRASS_CLEARING_RADIUS && Math.abs(z) < GRASS_CLEARING_RADIUS) continue;
 
       const y = getInterpolatedHeight(x, z, heights, rows, cols, mapWidth, mapDepth);
-
       const normalizedHeight = mapRange(y, minHeight, maxHeight, 0, 1);
-      if (normalizedHeight > GRASS_MAX_TERRAIN_HEIGHT) {
-        continue;
-      }
+      if (normalizedHeight > GRASS_MAX_TERRAIN_HEIGHT) continue;
+      if (y < -5) continue;
 
-      if (y < -5) continue; // Underwater
-
-      // Scale and rotation
-      // Multiply scale by noiseVal so grass is smaller at the edges of patches
       const patchScale = mapRange(noiseVal, -0.1, 1.0, 0.4, 1.2); 
-      
       const scaleY = (GRASS_HEIGHT_MIN + seededRandom(seed + 2) * (GRASS_HEIGHT_MAX - GRASS_HEIGHT_MIN)) * patchScale;
       const scaleXZ = (0.7 + seededRandom(seed + 3) * 0.6) * patchScale; 
       const rotY = seededRandom(seed + 4) * Math.PI * 2;
@@ -289,58 +186,170 @@ export function GrassField() {
       dummy.scale.set(scaleXZ, scaleY, scaleXZ);
       dummy.updateMatrix();
 
-      instanceMatrices.push(Array.from(dummy.matrix.elements));
-
       const colorT = seededRandom(seed + 5);
       tempColor.lerpColors(GRASS_COLOR_DARK, GRASS_COLOR_LIGHT, colorT);
-      colorFloats.push(tempColor.r, tempColor.g, tempColor.b);
+
+      // Determine chunk
+      let cx = Math.floor((x + mapWidth / 2) / chunkWidth);
+      let cz = Math.floor((z + mapDepth / 2) / chunkDepth);
+      cx = Math.max(0, Math.min(GRASS_CHUNKS - 1, cx));
+      cz = Math.max(0, Math.min(GRASS_CHUNKS - 1, cz));
+      
+      const chunkIdx = cz * GRASS_CHUNKS + cx;
+      chunks[chunkIdx].matrices.push(Array.from(dummy.matrix.elements));
+      chunks[chunkIdx].colors.push(tempColor.clone());
 
       placed++;
     }
 
-    const totalInstances = instanceMatrices.length;
-    const geo = createGrassTuftGeometry(new Float32Array(colorFloats));
+    const geo = createGrassTuftGeometry();
 
-    const mat = new ShaderMaterial({
-      vertexShader: grassVertexShader,
-      fragmentShader: grassFragmentShader,
-      uniforms: {
-        u_time: { value: 0 },
-        u_windSpeed: { value: WIND_SPEED },
-        u_windStrength: { value: WIND_STRENGTH },
-        u_carPosition: { value: new Vector3(0, 0, 0) },
-      },
-      side: DoubleSide,
-      transparent: true,
-      alphaTest: 0.5, // Important for depth sorting and clipping the procedural shape
-    });
-
-    const iMesh = new InstancedMesh(geo, mat, totalInstances);
-    for (let i = 0; i < totalInstances; i++) {
-      const el = instanceMatrices[i];
-      for (let j = 0; j < 16; j++) {
-        iMesh.instanceMatrix.array[i * 16 + j] = el[j];
-      }
-    }
-    iMesh.instanceMatrix.needsUpdate = true;
-    iMesh.frustumCulled = false;
-
-    return { mesh: iMesh, material: mat };
+    return { chunksData: chunks, geometry: geo };
   }, [heightmapData, config]);
 
-  // Animate wind and interact with car
+  // Create a shared material using onBeforeCompile
+  const material = useMemo(() => {
+    const mat = new MeshLambertMaterial({
+      side: DoubleSide,
+      transparent: true,
+      alphaTest: 0.5,
+      color: 0xffffff, // Acts as multiplier for instanceColor
+    });
+
+    mat.onBeforeCompile = (shader) => {
+      shader.uniforms.u_time = { value: 0 };
+      shader.uniforms.u_windSpeed = { value: WIND_SPEED };
+      shader.uniforms.u_windStrength = { value: WIND_STRENGTH };
+      shader.uniforms.u_carPosition = { value: new Vector3(0, 0, 0) };
+
+      shaderUniformsRef.current.push(shader.uniforms);
+
+      shader.vertexShader = `
+        uniform float u_time;
+        uniform float u_windSpeed;
+        uniform float u_windStrength;
+        uniform vec3 u_carPosition;
+        
+        attribute float bladeTip;
+      ` + shader.vertexShader;
+
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <common>',
+        `#include <common>
+        varying float vBladeTip;
+        varying vec2 vMyUv;
+        `
+      );
+
+      // Inject custom vertex displacement for wind and bending
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <project_vertex>',
+        `
+        vBladeTip = bladeTip;
+        vMyUv = uv;
+        vec3 displaced = transformed;
+
+        vec4 worldPos = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+        
+        // Wind: gentle sway on blade tips only
+        if (bladeTip > 0.5) {
+          float phase = worldPos.x * 0.7 + worldPos.z * 1.1;
+          displaced.x += sin(u_time * u_windSpeed + phase) * u_windStrength;
+          displaced.z += cos(u_time * u_windSpeed * 0.6 + phase * 0.8) * u_windStrength * 0.5;
+        }
+
+        vec4 instanceWorldPos = instanceMatrix * vec4(displaced, 1.0);
+
+        // Car Interaction
+        float distToCar = distance(instanceWorldPos.xyz, u_carPosition);
+        float bendRadius = 2.0;
+        if (distToCar < bendRadius && bladeTip > 0.1) {
+          vec3 pushDir = normalize(instanceWorldPos.xyz - u_carPosition);
+          pushDir.y = 0.0;
+          float pushStrength = (1.0 - (distToCar / bendRadius)) * 0.8;
+          displaced.x += pushDir.x * pushStrength * bladeTip;
+          displaced.z += pushDir.z * pushStrength * bladeTip;
+          displaced.y -= pushStrength * 0.5 * bladeTip;
+        }
+        
+        vec4 mvPosition = vec4( displaced, 1.0 );
+        #ifdef USE_INSTANCING
+          mvPosition = instanceMatrix * mvPosition;
+        #endif
+        mvPosition = modelViewMatrix * mvPosition;
+        gl_Position = projectionMatrix * mvPosition;
+        `
+      );
+
+      shader.fragmentShader = `
+        varying float vBladeTip;
+        varying vec2 vMyUv;
+      ` + shader.fragmentShader;
+
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <alphatest_fragment>',
+        `
+        float expectedWidth = 1.0 - pow(vMyUv.y, 2.5); 
+        float distFromCenter = abs(vMyUv.x - 0.5) * 2.0;
+        
+        if (distFromCenter > expectedWidth) {
+          discard;
+        }
+        #include <alphatest_fragment>
+        `
+      );
+
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <color_fragment>',
+        `
+        #include <color_fragment>
+        // Subsurface scattering fake
+        diffuseColor.rgb *= mix(0.5, 1.05, vBladeTip);
+        `
+      );
+    };
+
+    return mat;
+  }, []);
+
   useFrame((state) => {
-    if (materialRef.current) {
-      materialRef.current.uniforms.u_time.value = state.clock.getElapsedTime();
-      
-      // Update car position uniform without triggering React re-renders
-      const carPosArray = useGameStore.getState().position;
-      carPosRef.current.set(carPosArray[0], carPosArray[1], carPosArray[2]);
-      materialRef.current.uniforms.u_carPosition.value.copy(carPosRef.current);
+    const time = state.clock.getElapsedTime();
+    const carPosArray = useGameStore.getState().position;
+    carPosRef.current.set(carPosArray[0], carPosArray[1], carPosArray[2]);
+
+    for (const uniforms of shaderUniformsRef.current) {
+      if (uniforms.u_time) uniforms.u_time.value = time;
+      if (uniforms.u_carPosition) uniforms.u_carPosition.value.copy(carPosRef.current);
     }
   });
 
-  return <primitive object={mesh} material={material} ref={(node: any) => {
-    if (node) materialRef.current = node.material;
-  }} />;
+  return (
+    <group>
+      {chunksData.map((chunk, index) => {
+        const count = chunk.matrices.length;
+        if (count === 0) return null;
+
+        return (
+          <instancedMesh
+            key={index}
+            args={[geometry, material, count]}
+            castShadow
+            receiveShadow
+            frustumCulled={true} // Performance boost!
+            ref={(mesh) => {
+              if (!mesh) return;
+              const dummy = new Object3D();
+              for (let i = 0; i < count; i++) {
+                dummy.matrix.fromArray(chunk.matrices[i]);
+                mesh.setMatrixAt(i, dummy.matrix);
+                mesh.setColorAt(i, chunk.colors[i]);
+              }
+              mesh.instanceMatrix.needsUpdate = true;
+              if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+            }}
+          />
+        );
+      })}
+    </group>
+  );
 }
