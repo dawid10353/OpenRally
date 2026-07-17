@@ -37,7 +37,7 @@ interface GameStore {
 const CAMERA_MODES: CameraMode[] = ['chase_close', 'chase', 'bumper', 'free'];
 
 export const useGameStore = create<GameStore>((set) => ({
-  gameState: 'loading',
+  gameState: 'menu',
   cameraMode: 'chase_close',
   speed: 0,
   rpm: 1000,

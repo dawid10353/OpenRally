@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-
+import { useProgress } from '@react-three/drei';
 import { useGameStore } from '@/store/gameStore';
 
 /**
@@ -7,26 +7,58 @@ import { useGameStore } from '@/store/gameStore';
  * Fades out once ready.
  */
 export function LoadingScreen() {
-  const [visible, setVisible] = useState(true);
+  const { active, progress } = useProgress();
+  const gameState = useGameStore((s) => s.gameState);
+  
+  // We only care about loading when the game is supposed to be active
+  const showGame = gameState === 'playing' || gameState === 'paused';
+  
+  const [visible, setVisible] = useState(false);
   const [fadeOut, setFadeOut] = useState(false);
-  const setGameState = useGameStore((s) => s.setGameState);
+  const [hasStartedLoading, setHasStartedLoading] = useState(false);
 
   useEffect(() => {
-    // Give the physics engine and scene a moment to initialize
-    const timer = setTimeout(() => {
+    if (!showGame) {
+      setVisible(false);
+      setHasStartedLoading(false);
+      setFadeOut(false);
+      return;
+    }
+
+    if (active) {
+      setVisible(true);
+      setFadeOut(false);
+      setHasStartedLoading(true);
+    } else if (hasStartedLoading) {
+      // It's not active anymore, so it finished loading
       setFadeOut(true);
-      // Remove from DOM after fade animation
-      const removeTimer = setTimeout(() => {
+      const timer = setTimeout(() => {
         setVisible(false);
-        setGameState('menu');
       }, 800);
-      return () => clearTimeout(removeTimer);
-    }, 2000);
+      return () => clearTimeout(timer);
+    } else {
+      // Game started, but Drei hasn't reported active yet.
+      // Set a failsafe timeout in case everything was cached and loads instantly.
+      const failsafeTimer = setTimeout(() => {
+        setVisible(true);
+        setHasStartedLoading(true);
+        setFadeOut(true);
+        setTimeout(() => {
+          setVisible(false);
+        }, 800);
+      }, 500); // Wait 500ms for loading to actually start
 
-    return () => clearTimeout(timer);
-  }, [setGameState]);
+      return () => clearTimeout(failsafeTimer);
+    }
+  }, [active, showGame, hasStartedLoading]);
 
-  if (!visible) return null;
+  // Force it to be visible initially when showGame becomes true but Drei hasn't reported active yet
+  const isReallyVisible = (showGame && !hasStartedLoading) || visible;
+
+  if (!isReallyVisible) return null;
+
+  // Format progress for display
+  const displayProgress = Math.round(progress) || 0;
 
   return (
     <div
@@ -45,12 +77,14 @@ export function LoadingScreen() {
 
         {/* Loading bar */}
         <div style={styles.loadingBar}>
-          <div style={styles.loadingFill}>
+          <div style={{ ...styles.loadingFill, width: `${hasStartedLoading ? displayProgress : 0}%` }}>
             <div style={styles.loadingGlow} />
           </div>
         </div>
 
-        <p style={styles.subtitle}>Generating terrain...</p>
+        <p style={styles.subtitle}>
+          {hasStartedLoading ? `Loading map... ${displayProgress}%` : 'Preparing scene...'}
+        </p>
       </div>
     </div>
   );
@@ -66,6 +100,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     fontFamily: "'Inter', 'Segoe UI', sans-serif",
+    pointerEvents: 'none',
   },
   content: {
     display: 'flex',
