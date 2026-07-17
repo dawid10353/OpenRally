@@ -55,7 +55,7 @@ export function FreeCamera({ targetRef }: FreeCameraProps) {
       enableDamping
       dampingFactor={0.05}
       minDistance={3}
-      maxDistance={50}
+      maxDistance={25}
       maxPolarAngle={Math.PI / 2 - 0.05} // Prevent going strictly below the ground
     />
   );

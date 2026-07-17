@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useGameStore } from '@/store/gameStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { toDegrees } from '@/utils/math';
 
 /**
@@ -21,6 +22,7 @@ function getCompassDirection(headingRad: number): string {
  */
 export function HUD() {
   const gameState = useGameStore((s) => s.gameState);
+  const gameMusicVolume = useSettingsStore((s) => s.gameMusicVolume);
 
   const speedRef = useRef<HTMLSpanElement>(null);
   const gearRef = useRef<HTMLSpanElement>(null);
@@ -28,6 +30,13 @@ export function HUD() {
   const compassDegRef = useRef<HTMLDivElement>(null);
   const needleRef = useRef<SVGLineElement>(null);
   const speedArcRef = useRef<SVGCircleElement>(null);
+  const bgmRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    if (bgmRef.current) {
+      bgmRef.current.volume = gameMusicVolume;
+    }
+  }, [gameMusicVolume, gameState]);
 
   useEffect(() => {
     if (gameState !== 'playing') return;
@@ -75,6 +84,9 @@ export function HUD() {
 
   return (
     <div id="hud" style={styles.container}>
+      {/* Background Music */}
+      <audio ref={bgmRef} src="/sounds/freeroam-music.mp3" autoPlay loop />
+
       {/* Speedometer */}
       <div id="speedometer" style={styles.speedometer}>
         {/* Gauge background */}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
 
@@ -15,8 +15,18 @@ export function MenuOverlay() {
     graphicsQuality, setGraphicsQuality, 
     shadowsEnabled, toggleShadows, 
     postProcessingEnabled, togglePostProcessing,
-    sfxVolume, setSfxVolume
+    sfxVolume, setSfxVolume,
+    menuMusicVolume, setMenuMusicVolume,
+    gameMusicVolume, setGameMusicVolume
   } = useSettingsStore();
+
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = menuMusicVolume;
+    }
+  }, [menuMusicVolume, gameState]);
 
   if (gameState === 'playing') {
     return null;
@@ -139,6 +149,32 @@ export function MenuOverlay() {
       </div>
 
       <div style={styles.optionRow}>
+        <span>Menu Music</span>
+        <input 
+          type="range" 
+          min="0" 
+          max="1" 
+          step="0.05"
+          value={menuMusicVolume}
+          onChange={(e) => setMenuMusicVolume(parseFloat(e.target.value))}
+          style={{ cursor: 'pointer' }}
+        />
+      </div>
+
+      <div style={styles.optionRow}>
+        <span>Game Music</span>
+        <input 
+          type="range" 
+          min="0" 
+          max="1" 
+          step="0.05"
+          value={gameMusicVolume}
+          onChange={(e) => setGameMusicVolume(parseFloat(e.target.value))}
+          style={{ cursor: 'pointer' }}
+        />
+      </div>
+
+      <div style={styles.optionRow}>
         <span>SFX Volume</span>
         <input 
           type="range" 
@@ -171,6 +207,7 @@ export function MenuOverlay() {
         <p style={styles.controlRow}><strong>WASD / Arrows</strong> <span>Steering</span></p>
         <p style={styles.controlRow}><strong>Space</strong> <span>Handbrake</span></p>
         <p style={styles.controlRow}><strong>C</strong> <span>Change camera</span></p>
+        <p style={styles.controlRow}><strong>B</strong> <span>Look back (hold)</span></p>
         <p style={styles.controlRow}><strong>R</strong> <span>Reset position</span></p>
         <p style={styles.controlRow}><strong>ESC</strong> <span>Pause</span></p>
       </div>
@@ -185,6 +222,7 @@ export function MenuOverlay() {
 
   return (
     <div style={currentOverlayStyle}>
+      <audio ref={audioRef} src="/sounds/menu-music.mp3" autoPlay loop />
       <div style={{ ...currentCardStyle, color: textColor }}>
         
         {/* Game Logo */}

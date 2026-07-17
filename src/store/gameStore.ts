@@ -39,7 +39,7 @@ export const useGameStore = create<GameStore>((set) => ({
   speed: 0,
   gear: 1, // Start in 1st gear (or 0 for neutral)
   heading: 0,
-  position: [0, 5, 0],
+  position: [0, 1.5, 0],
   pendingReset: false,
 
   setGameState: (gameState) => set({ gameState }),

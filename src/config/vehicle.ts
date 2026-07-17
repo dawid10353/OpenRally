@@ -39,7 +39,7 @@ export const SAND_ELEVATION_THRESHOLD = 0;
 export const FALL_RESET_Y = -7.0;
 
 /** Y position the vehicle resets to after falling */
-export const RESET_SPAWN_Y = 10;
+export const RESET_SPAWN_Y = 1.5;
 
 // ─── Frame Clamping ──────────────────────────────────────────────────
 /** Maximum frame delta (seconds) to prevent physics explosion after tab switch */
