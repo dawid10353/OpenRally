@@ -27,9 +27,7 @@ export function Vehicle() {
   const visualRef = useRef<Group>(null);
   const wheelObjectsRef = useRef<(Object3D | null)[]>([null, null, null, null]);
 
-  // Usunięto: Włączanie cieni dla całego modelu w useEffect, 
-  // ponieważ modele ważą po ~80-90MB (kilka milionów trójkątów).
-  // Renderowanie map cieni dla tak ogromnej geometrii powoduje drastyczne spadki FPS.
+  // Renderowanie cieni z głównego modelu zgodnie z życzeniem
 
   // Attach vehicle physics
   useVehiclePhysics(chassisRef, wheelObjectsRef, DEFAULT_VEHICLE_CONFIG);
@@ -76,8 +74,8 @@ export function Vehicle() {
               position={[0, 0.2, 0.1]} 
               scale={[4.5, 4.5, 4.5]} 
               rotation={[0, 0, 0]} 
-              castShadow={false}
-              receiveShadow={false}
+              castShadow
+              receiveShadow
             />
             {/* LOD 1: Uproszczone pudełko udające pojazd (średni dystans) */}
             <mesh position={[0, 0.8, 0]}>
@@ -102,17 +100,7 @@ export function Vehicle() {
               <meshBasicMaterial color="#555" />
             </mesh>
           </Detailed>
-          {/* Niewidzialny proxy mesh rzucający cień (znacznie lżejszy dla GPU) */}
-          <mesh castShadow position={[0, 0.2, 0]}>
-            <boxGeometry
-              args={[
-                config.chassisSize[0],
-                config.chassisSize[1],
-                config.chassisSize[2],
-              ]}
-            />
-            <meshBasicMaterial colorWrite={false} depthWrite={false} />
-          </mesh>
+
         </group>
 
         {/* Wheels — inside RigidBody so their local transform is relative to the chassis */}

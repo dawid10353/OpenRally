@@ -24,11 +24,19 @@ export function GameCanvas() {
   );
   const shadowsEnabled = useSettingsStore((s) => s.shadowsEnabled);
   const debugPhysics = useSettingsStore((s) => s.debugPhysics);
+  const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
   const gameState = useGameStore((s) => s.gameState);
+
+  const dpr: [number, number] =
+    graphicsQuality === 'low'
+      ? [0.5, 0.75]
+      : graphicsQuality === 'medium'
+      ? [0.75, 1.0]
+      : [1.0, 1.5];
 
   return (
     <Canvas
-      dpr={[0.75, 1.5]}
+      dpr={dpr}
       shadows={shadowsEnabled}
       camera={{ fov: 60, near: 0.1, far: 2000, position: [0, 10, -15] }}
       gl={{

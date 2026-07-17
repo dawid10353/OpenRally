@@ -8,6 +8,7 @@ import {
   Float32BufferAttribute,
   Vector3,
   MeshLambertMaterial,
+  InstancedMesh,
 } from 'three';
 import { createNoise2D } from 'simplex-noise';
 import { useTerrainData } from '@/components/terrain/TerrainContext';
@@ -128,6 +129,7 @@ function getInterpolatedHeight(
 interface GrassChunkData {
   matrices: number[][];
   colors: Color[];
+  center: Vector3;
 }
 
 export function GrassField() {
@@ -137,7 +139,10 @@ export function GrassField() {
   // We'll store all the uniform references so we can update them every frame
   const shaderUniformsRef = useRef<{ [key: string]: any }[]>([]);
   const carPosRef = useRef(new Vector3(0, 0, 0));
-
+  
+  // We'll store references to our instanced meshes to dynamically set count for LOD
+  const meshRefs = useRef<(InstancedMesh | null)[]>([]);
+  
   const { chunksData, geometry } = useMemo(() => {
     const { heights, rows, cols, minHeight, maxHeight } = heightmapData;
     const mapWidth = config.width;
@@ -155,6 +160,7 @@ export function GrassField() {
     const chunks: GrassChunkData[] = Array.from({ length: GRASS_CHUNKS * GRASS_CHUNKS }, () => ({
       matrices: [],
       colors: [],
+      center: new Vector3(), // Added for distance culling
     }));
 
     let placed = 0;
@@ -205,6 +211,19 @@ export function GrassField() {
 
       placed++;
     }
+    
+    // Calculate chunk centers for distance-based culling
+    chunks.forEach((chunk, idx) => {
+      if (chunk.matrices.length === 0) return;
+      const cz = Math.floor(idx / GRASS_CHUNKS);
+      const cx = idx % GRASS_CHUNKS;
+      // Center of the chunk in world coordinates
+      chunk.center.set(
+        (cx + 0.5) * chunkWidth - mapWidth / 2,
+        0, // Y doesn't matter much for distance
+        (cz + 0.5) * chunkDepth - mapDepth / 2
+      );
+    });
 
     const geo = createGrassTuftGeometry();
 
@@ -325,6 +344,22 @@ export function GrassField() {
       if (uniforms.u_time) uniforms.u_time.value = time;
       if (uniforms.u_carPosition) uniforms.u_carPosition.value.copy(carPosRef.current);
     }
+    
+    // Distance-based culling (LOD)
+    const camPos = state.camera.position;
+    const MAX_DISTANCE_SQ = 150 * 150; // Max render distance for grass
+    
+    chunksData.forEach((chunk, idx) => {
+      const mesh = meshRefs.current[idx];
+      if (!mesh) return;
+      
+      const distSq = chunk.center.distanceToSquared(camPos);
+      if (distSq > MAX_DISTANCE_SQ) {
+        mesh.count = 0; // Cull entirely by setting instance count to 0
+      } else {
+        mesh.count = chunk.matrices.length; // Render all
+      }
+    });
   });
 
   return (
@@ -339,15 +374,20 @@ export function GrassField() {
             args={[geometry, material, count]}
             frustumCulled={true} // Performance boost!
             ref={(mesh) => {
-              if (!mesh) return;
-              const dummy = new Object3D();
-              for (let i = 0; i < count; i++) {
-                dummy.matrix.fromArray(chunk.matrices[i]);
-                mesh.setMatrixAt(i, dummy.matrix);
-                mesh.setColorAt(i, chunk.colors[i]);
+              if (mesh) {
+                meshRefs.current[index] = mesh;
+                const dummy = new Object3D();
+                for (let i = 0; i < count; i++) {
+                  dummy.matrix.fromArray(chunk.matrices[i]);
+                  mesh.setMatrixAt(i, dummy.matrix);
+                  mesh.setColorAt(i, chunk.colors[i]);
+                }
+                mesh.instanceMatrix.needsUpdate = true;
+                if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+                
+                // CRITICAL for frustumCulled={true} to work correctly with InstancedMesh!
+                mesh.computeBoundingSphere();
               }
-              mesh.instanceMatrix.needsUpdate = true;
-              if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
             }}
           />
         );

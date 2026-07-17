@@ -30,8 +30,8 @@ export const LIGHTING_CONFIG = {
     shadowCameraRange: 80,
     shadowCameraNear: 0.5,
     shadowCameraFar: 600,
-    shadowBias: -0.005, // Zwiększony bias dla redukcji shadow acne
-    shadowNormalBias: 0.05, // Normal bias by zapobiec cieniowaniu stromych zboczy
+    shadowBias: -0.0001, // Zmniejszono bias, by cienie małych obiektów (np. samochodu) nie znikały
+    shadowNormalBias: 0.02, // Zmniejszono normal bias
   },
   hemisphere: {
     skyColor: '#87ceeb',

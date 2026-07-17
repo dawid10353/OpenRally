@@ -52,10 +52,10 @@ export function Lights() {
         shadow-mapSize-width={shadowMapSize}
         shadow-mapSize-height={shadowMapSize}
         // Znacznie mniejszy zasięg kamery cieni (tylko wokół gracza) daje lepsze FPS i ostrzejsze cienie
-        shadow-camera-left={-40}
-        shadow-camera-right={40}
-        shadow-camera-top={40}
-        shadow-camera-bottom={-40}
+        shadow-camera-left={-LIGHTING_CONFIG.directional.shadowCameraRange}
+        shadow-camera-right={LIGHTING_CONFIG.directional.shadowCameraRange}
+        shadow-camera-top={LIGHTING_CONFIG.directional.shadowCameraRange}
+        shadow-camera-bottom={-LIGHTING_CONFIG.directional.shadowCameraRange}
         shadow-camera-near={LIGHTING_CONFIG.directional.shadowCameraNear}
         shadow-camera-far={LIGHTING_CONFIG.directional.shadowCameraFar}
         shadow-bias={LIGHTING_CONFIG.directional.shadowBias}

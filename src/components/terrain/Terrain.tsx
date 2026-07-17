@@ -229,7 +229,7 @@ export function Terrain() {
           },
         ]}
       />
-      <mesh geometry={geometry} material={material} receiveShadow />
+      <mesh geometry={geometry} material={material} receiveShadow={graphicsQuality !== 'low'} />
     </RigidBody>
   );
 }

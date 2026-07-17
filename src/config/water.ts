@@ -21,13 +21,13 @@ export const WATER_SIZE = 2000;
 export const WATER_POSITION_Y = -8;
 
 /** Resolution of the procedurally generated wave normal texture (pixels) */
-export const WATER_NORMAL_TEXTURE_SIZE = 512;
+export const WATER_NORMAL_TEXTURE_SIZE = 256;
 
 /** Resolution of the planar reflection render target (pixels) */
 export const WATER_REFLECTION_TEXTURE_SIZE = 512;
 
 /** Number of subdivisions for the water plane geometry */
-export const WATER_SEGMENTS = 64;
+export const WATER_SEGMENTS = 512;
 
 /** Speed multiplier for wave animation (higher = faster waves) */
 export const WATER_WAVE_SPEED = 0.4;
@@ -49,14 +49,14 @@ export const WATER_SHALLOW_COLOR = new Color(0x27a599);
 // ─── Gerstner Waves ─────────────────────────────────────────────────
 
 export const WATER_WAVE_A_DIR = new Vector2(1.0, 0.5).normalize();
-export const WATER_WAVE_A_STEEPNESS = 0.2;
-export const WATER_WAVE_A_WAVELENGTH = 60.0;
+export const WATER_WAVE_A_STEEPNESS = 0.15;
+export const WATER_WAVE_A_WAVELENGTH = 80.0;
 
 export const WATER_WAVE_B_DIR = new Vector2(0.5, 1.0).normalize();
-export const WATER_WAVE_B_STEEPNESS = 0.2;
-export const WATER_WAVE_B_WAVELENGTH = 31.0;
+export const WATER_WAVE_B_STEEPNESS = 0.15;
+export const WATER_WAVE_B_WAVELENGTH = 45.0;
 
 export const WATER_WAVE_C_DIR = new Vector2(-0.2, 0.5).normalize();
-export const WATER_WAVE_C_STEEPNESS = 0.2;
-export const WATER_WAVE_C_WAVELENGTH = 18.0;
+export const WATER_WAVE_C_STEEPNESS = 0.15;
+export const WATER_WAVE_C_WAVELENGTH = 25.0;
 

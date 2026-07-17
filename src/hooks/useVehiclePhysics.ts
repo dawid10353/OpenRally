@@ -51,11 +51,6 @@ export function useVehiclePhysics(
   > | null>(null);
   const getInput = useInputUpdater();
 
-  const setSpeed = useGameStore((s) => s.setSpeed);
-  const setRpm = useGameStore((s) => s.setRpm);
-  const setGear = useGameStore((s) => s.setGear);
-  const setHeading = useGameStore((s) => s.setHeading);
-
   // Initialize the vehicle controller
   useEffect(() => {
     const body = chassisRef.current;
@@ -140,10 +135,6 @@ export function useVehiclePhysics(
       else if (currentGear > 1 && speedKmh < SHIFT_DOWN_SPEEDS[currentGear]) {
         currentGear--;
       }
-    }
-
-    if (currentGear !== state.gear) {
-      setGear(currentGear);
     }
 
     const gearRatio = currentGear > 0 ? GEAR_RATIOS[currentGear] : 1;
@@ -252,9 +243,6 @@ export function useVehiclePhysics(
       }
     }
 
-    // Update game store
-    setSpeed(Math.round(speedKmh));
-
     // Calculate RPM
     let targetRpm = 1000;
     if (currentGear === -1) {
@@ -283,11 +271,19 @@ export function useVehiclePhysics(
     
     // Clamp RPM
     targetRpm = Math.min(8000, Math.max(800, targetRpm));
-    setRpm(Math.round(targetRpm));
 
     // Heading from quaternion
     _euler.setFromQuaternion(_quat, 'YXZ');
-    setHeading(_euler.y);
+
+    // Batch all state updates into one call to avoid multiple re-renders/subscribers execution
+    useGameStore.setState({
+      speed: Math.round(speedKmh),
+      rpm: Math.round(targetRpm),
+      gear: currentGear,
+      heading: _euler.y,
+      position: [pos.x, pos.y, pos.z],
+    });
+
 
     // Reset vehicle if it falls below the terrain (into the ocean) or if user presses R
     const resetState = useGameStore.getState();

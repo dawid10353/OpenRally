@@ -91,8 +91,14 @@ export function PropsInstancer() {
     return { positions: pos, rotations: rot, scales: scl, colors: colsArr, matrices: mats };
   }, [heightmapData, config]);
 
+  const frameCountRef = useRef(0);
+
   // Pętla przeliczająca LOD na podstawie odległości kamery od instancji
   useFrame((state) => {
+    frameCountRef.current++;
+    // Optymalizacja CPU: Przeliczamy LOD maksymalnie raz na 10 klatek
+    if (frameCountRef.current % 10 !== 0) return;
+
     if (!meshLOD0Ref.current || !meshLOD1Ref.current) return;
 
     const camPos = state.camera.position;
@@ -127,10 +133,12 @@ export function PropsInstancer() {
     meshLOD0Ref.current.count = count0;
     meshLOD0Ref.current.instanceMatrix.needsUpdate = true;
     if (meshLOD0Ref.current.instanceColor) meshLOD0Ref.current.instanceColor.needsUpdate = true;
+    meshLOD0Ref.current.computeBoundingSphere(); // CRITICAL: Update frustum culling volume
 
     meshLOD1Ref.current.count = count1;
     meshLOD1Ref.current.instanceMatrix.needsUpdate = true;
     if (meshLOD1Ref.current.instanceColor) meshLOD1Ref.current.instanceColor.needsUpdate = true;
+    meshLOD1Ref.current.computeBoundingSphere(); // CRITICAL: Update frustum culling volume
   });
 
   const instances = useMemo(() => {

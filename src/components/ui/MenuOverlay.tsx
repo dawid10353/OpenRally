@@ -1,6 +1,32 @@
 import { useState, useRef, useEffect } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
+import { Canvas } from '@react-three/fiber';
+import { useGLTF, PresentationControls, Clone, Environment } from '@react-three/drei';
+import { VEHICLE_MODEL_PATH } from '@/config/assets';
+import { Wheel } from '@/components/vehicle/Wheel';
+import { DEFAULT_VEHICLE_CONFIG } from '@/config/vehicle';
+
+function CarModelDisplay() {
+  const { scene } = useGLTF(VEHICLE_MODEL_PATH);
+  
+  return (
+    <group>
+      <Clone 
+        object={scene} 
+        position={[0, 0.45, 0.1]} 
+        scale={[4.5, 4.5, 4.5]} 
+        castShadow 
+        receiveShadow 
+      />
+      {DEFAULT_VEHICLE_CONFIG.wheels.map((wheel, index) => (
+        <group key={index} position={wheel.position as [number, number, number]}>
+          <Wheel isRightSide={wheel.position[0] > 0} />
+        </group>
+      ))}
+    </group>
+  );
+}
 
 /**
  * Overlay rendering the Main Menu or Pause Menu
@@ -9,7 +35,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 export function MenuOverlay() {
   const gameState = useGameStore((s) => s.gameState);
   const setGameState = useGameStore((s) => s.setGameState);
-  const [view, setView] = useState<'main' | 'options' | 'controls'>('main');
+  const [view, setView] = useState<'main' | 'options' | 'controls' | 'garage'>('main');
 
   const { 
     graphicsQuality, setGraphicsQuality, 
@@ -84,6 +110,18 @@ export function MenuOverlay() {
           </button>
         </>
       )}
+
+      <button 
+        style={{ 
+          ...styles.button, 
+          ...styles.secondaryButton,
+          color: textColor,
+          borderColor: 'rgba(0, 0, 0, 0.2)'
+        }} 
+        onClick={() => setView('garage')}
+      >
+        Garage (Change Car)
+      </button>
 
       <button 
         style={{ 
@@ -220,6 +258,42 @@ export function MenuOverlay() {
     </div>
   );
 
+  const renderGarageView = () => (
+    <div style={{ ...styles.subView, color: textColor, width: '100%', minWidth: '500px' }}>
+      <h2 style={styles.subViewTitle}>Garage</h2>
+      <p style={{ ...styles.subtitle, color: subtitleColor, marginBottom: '10px', textAlign: 'center' }}>
+        Currently, only one car is available. More coming soon!
+      </p>
+      
+      <div style={{ width: '100%', height: '300px', background: 'rgba(0,0,0,0.05)', borderRadius: '12px', overflow: 'hidden', cursor: 'grab' }}>
+        <Canvas shadows dpr={[1, 2]} camera={{ position: [4, 2.5, -6], fov: 45 }}>
+          <color attach="background" args={['#e0e0e0']} />
+          <ambientLight intensity={0.6} />
+          <directionalLight position={[10, 10, 10]} intensity={1.5} />
+          <PresentationControls 
+            speed={1.5} 
+            global 
+            zoom={0.8} 
+            polar={[-0.1, Math.PI / 4]}
+          >
+            <group position={[0, 0.2, 0]}>
+              <CarModelDisplay />
+            </group>
+          </PresentationControls>
+          <Environment preset="city" />
+        </Canvas>
+      </div>
+
+      <button 
+        style={{ ...styles.button, marginTop: '20px', width: '100%' }} 
+        onClick={() => setView('main')}
+      >
+        Back
+      </button>
+    </div>
+  );
+
+
   return (
     <div style={currentOverlayStyle}>
       <audio ref={audioRef} src="/sounds/menu-music.mp3" autoPlay loop />
@@ -243,6 +317,7 @@ export function MenuOverlay() {
         {view === 'main' && renderMainView()}
         {view === 'options' && renderOptionsView()}
         {view === 'controls' && renderControlsView()}
+        {view === 'garage' && renderGarageView()}
 
       </div>
     </div>

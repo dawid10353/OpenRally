@@ -32,8 +32,8 @@ export const Wheel = forwardRef<Object3D, WheelProps>(function Wheel(
             scale={0.75}
             // Rotacja poprawiająca ułożenie względem osi
             rotation={[0, isRightSide ? Math.PI / 2 : -Math.PI / 2, 0]}
-            castShadow={false}
-            receiveShadow={false}
+            castShadow
+            receiveShadow
           />
           {/* LOD 1: Prosty cylinder (16 segmentów) */}
           <mesh rotation={[0, 0, Math.PI / 2]} scale={1}>
@@ -46,11 +46,7 @@ export const Wheel = forwardRef<Object3D, WheelProps>(function Wheel(
             <meshBasicMaterial color="#0a0a0a" />
           </mesh>
         </Detailed>
-        {/* Niewidzialny proxy mesh w kształcie cylindra rzucający cień (znacznie lżejszy dla GPU) */}
-        <mesh castShadow rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.35, 0.35, 0.3, 16]} />
-          <meshBasicMaterial colorWrite={false} depthWrite={false} />
-        </mesh>
+
       </group>
     </group>
   );
