@@ -28,6 +28,8 @@ export interface TerrainConfig {
 export interface HeightmapData {
   /** Raw height values, row-major order, size = (subdivisions+1)^2 */
   readonly heights: Float32Array;
+  /** Track mask values, row-major order, 1.0 = center of track, 0.0 = no track */
+  readonly trackMasks: Float32Array;
   /** Number of columns (X direction) */
   readonly cols: number;
   /** Number of rows (Z direction) */

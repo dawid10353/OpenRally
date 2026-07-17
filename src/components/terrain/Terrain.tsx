@@ -163,9 +163,11 @@ export function Terrain() {
     const colors: number[] = [];
 
     const tempColor = new Color();
+    const MUD_COLOR = new Color('#3b2818');
 
     for (let i = 0; i < positions.count; i++) {
       const height = heightmapData.heights[i];
+      const trackMask = heightmapData.trackMasks[i];
       positions.setY(i, height);
 
       // Color based on normalized height
@@ -185,6 +187,10 @@ export function Terrain() {
           BIOME_COLOR_HIGH,
           (normalizedHeight - BIOME_MID_THRESHOLD) / (1 - BIOME_MID_THRESHOLD),
         );
+      }
+
+      if (trackMask > 0) {
+        tempColor.lerp(MUD_COLOR, trackMask);
       }
 
       colors.push(tempColor.r, tempColor.g, tempColor.b);

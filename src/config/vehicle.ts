@@ -38,8 +38,8 @@ export const SAND_ELEVATION_THRESHOLD = 0;
 /** Y position below which the vehicle resets (fallen into ocean, wheels completely submerged) */
 export const FALL_RESET_Y = -8.25;
 
-/** Y position the vehicle resets to after falling */
-export const RESET_SPAWN_Y = 0.5;
+/** Position the vehicle resets to after falling (spawned on the track) */
+export const RESET_SPAWN_POSITION: [number, number, number] = [220, 10, 0];
 
 // ─── Frame Clamping ──────────────────────────────────────────────────
 /** Maximum frame delta (seconds) to prevent physics explosion after tab switch */

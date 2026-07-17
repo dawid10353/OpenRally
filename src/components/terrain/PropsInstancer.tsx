@@ -24,7 +24,7 @@ export function PropsInstancer() {
   const { heightmapData, config } = useTerrainData();
 
   const { positions, rotations, scales, colors, matrices } = useMemo(() => {
-    const { heights, rows, cols } = heightmapData;
+    const { heights, trackMasks, rows, cols } = heightmapData;
     const mapWidth = config.width;
     const mapDepth = config.depth;
 
@@ -37,6 +37,19 @@ export function PropsInstancer() {
 
       if (x >= 0 && x < cols && z >= 0 && z < rows) {
         return heights[z * cols + x];
+      }
+      return 0;
+    };
+
+    const getTrackMaskAt = (worldX: number, worldZ: number) => {
+      const nx = (worldX + mapWidth / 2) / mapWidth;
+      const nz = (worldZ + mapDepth / 2) / mapDepth;
+
+      const x = Math.floor(nx * (cols - 1));
+      const z = Math.floor(nz * (rows - 1));
+
+      if (x >= 0 && x < cols && z >= 0 && z < rows) {
+        return trackMasks[z * cols + x];
       }
       return 0;
     };
@@ -61,6 +74,7 @@ export function PropsInstancer() {
       const z = (random(i * 5 + 2) - 0.5) * mapDepth * PROPS_EDGE_MARGIN;
 
       if (Math.abs(x) < PROPS_CLEARING_RADIUS && Math.abs(z) < PROPS_CLEARING_RADIUS) continue;
+      if (getTrackMaskAt(x, z) > 0) continue;
 
       const y = getHeightAt(x, z);
 

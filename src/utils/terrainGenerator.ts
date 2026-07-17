@@ -40,6 +40,7 @@ export function generateHeightmap(config: TerrainConfig): HeightmapData {
 
   const size = subdivisions + 1;
   const heights = new Float32Array(size * size);
+  const trackMasks = new Float32Array(size * size);
 
   let minHeight = Infinity;
   let maxHeight = -Infinity;
@@ -80,6 +81,41 @@ export function generateHeightmap(config: TerrainConfig): HeightmapData {
         value *= 1 - flattenFactor;
       }
 
+      // Track generation
+      const trackNoiseFreq = 3.0;
+      const angle = Math.atan2(cz, cx);
+      const trackNx = Math.cos(angle) * trackNoiseFreq;
+      const trackNz = Math.sin(angle) * trackNoiseFreq;
+      const trackWiggle = noise2D(trackNx, trackNz);
+      
+      const trackBaseRadius = 220;
+      const trackVariance = 80;
+      const trackRadius = trackBaseRadius + trackWiggle * trackVariance;
+      const trackWidth = 12;
+      const trackFalloff = 45; // increased significantly for smooth rolling hills
+      
+      let trackMask = 0;
+      const distToTrack = Math.abs(distFromCenter - trackRadius);
+      
+      if (distToTrack < trackWidth) {
+        trackMask = 1.0;
+      } else if (distToTrack < trackWidth + trackFalloff) {
+        // Smoothstep interpolation for natural, non-angular terrain transitions
+        const t = 1.0 - (distToTrack - trackWidth) / trackFalloff;
+        trackMask = t * t * (3 - 2 * t);
+      }
+
+      // Only apply track if we are somewhat outside the spawn clearing
+      if (distFromCenter > 40 && trackMask > 0) {
+        // Flatten the track towards a slightly lower base height
+        const trackTargetHeight = -2.0; 
+        // Use 80% carving strength to keep minor bumps on the track itself
+        const carveStrength = trackMask * 0.8;
+        value = value * (1 - carveStrength) + trackTargetHeight * carveStrength;
+      } else {
+        trackMask = 0; // ensure spawn is clean
+      }
+
       // Map edges fade to underwater to avoid sharp cutoffs
       const distToEdgeX = (0.5 - Math.abs(cx)) * config.width;
       const distToEdgeZ = (0.5 - Math.abs(cz)) * config.depth;
@@ -94,6 +130,7 @@ export function generateHeightmap(config: TerrainConfig): HeightmapData {
       }
 
       heights[z * size + x] = value;
+      trackMasks[z * size + x] = trackMask;
 
       if (value < minHeight) minHeight = value;
       if (value > maxHeight) maxHeight = value;
@@ -102,6 +139,7 @@ export function generateHeightmap(config: TerrainConfig): HeightmapData {
 
   return {
     heights,
+    trackMasks,
     cols: size,
     rows: size,
     minHeight,

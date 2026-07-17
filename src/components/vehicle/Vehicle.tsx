@@ -4,7 +4,7 @@ import type { RapierRigidBody } from '@react-three/rapier';
 import { Group, Object3D } from 'three';
 import { Wheel } from '@/components/vehicle/Wheel';
 import { useVehiclePhysics } from '@/hooks/useVehiclePhysics';
-import { DEFAULT_VEHICLE_CONFIG } from '@/config/vehicle';
+import { DEFAULT_VEHICLE_CONFIG, RESET_SPAWN_POSITION } from '@/config/vehicle';
 import { useChaseCamera } from '@/hooks/useChaseCamera';
 import { useBumperCamera } from '@/hooks/useBumperCamera';
 import { FreeCamera } from '@/components/vehicle/FreeCamera';
@@ -51,7 +51,7 @@ export function Vehicle() {
         type="dynamic"
         colliders={false}
         mass={config.chassisMass}
-        position={[0, 0.5, 0]}
+        position={RESET_SPAWN_POSITION}
         linearDamping={0.1}
         angularDamping={0.5}
         canSleep={false}
