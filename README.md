@@ -1,4 +1,14 @@
-# React + TypeScript + Vite
+<div align="center">
+  <img src="openrally_logo.png" alt="OpenRally Logo" width="400" />
+</div>
+
+# OpenRally
+
+**OpenRally** to projekt otwartoźródłowej gry rajdowej (open-source rally game project).
+
+---
+
+## Development Setup
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
