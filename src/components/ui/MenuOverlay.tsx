@@ -257,9 +257,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: 'rgba(255, 255, 255, 0.95)',
-    backdropFilter: 'blur(8px)',
-    WebkitBackdropFilter: 'blur(8px)',
+    background: '#FEFFFD',
     fontFamily: "'Inter', 'Segoe UI', sans-serif",
   },
   cardMenu: {

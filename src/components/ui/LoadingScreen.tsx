@@ -61,7 +61,7 @@ const styles: Record<string, React.CSSProperties> = {
     position: 'fixed',
     inset: 0,
     zIndex: 100,
-    background: '#ffffff',
+    background: '#FEFFFD',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
