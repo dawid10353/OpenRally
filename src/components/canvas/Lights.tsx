@@ -12,7 +12,11 @@ import { LIGHTING_CONFIG, SKY_CONFIG } from '@/config/environment';
  */
 export function Lights() {
   const shadowsEnabled = useSettingsStore((s) => s.shadowsEnabled);
+  const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
   const lightRef = useRef<DirectionalLight>(null);
+
+  // Dynamiczne dostosowanie rozdzielczości mapy cieni
+  const shadowMapSize = graphicsQuality === 'low' ? 256 : graphicsQuality === 'medium' ? 512 : 1024;
 
   useFrame((state) => {
     if (lightRef.current) {
@@ -45,13 +49,13 @@ export function Lights() {
         intensity={LIGHTING_CONFIG.directional.intensity}
         color={LIGHTING_CONFIG.directional.color}
         castShadow={shadowsEnabled}
-        shadow-mapSize-width={LIGHTING_CONFIG.directional.shadowMapSize}
-        shadow-mapSize-height={LIGHTING_CONFIG.directional.shadowMapSize}
+        shadow-mapSize-width={shadowMapSize}
+        shadow-mapSize-height={shadowMapSize}
         // Znacznie mniejszy zasięg kamery cieni (tylko wokół gracza) daje lepsze FPS i ostrzejsze cienie
-        shadow-camera-left={-60}
-        shadow-camera-right={60}
-        shadow-camera-top={60}
-        shadow-camera-bottom={-60}
+        shadow-camera-left={-40}
+        shadow-camera-right={40}
+        shadow-camera-top={40}
+        shadow-camera-bottom={-40}
         shadow-camera-near={LIGHTING_CONFIG.directional.shadowCameraNear}
         shadow-camera-far={LIGHTING_CONFIG.directional.shadowCameraFar}
         shadow-bias={LIGHTING_CONFIG.directional.shadowBias}

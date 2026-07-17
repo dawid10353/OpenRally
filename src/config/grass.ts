@@ -3,7 +3,7 @@ import { Color } from 'three';
 // ─── Grass Instancing Config ────────────────────────────────────────
 
 /** Total number of grass tuft clusters to scatter across the terrain */
-export const GRASS_COUNT = 80_000;
+export const GRASS_COUNT = 50_000;
 
 /** Minimum height of a grass tuft (world units) */
 export const GRASS_HEIGHT_MIN = 0.08;
@@ -47,5 +47,5 @@ export const GRASS_COLOR_DARK = new Color('#756c2e');
 // ─── Chunking (Performance) ─────────────────────────────────────────
 
 /** Number of chunks to divide the grass into (e.g. 5 = 5x5 grid = 25 chunks) */
-export const GRASS_CHUNKS = 5;
+export const GRASS_CHUNKS = 6;
 

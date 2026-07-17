@@ -33,7 +33,7 @@ interface SettingsStore {
 }
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
-  graphicsQuality: 'low',
+  graphicsQuality: 'medium',
   shadowsEnabled: true,
   postProcessingEnabled: false,
   sensitivity: 1.0,

@@ -2,7 +2,7 @@ import { Color } from 'three';
 
 // ─── Pool Size ───────────────────────────────────────────────────────
 /** Maximum number of simultaneously active dust/smoke particles */
-export const MAX_PARTICLES = 800;
+export const MAX_PARTICLES = 400;
 
 // ─── Colors ──────────────────────────────────────────────────────────
 /** Color used for dust kicked up during normal driving */
@@ -37,7 +37,7 @@ export const DRIVE_PARTICLE_LIFETIME = 0.6;
 
 // ─── Tire Tracks ─────────────────────────────────────────────────────
 /** Maximum number of tire track segments */
-export const MAX_TRACKS = 2000;
+export const MAX_TRACKS = 1000;
 
 /** Width of a tire track segment */
 export const TRACK_WIDTH = 0.3;

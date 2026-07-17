@@ -8,12 +8,15 @@ import {
   Vector4,
   DataTexture,
   RGBAFormat,
+  RedFormat,
+  FloatType,
   UnsignedByteType,
 } from 'three';
 import { Water } from 'three/examples/jsm/objects/Water.js';
 import { createNoise2D } from 'simplex-noise';
-import { useDepthBuffer } from '@react-three/drei';
 import { SKY_CONFIG } from '@/config/environment';
+import { useTerrainData } from '@/components/terrain/TerrainContext';
+import { useSettingsStore } from '@/store/settingsStore';
 import {
   WATER_COLOR,
   WATER_SUN_COLOR,
@@ -88,20 +91,39 @@ function generateWaterNormalTexture(size: number): DataTexture {
 
 export function Ocean() {
   const waterRef = useRef<Water>(null);
-  const { scene, camera, size } = useThree();
-  const depthBuffer = useDepthBuffer({ size: 1024, frames: Infinity });
+  const { scene, size } = useThree();
+  const { heightmapData, config } = useTerrainData();
+  const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
+
+  const normalMapSize = graphicsQuality === 'low' ? 128 : graphicsQuality === 'medium' ? 256 : WATER_NORMAL_TEXTURE_SIZE;
+  const segmentsCount = graphicsQuality === 'low' ? 16 : graphicsQuality === 'medium' ? 32 : WATER_SEGMENTS;
 
   const waterNormals = useMemo(
-    () => generateWaterNormalTexture(WATER_NORMAL_TEXTURE_SIZE),
-    [],
+    () => generateWaterNormalTexture(normalMapSize),
+    [normalMapSize],
   );
+
+  const terrainHeightmap = useMemo(() => {
+    // We use the terrain heightmap directly instead of rendering the whole scene to a depth buffer.
+    // This provides a HUGE performance boost (saves a full render pass).
+    const texture = new DataTexture(
+      heightmapData.heights,
+      heightmapData.cols,
+      heightmapData.rows,
+      RedFormat,
+      FloatType
+    );
+    // Texture coordinates will be mapped manually, but clamping is safe for terrain bounds
+    texture.needsUpdate = true;
+    return texture;
+  }, [heightmapData]);
 
   const water = useMemo(() => {
     const geometry = new PlaneGeometry(
       WATER_SIZE,
       WATER_SIZE,
-      WATER_SEGMENTS,
-      WATER_SEGMENTS,
+      segmentsCount,
+      segmentsCount,
     );
 
     const sunDir = new Vector3(...SKY_CONFIG.sunPosition).normalize();
@@ -118,8 +140,6 @@ export function Ocean() {
       alpha: WATER_ALPHA,
     });
 
-    // Make sure water doesn't write to depth, otherwise foam math breaks!
-    waterMesh.material.depthWrite = false;
     // Essential for transparency blending with foam
     waterMesh.material.transparent = true; 
 
@@ -128,9 +148,8 @@ export function Ocean() {
 
     // Inject custom uniforms directly into the ShaderMaterial
     Object.assign(waterMesh.material.uniforms, {
-      u_depth: { value: depthBuffer },
-      cameraNear: { value: camera.near },
-      cameraFar: { value: camera.far },
+      u_terrainHeightmap: { value: terrainHeightmap },
+      u_terrainSize: { value: new Vector2(config.width, config.depth) },
       resolution: { value: new Vector2(size.width, size.height) },
       u_waveA: { value: new Vector4(WATER_WAVE_A_DIR.x, WATER_WAVE_A_DIR.y, WATER_WAVE_A_STEEPNESS, WATER_WAVE_A_WAVELENGTH) },
       u_waveB: { value: new Vector4(WATER_WAVE_B_DIR.x, WATER_WAVE_B_DIR.y, WATER_WAVE_B_STEEPNESS, WATER_WAVE_B_WAVELENGTH) },
@@ -141,7 +160,7 @@ export function Ocean() {
       u_foamThreshold: { value: WATER_FOAM_THRESHOLD },
     });
 
-    // Inject Gerstner Waves and Depth buffer logic
+    // Inject Gerstner Waves and Heightmap buffer logic
     waterMesh.material.onBeforeCompile = (shader) => {
 
       shader.vertexShader = shader.vertexShader.replace(
@@ -206,9 +225,8 @@ export function Ocean() {
       );
 
       shader.fragmentShader = `
-        uniform sampler2D u_depth;
-        uniform float cameraNear;
-        uniform float cameraFar;
+        uniform sampler2D u_terrainHeightmap;
+        uniform vec2 u_terrainSize;
         uniform vec2 resolution;
         
         uniform vec3 u_foamColor;
@@ -231,19 +249,22 @@ export function Ocean() {
       shader.fragmentShader = shader.fragmentShader.replace(
         /gl_FragColor\s*=\s*vec4\(\s*outgoingLight,\s*alpha\s*\);/,
         `
-        vec2 screenUv = gl_FragCoord.xy / resolution;
+        // Map world position to terrain heightmap UV [0, 1]
+        vec2 terrainUv = vec2(
+          (vWorldPos.x + u_terrainSize.x * 0.5) / u_terrainSize.x,
+          (vWorldPos.z + u_terrainSize.y * 0.5) / u_terrainSize.y
+        );
         
-        float depth = texture2D(u_depth, screenUv).r;
+        // Read terrain height at this world position
+        float terrainHeight = texture2D(u_terrainHeightmap, terrainUv).r;
         
-        float z_b = depth;
-        float z_n = 2.0 * z_b - 1.0;
-        float linearDepth = 2.0 * cameraNear * cameraFar / (cameraFar + cameraNear - z_n * (cameraFar - cameraNear));
-        
-        float surfaceDepth = gl_FragCoord.z;
-        float s_n = 2.0 * surfaceDepth - 1.0;
-        float linearSurfaceDepth = 2.0 * cameraNear * cameraFar / (cameraFar + cameraNear - s_n * (cameraFar - cameraNear));
-        
-        float diff = max(0.0, linearDepth - linearSurfaceDepth);
+        // If we are outside the terrain bounds, assume a deep dropoff
+        if (terrainUv.x < 0.0 || terrainUv.x > 1.0 || terrainUv.y < 0.0 || terrainUv.y > 1.0) {
+          terrainHeight = -100.0;
+        }
+
+        // Calculate depth (distance from water surface down to terrain)
+        float diff = max(0.0, vWorldPos.y - terrainHeight);
         
         float foamAmount = clamp(1.0 - (diff / u_foamThreshold), 0.0, 1.0);
         foamAmount = pow(foamAmount, 2.0); 
@@ -260,7 +281,7 @@ export function Ocean() {
     };
 
     return waterMesh;
-  }, [waterNormals, scene.fog, depthBuffer, camera, size]);
+  }, [waterNormals, scene.fog, terrainHeightmap, config, size, segmentsCount]);
 
   useFrame(() => {
     if (water.material.uniforms['time']) {

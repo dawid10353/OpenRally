@@ -12,6 +12,7 @@ import {
 import { createNoise2D } from 'simplex-noise';
 import { useTerrainData } from '@/components/terrain/TerrainContext';
 import { useGameStore } from '@/store/gameStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { mapRange } from '@/utils/math';
 import {
   GRASS_COUNT,
@@ -131,6 +132,7 @@ interface GrassChunkData {
 
 export function GrassField() {
   const { heightmapData, config } = useTerrainData();
+  const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
   
   // We'll store all the uniform references so we can update them every frame
   const shaderUniformsRef = useRef<{ [key: string]: any }[]>([]);
@@ -157,9 +159,11 @@ export function GrassField() {
 
     let placed = 0;
     let attempt = 0;
-    const maxAttempts = GRASS_COUNT * 8;
+    
+    const targetGrassCount = graphicsQuality === 'low' ? 10000 : graphicsQuality === 'medium' ? 30000 : GRASS_COUNT;
+    const maxAttempts = targetGrassCount * 8;
 
-    while (placed < GRASS_COUNT && attempt < maxAttempts) {
+    while (placed < targetGrassCount && attempt < maxAttempts) {
       attempt++;
       const seed = attempt * 7 + 13;
 
@@ -205,7 +209,7 @@ export function GrassField() {
     const geo = createGrassTuftGeometry();
 
     return { chunksData: chunks, geometry: geo };
-  }, [heightmapData, config]);
+  }, [heightmapData, config, graphicsQuality]);
 
   // Create a shared material using onBeforeCompile
   const material = useMemo(() => {
@@ -333,8 +337,6 @@ export function GrassField() {
           <instancedMesh
             key={index}
             args={[geometry, material, count]}
-            castShadow
-            receiveShadow
             frustumCulled={true} // Performance boost!
             ref={(mesh) => {
               if (!mesh) return;

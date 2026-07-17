@@ -28,7 +28,7 @@ export function GameCanvas() {
 
   return (
     <Canvas
-      dpr={1}
+      dpr={[0.75, 1.5]}
       shadows={shadowsEnabled}
       camera={{ fov: 60, near: 0.1, far: 2000, position: [0, 10, -15] }}
       gl={{
@@ -64,11 +64,11 @@ export function GameCanvas() {
           />
         </Environment>
 
-        {/* Ocean boundary */}
-        <Ocean />
-
-        {/* Terrain context wraps both physics terrain and visual grass */}
+        {/* Terrain context wraps both physics terrain, visual grass, and ocean (for heightmap access) */}
         <TerrainProvider>
+          {/* Ocean boundary */}
+          <Ocean />
+
           {/* Physics world */}
           <Physics gravity={[0, -9.81, 0]} debug={debugPhysics} paused={gameState !== 'playing'}>
             <Terrain />

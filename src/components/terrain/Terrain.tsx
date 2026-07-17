@@ -7,6 +7,7 @@ import {
 } from 'three';
 import { RigidBody, HeightfieldCollider } from '@react-three/rapier';
 import { useTerrainData } from '@/components/terrain/TerrainContext';
+import { useSettingsStore } from '@/store/settingsStore';
 import { mapRange } from '@/utils/math';
 import {
   BIOME_COLOR_LOW,
@@ -24,7 +25,7 @@ import {
  * Custom MeshStandardMaterial with procedural detail noise overlay
  * and slope-based darkening, applied via onBeforeCompile.
  */
-function createDetailedTerrainMaterial(): MeshStandardMaterial {
+function createDetailedTerrainMaterial(quality: 'low' | 'medium' | 'high'): MeshStandardMaterial {
   const mat = new MeshStandardMaterial({
     vertexColors: true,
     roughness: 0.9,
@@ -69,6 +70,7 @@ function createDetailedTerrainMaterial(): MeshStandardMaterial {
         uniform float u_detailStrength;
         uniform float u_slopeDarkening;
 
+        ${quality !== 'low' ? `
         // Hash-based procedural noise (no texture needed)
         // Based on Morgan McGuire @morgan3d https://www.shadertoy.com/view/4dS3Wd
         float hash(vec2 p) {
@@ -93,13 +95,14 @@ function createDetailedTerrainMaterial(): MeshStandardMaterial {
         float fbm(vec2 p) {
           float value = 0.0;
           float amplitude = 0.5;
-          for (int i = 0; i < 3; i++) {
+          for (int i = 0; i < 2; i++) {
             value += amplitude * noise2D(p);
             p *= 2.0;
             amplitude *= 0.5;
           }
           return value;
         }
+        ` : ''}
       `,
     );
 
@@ -109,12 +112,14 @@ function createDetailedTerrainMaterial(): MeshStandardMaterial {
       /* glsl */ `
         #include <color_fragment>
 
+        ${quality !== 'low' ? `
         // Detail noise overlay — breaks up flat vertex color gradients
         vec2 noiseCoord = vWorldPosition.xz * u_detailScale * 0.01;
         float detailNoise = fbm(noiseCoord * 50.0);
         // Remap from [0,1] to [-1,1] and apply strength
         float noiseMod = 1.0 + (detailNoise * 2.0 - 1.0) * u_detailStrength;
         diffuseColor.rgb *= noiseMod;
+        ` : ''}
 
         // Slope darkening — steep terrain gets darker (micro-shadow illusion)
         float slope = 1.0 - abs(vWorldNormal.y); // 0 = flat, 1 = vertical
@@ -139,6 +144,7 @@ function createDetailedTerrainMaterial(): MeshStandardMaterial {
  */
 export function Terrain() {
   const { heightmapData, config } = useTerrainData();
+  const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
 
   const geometry = useMemo(() => {
     // Create plane geometry matching heightmap dimensions
@@ -191,7 +197,7 @@ export function Terrain() {
   }, [heightmapData, config]);
 
   // Custom material with detail noise (created once)
-  const material = useMemo(() => createDetailedTerrainMaterial(), []);
+  const material = useMemo(() => createDetailedTerrainMaterial(graphicsQuality), [graphicsQuality]);
 
   // Prepare heights for Rapier HeightfieldCollider
   // Rapier wants heights in row-major order, but its rows correspond to local X and cols to local Z.
