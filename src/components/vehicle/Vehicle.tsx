@@ -12,6 +12,7 @@ import { useEngineSound } from '@/hooks/useEngineSound';
 import { useSurfaceSound } from '@/hooks/useSurfaceSound';
 import { DustParticles } from '@/components/vehicle/DustParticles';
 import { TireTracks } from '@/components/vehicle/TireTracks';
+import { WaterSplashes } from '@/components/vehicle/WaterSplashes';
 import { useGLTF, Clone, Detailed } from '@react-three/drei';
 import { VEHICLE_MODEL_PATH } from '@/config/assets';
 
@@ -132,6 +133,7 @@ export function Vehicle() {
       {/* Visual Particle Effects */}
       <DustParticles chassisRef={chassisRef} wheelsRef={wheelObjectsRef} />
       <TireTracks chassisRef={chassisRef} wheelsRef={wheelObjectsRef} />
+      <WaterSplashes chassisRef={chassisRef} wheelsRef={wheelObjectsRef} />
 
       {/* Free Camera Controls (enabled only when cameraMode === 'free') */}
       <FreeCamera targetRef={visualRef} />

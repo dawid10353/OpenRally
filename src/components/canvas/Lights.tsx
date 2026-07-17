@@ -55,6 +55,7 @@ export function Lights() {
         shadow-camera-near={LIGHTING_CONFIG.directional.shadowCameraNear}
         shadow-camera-far={LIGHTING_CONFIG.directional.shadowCameraFar}
         shadow-bias={LIGHTING_CONFIG.directional.shadowBias}
+        shadow-normalBias={LIGHTING_CONFIG.directional.shadowNormalBias}
       />
 
       {/* Hemisphere light — sky/ground color bounce */}

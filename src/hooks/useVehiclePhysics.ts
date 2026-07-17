@@ -207,6 +207,19 @@ export function useVehiclePhysics(
     const downforce = Math.abs(forwardSpeed) * config.downforceFactor * dt;
     body.applyImpulse({ x: 0, y: -downforce, z: 0 }, true);
 
+    // Apply water drag if partially submerged
+    const WATER_SURFACE_CHASSIS_Y = -7.15; // Chassis Y when wheels just touch water
+    if (pos.y < WATER_SURFACE_CHASSIS_Y) {
+      const depth = Math.max(0, WATER_SURFACE_CHASSIS_Y - pos.y);
+      // Increased drag based on depth
+      const dragFactor = depth * 80 * dt;
+      body.applyImpulse({ 
+        x: -_velocity.x * dragFactor, 
+        y: 0, 
+        z: -_velocity.z * dragFactor 
+      }, true);
+    }
+
     // Sync visual wheels with physics
     const wheels = wheelRefs.current;
     if (wheels) {

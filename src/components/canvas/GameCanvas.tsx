@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import { Terrain } from '@/components/terrain/Terrain';
+import { GrassField } from '@/components/terrain/GrassField';
 
 import { TerrainProvider } from '@/components/terrain/TerrainContext';
 import { Ocean } from '@/components/environment/Ocean';
@@ -66,16 +67,19 @@ export function GameCanvas() {
         {/* Ocean boundary */}
         <Ocean />
 
-        {/* Physics world */}
-        <Physics gravity={[0, -9.81, 0]} debug={debugPhysics} paused={gameState !== 'playing'}>
-          {/* Terrain + props share heightmap via context */}
-          <TerrainProvider>
+        {/* Terrain context wraps both physics terrain and visual grass */}
+        <TerrainProvider>
+          {/* Physics world */}
+          <Physics gravity={[0, -9.81, 0]} debug={debugPhysics} paused={gameState !== 'playing'}>
             <Terrain />
-          </TerrainProvider>
-          
-          {/* Player vehicle */}
-          <Vehicle />
-        </Physics>
+            
+            {/* Player vehicle */}
+            <Vehicle />
+          </Physics>
+
+          {/* Instanced grass field — outside Physics (no collision needed) */}
+          <GrassField />
+        </TerrainProvider>
 
         {/* Post-processing effects */}
         {postProcessingEnabled && (

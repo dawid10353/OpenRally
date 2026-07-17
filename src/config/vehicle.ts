@@ -35,8 +35,8 @@ export const FRICTION_HANDBRAKE = 0.5;
 export const SAND_ELEVATION_THRESHOLD = 0;
 
 // ─── Reset ───────────────────────────────────────────────────────────
-/** Y position below which the vehicle resets (fallen into ocean) */
-export const FALL_RESET_Y = -7.0;
+/** Y position below which the vehicle resets (fallen into ocean, wheels completely submerged) */
+export const FALL_RESET_Y = -8.25;
 
 /** Y position the vehicle resets to after falling */
 export const RESET_SPAWN_Y = 0.5;
