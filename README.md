@@ -6,6 +6,13 @@
 
 **OpenRally** to projekt otwartoźródłowej gry rajdowej (open-source rally game project).
 
+## Założenia Gry (Game Vision)
+
+- Gra 3D w przeglądarce.
+- Jazda samochodem po **nierównym, otwartym terenie** (pagórki, doliny, wzniesienia).
+- Fizyka **arcade-sim** (niski próg wejścia, ale drift i praca zawieszenia dają satysfakcję).
+- Projekt wieloletni, rozwijany **wyłącznie przez AI**.
+
 ## Jak uruchomić (How to run)
 
 1. Zainstaluj zależności (Install dependencies):
