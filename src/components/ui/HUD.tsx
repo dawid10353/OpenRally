@@ -25,11 +25,13 @@ export function HUD() {
   const gameMusicVolume = useSettingsStore((s) => s.gameMusicVolume);
 
   const speedRef = useRef<HTMLSpanElement>(null);
+  const rpmRef = useRef<HTMLSpanElement>(null);
   const gearRef = useRef<HTMLSpanElement>(null);
   const compassDirRef = useRef<HTMLDivElement>(null);
   const compassDegRef = useRef<HTMLDivElement>(null);
   const needleRef = useRef<SVGLineElement>(null);
   const speedArcRef = useRef<SVGCircleElement>(null);
+  const rpmArcRef = useRef<SVGCircleElement>(null);
   const bgmRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
@@ -46,6 +48,7 @@ export function HUD() {
 
     const updateHUD = (state: typeof initialState) => {
       if (speedRef.current) speedRef.current.innerText = state.speed.toString();
+      if (rpmRef.current) rpmRef.current.innerText = state.rpm.toString();
 
       if (gearRef.current) {
         let gearText = 'N';
@@ -64,6 +67,9 @@ export function HUD() {
       const maxSpeed = 240;
       const speedFraction = state.speed / maxSpeed;
       
+      const maxRpm = 8000;
+      const rpmFraction = Math.max(0, Math.min(1, state.rpm / maxRpm));
+      
       if (needleRef.current) {
         const needleRotation = -135 + speedFraction * 270;
         needleRef.current.setAttribute('transform', `rotate(${needleRotation} 100 100)`);
@@ -71,6 +77,10 @@ export function HUD() {
       
       if (speedArcRef.current) {
         speedArcRef.current.style.strokeDasharray = `${speedFraction * 401} ${534 - speedFraction * 401}`;
+      }
+
+      if (rpmArcRef.current) {
+        rpmArcRef.current.style.strokeDasharray = `${rpmFraction * 306} ${408 - rpmFraction * 306}`;
       }
     };
 
@@ -117,6 +127,32 @@ export function HUD() {
             strokeLinecap="round"
             style={{ transition: 'stroke-dasharray 0.1s ease-out' }}
           />
+          {/* RPM Track arc */}
+          <circle
+            cx="100"
+            cy="100"
+            r="70"
+            fill="none"
+            stroke="rgba(255,255,255,0.05)"
+            strokeWidth="4"
+            strokeDasharray="330 110"
+            strokeDashoffset="55"
+            strokeLinecap="round"
+          />
+          {/* RPM Active arc */}
+          <circle
+            ref={rpmArcRef}
+            cx="100"
+            cy="100"
+            r="70"
+            fill="none"
+            stroke="url(#rpmGradient)"
+            strokeWidth="4"
+            strokeDasharray="0 440"
+            strokeDashoffset="55"
+            strokeLinecap="round"
+            style={{ transition: 'stroke-dasharray 0.05s ease-out' }}
+          />
           {/* Gradient definition */}
           <defs>
             <linearGradient id="speedGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -124,22 +160,25 @@ export function HUD() {
               <stop offset="60%" stopColor="#00ff88" />
               <stop offset="100%" stopColor="#ff4444" />
             </linearGradient>
+            <linearGradient id="rpmGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#ffaa00" />
+              <stop offset="70%" stopColor="#ff5500" />
+              <stop offset="100%" stopColor="#ff0000" />
+            </linearGradient>
           </defs>
           {/* Needle */}
           <line
             ref={needleRef}
             x1="100"
-            y1="100"
+            y1="45"
             x2="100"
-            y2="25"
+            y2="12"
             stroke="#ffffff"
-            strokeWidth="2.5"
+            strokeWidth="3"
             strokeLinecap="round"
             transform="rotate(-135 100 100)"
             style={{ transition: 'transform 0.1s ease-out' }}
           />
-          {/* Center dot */}
-          <circle cx="100" cy="100" r="5" fill="#ffffff" />
         </svg>
 
         {/* Digital readout */}
@@ -147,6 +186,10 @@ export function HUD() {
           <span ref={gearRef} style={styles.gearText}>N</span>
           <span ref={speedRef} style={styles.speedNumber}>0</span>
           <span style={styles.speedUnit}>km/h</span>
+          <div style={styles.rpmReadout}>
+            <span ref={rpmRef} style={styles.rpmNumber}>1000</span>
+            <span style={styles.rpmUnit}>RPM</span>
+          </div>
         </div>
       </div>
 
@@ -174,16 +217,16 @@ const styles: Record<string, React.CSSProperties> = {
     position: 'absolute',
     bottom: '24px',
     right: '24px',
-    width: '180px',
-    height: '180px',
-    background: 'radial-gradient(ellipse at center, rgba(10,10,30,0.85) 0%, rgba(10,10,30,0.65) 100%)',
+    width: '220px',
+    height: '220px',
+    background: 'radial-gradient(ellipse at center, rgba(10,10,30,0.95) 0%, rgba(10,10,30,0.7) 100%)',
     borderRadius: '50%',
     border: '2px solid rgba(255,255,255,0.15)',
-    backdropFilter: 'blur(12px)',
+    backdropFilter: 'blur(16px)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)',
   },
   gaugeSvg: {
     position: 'absolute',
@@ -191,34 +234,56 @@ const styles: Record<string, React.CSSProperties> = {
     height: '100%',
   },
   speedValue: {
+    position: 'absolute',
+    inset: 0,
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    marginTop: '20px',
-    zIndex: 1,
+    justifyContent: 'center',
+    zIndex: 10,
   },
   gearText: {
-    fontSize: '22px',
-    fontWeight: 800,
+    fontSize: '28px',
+    fontWeight: 900,
     color: '#00d4ff',
     marginBottom: '2px',
     lineHeight: 1,
-    textShadow: '0 0 10px rgba(0,212,255,0.5)',
+    textShadow: '0 0 4px rgba(0,0,0,1), 0 0 8px rgba(0,0,0,1), 0 2px 4px rgba(0,0,0,0.9)',
   },
   speedNumber: {
-    fontSize: '36px',
-    fontWeight: 700,
+    fontSize: '56px',
+    fontWeight: 900,
     color: '#ffffff',
     lineHeight: 1,
-    textShadow: '0 0 20px rgba(0,212,255,0.5)',
+    textShadow: '0 0 4px rgba(0,0,0,1), 0 0 10px rgba(0,212,255,0.4), 0 2px 4px rgba(0,0,0,0.9)',
   },
   speedUnit: {
-    fontSize: '11px',
-    fontWeight: 500,
-    color: 'rgba(255,255,255,0.5)',
+    fontSize: '14px',
+    fontWeight: 700,
+    color: 'rgba(255,255,255,0.7)',
     letterSpacing: '2px',
     textTransform: 'uppercase' as const,
-    marginTop: '2px',
+    marginTop: '0px',
+    marginBottom: '8px',
+    textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+  },
+  rpmReadout: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: '4px',
+  },
+  rpmNumber: {
+    fontSize: '20px',
+    fontWeight: 800,
+    color: '#ffaa00',
+    textShadow: '0 0 4px rgba(0,0,0,1), 0 0 10px rgba(255,170,0,0.4), 0 2px 4px rgba(0,0,0,0.9)',
+  },
+  rpmUnit: {
+    fontSize: '12px',
+    fontWeight: 700,
+    color: 'rgba(255,255,255,0.7)',
+    letterSpacing: '1px',
+    textShadow: '0 1px 2px rgba(0,0,0,0.8)',
   },
   compass: {
     position: 'absolute',

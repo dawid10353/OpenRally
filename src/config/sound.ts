@@ -5,9 +5,6 @@ export const ENGINE_VOLUME = 0.5;
 /** Base pitch (playbackRate) at 0 km/h */
 export const IDLE_PITCH = 0.8;
 
-/** Pitch (playbackRate) increase per km/h of speed */
-export const PITCH_PER_KMH = 0.015;
-
 /** Base low-pass filter cutoff at idle (Hz) */
 export const IDLE_FILTER_CUTOFF = 600;
 

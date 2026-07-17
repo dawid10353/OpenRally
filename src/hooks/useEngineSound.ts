@@ -5,7 +5,6 @@ import { useFrame } from '@react-three/fiber';
 import {
   ENGINE_VOLUME,
   IDLE_PITCH,
-  PITCH_PER_KMH,
   IDLE_FILTER_CUTOFF,
   FILTER_CUTOFF_PER_KMH,
   AUDIO_RAMP_TIME,
@@ -94,15 +93,17 @@ export function useEngineSound() {
     }
   }, [gameState, sfxVolume]);
 
-  // Update pitch based on speed
+  // Update pitch based on RPM and filter based on speed
   useFrame(() => {
     if (!isInitialized || !sourceRef.current || !ctxRef.current) return;
 
-    const speed = useGameStore.getState().speed;
+    const store = useGameStore.getState();
+    const speed = store.speed;
+    const rpm = store.rpm;
     const absSpeed = Math.abs(speed);
 
-    // Pitch increases with speed
-    const targetPitch = IDLE_PITCH + absSpeed * PITCH_PER_KMH;
+    // Pitch increases with RPM (base pitch 0.6, up to ~2.2 at 8000 RPM)
+    const targetPitch = 0.6 + (rpm / 8000) * 1.6;
     sourceRef.current.playbackRate.setTargetAtTime(targetPitch, ctxRef.current.currentTime, AUDIO_RAMP_TIME);
 
     // Filter opens up at higher speeds

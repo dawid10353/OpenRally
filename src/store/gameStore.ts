@@ -11,6 +11,8 @@ interface GameStore {
   cameraMode: CameraMode;
   /** Vehicle speed in km/h */
   speed: number;
+  /** Engine RPM */
+  rpm: number;
   /** Current transmission gear (-1: Reverse, 0: Neutral, 1-5: Forward) */
   gear: number;
   /** Vehicle heading in radians (0 = north / +Z) */
@@ -23,6 +25,7 @@ interface GameStore {
   // Actions
   setGameState: (state: GameState) => void;
   setSpeed: (speed: number) => void;
+  setRpm: (rpm: number) => void;
   setGear: (gear: number) => void;
   setHeading: (heading: number) => void;
   setPosition: (pos: [number, number, number]) => void;
@@ -37,6 +40,7 @@ export const useGameStore = create<GameStore>((set) => ({
   gameState: 'loading',
   cameraMode: 'chase_close',
   speed: 0,
+  rpm: 1000,
   gear: 1, // Start in 1st gear (or 0 for neutral)
   heading: 0,
   position: [0, 0.5, 0],
@@ -44,6 +48,7 @@ export const useGameStore = create<GameStore>((set) => ({
 
   setGameState: (gameState) => set({ gameState }),
   setSpeed: (speed) => set({ speed }),
+  setRpm: (rpm) => set({ rpm }),
   setGear: (gear) => set({ gear }),
   setHeading: (heading) => set({ heading }),
   setPosition: (position) => set({ position }),

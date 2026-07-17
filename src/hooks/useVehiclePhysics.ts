@@ -52,6 +52,7 @@ export function useVehiclePhysics(
   const getInput = useInputUpdater();
 
   const setSpeed = useGameStore((s) => s.setSpeed);
+  const setRpm = useGameStore((s) => s.setRpm);
   const setGear = useGameStore((s) => s.setGear);
   const setHeading = useGameStore((s) => s.setHeading);
 
@@ -240,6 +241,36 @@ export function useVehiclePhysics(
 
     // Update game store
     setSpeed(Math.round(speedKmh));
+
+    // Calculate RPM
+    let targetRpm = 1000;
+    if (currentGear === -1) {
+      // Bardziej realistyczne obroty dla biegu wstecznego (max ~5000 RPM)
+      targetRpm = 1000 + (Math.min(speedKmh, 40) / 40) * 4000;
+      
+      // Podbicie obrotów przy ruszaniu na wstecznym
+      if (input.brake > 0 && speedKmh < 10) {
+        targetRpm += input.brake * 1500 * (1 - speedKmh / 10);
+      }
+    } else if (currentGear > 0) {
+      const minSpeed = currentGear === 1 ? 0 : SHIFT_UP_SPEEDS[currentGear - 1];
+      const maxSpeed = SHIFT_UP_SPEEDS[currentGear] === 999 ? 240 : SHIFT_UP_SPEEDS[currentGear];
+      const speedInRange = Math.max(0, speedKmh - minSpeed);
+      const range = Math.max(1, maxSpeed - minSpeed);
+      targetRpm = 1000 + (speedInRange / range) * 7000;
+      
+      // Rev blip when starting or holding throttle at low speeds
+      if (input.throttle > 0 && speedKmh < 10) {
+        targetRpm += input.throttle * 1500 * (1 - speedKmh / 10);
+      }
+    }
+    
+    // Add small random fluctuation to RPM for realism
+    targetRpm += (Math.random() - 0.5) * 50;
+    
+    // Clamp RPM
+    targetRpm = Math.min(8000, Math.max(800, targetRpm));
+    setRpm(Math.round(targetRpm));
 
     // Heading from quaternion
     _euler.setFromQuaternion(_quat, 'YXZ');
