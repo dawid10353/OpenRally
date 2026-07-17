@@ -1,20 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
-import { toDegrees } from '@/utils/math';
 
-/**
- * Compass direction from heading angle.
- */
-function getCompassDirection(headingRad: number): string {
-  // Convert to degrees, normalize to 0-360
-  let deg = toDegrees(headingRad) % 360;
-  if (deg < 0) deg += 360;
 
-  const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-  const index = Math.round(deg / 45) % 8;
-  return directions[index];
-}
+
 
 /**
  * HUD overlay — speedometer and compass.
@@ -27,8 +16,7 @@ export function HUD() {
   const speedRef = useRef<HTMLSpanElement>(null);
   const rpmRef = useRef<HTMLSpanElement>(null);
   const gearRef = useRef<HTMLSpanElement>(null);
-  const compassDirRef = useRef<HTMLDivElement>(null);
-  const compassDegRef = useRef<HTMLDivElement>(null);
+  const coordsRef = useRef<HTMLDivElement>(null);
   const needleRef = useRef<SVGLineElement>(null);
   const speedArcRef = useRef<SVGCircleElement>(null);
   const rpmArcRef = useRef<SVGCircleElement>(null);
@@ -57,11 +45,9 @@ export function HUD() {
         gearRef.current.innerText = gearText;
       }
 
-      if (compassDirRef.current && compassDegRef.current) {
-        const compassDir = getCompassDirection(state.heading);
-        const headingDeg = Math.round(((toDegrees(state.heading) % 360) + 360) % 360);
-        compassDirRef.current.innerText = compassDir;
-        compassDegRef.current.innerText = `${headingDeg}°`;
+      if (coordsRef.current) {
+        const [x, y, z] = state.position;
+        coordsRef.current.innerText = `X: ${x.toFixed(1)} Y: ${y.toFixed(1)} Z: ${z.toFixed(1)}`;
       }
 
       const maxSpeed = 240;
@@ -193,10 +179,9 @@ export function HUD() {
         </div>
       </div>
 
-      {/* Compass */}
-      <div id="compass" style={styles.compass}>
-        <div ref={compassDirRef} style={styles.compassDirection}>N</div>
-        <div ref={compassDegRef} style={styles.compassDegrees}>0°</div>
+      {/* Coordinates */}
+      <div id="coordinates" style={styles.coordinates}>
+        <div ref={coordsRef} style={styles.coordsText}>X: 0.0 Y: 0.0 Z: 0.0</div>
       </div>
 
 
@@ -285,31 +270,25 @@ const styles: Record<string, React.CSSProperties> = {
     letterSpacing: '1px',
     textShadow: '0 1px 2px rgba(0,0,0,0.8)',
   },
-  compass: {
+  coordinates: {
     position: 'absolute',
-    top: '16px',
-    left: '50%',
-    transform: 'translateX(-50%)',
+    bottom: '24px',
+    left: '24px',
     background: 'rgba(10,10,30,0.7)',
     backdropFilter: 'blur(12px)',
     border: '1px solid rgba(255,255,255,0.12)',
     borderRadius: '8px',
-    padding: '8px 20px',
+    padding: '8px 16px',
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
     boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
   },
-  compassDirection: {
-    fontSize: '18px',
-    fontWeight: 700,
+  coordsText: {
+    fontSize: '14px',
+    fontWeight: 600,
     color: '#00d4ff',
     letterSpacing: '1px',
-  },
-  compassDegrees: {
-    fontSize: '13px',
-    fontWeight: 400,
-    color: 'rgba(255,255,255,0.5)',
+    fontFamily: 'monospace',
   },
 
 };

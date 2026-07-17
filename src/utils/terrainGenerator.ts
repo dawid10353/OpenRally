@@ -91,7 +91,23 @@ export function generateHeightmap(config: TerrainConfig): HeightmapData {
       const trackBaseRadius = 220;
       const trackVariance = 80;
       const trackRadius = trackBaseRadius + trackWiggle * trackVariance;
-      const trackWidth = 22; // Szeroka droga, by pomieścić pojazd bez kolizji z uskokami
+      let trackWidth = 22; // Szeroka droga, by pomieścić pojazd bez kolizji z uskokami
+
+      // Rozszerzenie drogi w okolicach koordynatów X: -180, Z: -109.5
+      const worldX = cx * config.width;
+      const worldZ = cz * config.depth;
+      const widenTargetX = -180;
+      const widenTargetZ = -109.5;
+      const distToWidenTarget = Math.sqrt((worldX - widenTargetX) ** 2 + (worldZ - widenTargetZ) ** 2);
+      
+      const widenRadius = 80; // Promień w jakim działa rozszerzenie
+      if (distToWidenTarget < widenRadius) {
+        const t = 1.0 - (distToWidenTarget / widenRadius);
+        const smoothT = t * t * (3 - 2 * t);
+        const addedWidth = 40; // Maksymalne dodatkowe poszerzenie
+        trackWidth += smoothT * addedWidth;
+      }
+
       const trackFalloff = 40; // gładki spadek zanikania śladu
       
       let trackMask = 0;
