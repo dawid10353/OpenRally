@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import type { PerspectiveCamera } from 'three';
 import { Vector3, Quaternion, MathUtils, Object3D } from 'three';
 import { useGameStore } from '@/store/gameStore';
+import { activeKeys } from '@/hooks/useInput';
 import { lerp } from '@/utils/math';
 import { MIN_FOV, MAX_FOV, MAX_SPEED_FOR_FOV, FOV_SMOOTH_BASE } from '@/config/camera';
 
@@ -34,18 +35,30 @@ export function useBumperCamera(targetRef: React.RefObject<Object3D | null>): vo
     target.getWorldPosition(_bodyPos);
     target.getWorldQuaternion(_worldQuat);
 
-    // Calculate exact camera position based on car's orientation
-    _offset.copy(BUMPER_OFFSET).applyQuaternion(_worldQuat);
-    camera.position.copy(_bodyPos).add(_offset);
+    const lookBack = activeKeys.has('KeyB');
 
-    // For bumper/hood, we want the camera to also roll with the car.
-    // Three.js cameras look down their local -Z axis, but the car's forward is +Z.
-    // Therefore, we must rotate the camera 180 degrees around the Y axis relative to the car.
-    const _y180 = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), Math.PI);
-    // Slight downward pitch (approx 4 degrees) so the hood is visible
-    const _pitchDown = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), -0.07);
-    
-    camera.quaternion.copy(_worldQuat).multiply(_y180).multiply(_pitchDown);
+    if (lookBack) {
+      // Move camera to front of car, slightly higher, and look backwards (down local -Z)
+      _offset.set(0, 1.1, 3.5).applyQuaternion(_worldQuat);
+      camera.position.copy(_bodyPos).add(_offset);
+      
+      const _pitchDown = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), -0.07);
+      // No 180-degree rotation means it looks towards local -Z (backwards)
+      camera.quaternion.copy(_worldQuat).multiply(_pitchDown);
+    } else {
+      // Normal bumper camera
+      _offset.copy(BUMPER_OFFSET).applyQuaternion(_worldQuat);
+      camera.position.copy(_bodyPos).add(_offset);
+
+      // For bumper/hood, we want the camera to also roll with the car.
+      // Three.js cameras look down their local -Z axis, but the car's forward is +Z.
+      // Therefore, we must rotate the camera 180 degrees around the Y axis relative to the car.
+      const _y180 = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), Math.PI);
+      // Slight downward pitch (approx 4 degrees) so the hood is visible
+      const _pitchDown = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), -0.07);
+      
+      camera.quaternion.copy(_worldQuat).multiply(_y180).multiply(_pitchDown);
+    }
 
     // Dynamic FOV based on speed (higher sense of speed in bumper mode)
     // We increase max FOV slightly for bumper to enhance speed sensation

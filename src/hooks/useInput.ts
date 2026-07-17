@@ -4,13 +4,14 @@ import { useGameStore } from '@/store/gameStore';
 import { lerp } from '@/utils/math';
 import { STEER_SPEED, STEER_DEADZONE } from '@/config/input';
 
+export const activeKeys = new Set<string>();
+
 /**
  * Returns a function that updates and returns the current InputState.
  * Designed to be called inside useFrame with delta time.
  * Includes global hotkeys like Escape for pausing.
  */
 export function useInputUpdater(): (dt: number) => InputState {
-  const keysRef = useRef(new Set<string>());
   const stateRef = useRef<InputState>({
     steering: 0,
     throttle: 0,
@@ -28,7 +29,7 @@ export function useInputUpdater(): (dt: number) => InputState {
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      keysRef.current.add(e.code);
+      activeKeys.add(e.code);
       
       // Camera cycle
       if (e.code === 'KeyC' && !cameraToggledRef.current) {
@@ -63,7 +64,7 @@ export function useInputUpdater(): (dt: number) => InputState {
   );
 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
-    keysRef.current.delete(e.code);
+    activeKeys.delete(e.code);
     if (e.code === 'KeyC') {
       cameraToggledRef.current = false;
     }
@@ -94,7 +95,7 @@ export function useInputUpdater(): (dt: number) => InputState {
       return stateRef.current;
     }
 
-    const keys = keysRef.current;
+    const keys = activeKeys;
 
     const throttleTarget = keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0;
     const brakeTarget = keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0;

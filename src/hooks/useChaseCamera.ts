@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import type { PerspectiveCamera } from 'three';
 import { Vector3, Quaternion, MathUtils, Object3D, Euler } from 'three';
 import { useGameStore } from '@/store/gameStore';
+import { activeKeys } from '@/hooks/useInput';
 import { lerp } from '@/utils/math';
 import {
   CHASE_OFFSET,
@@ -59,13 +60,23 @@ export function useChaseCamera(
     _euler.setFromQuaternion(_worldQuat, 'YXZ');
     _yawQuat.setFromAxisAngle(_yAxis, _euler.y);
 
+    const lookBack = activeKeys.has('KeyB');
+
     // Calculate ideal camera position (behind and above vehicle)
     const activeOffset = cameraMode === 'chase_close' ? CHASE_CLOSE_OFFSET : CHASE_OFFSET;
-    _offset.copy(activeOffset).applyQuaternion(_yawQuat);
+    _offset.copy(activeOffset);
+    if (lookBack) {
+      _offset.z = -_offset.z;
+    }
+    _offset.applyQuaternion(_yawQuat);
     _idealPos.copy(_bodyPos).add(_offset);
 
     // Calculate look-at target (ahead of vehicle)
-    _lookOffset.copy(LOOK_AHEAD_OFFSET).applyQuaternion(_yawQuat);
+    _lookOffset.copy(LOOK_AHEAD_OFFSET);
+    if (lookBack) {
+      _lookOffset.z = -_lookOffset.z;
+    }
+    _lookOffset.applyQuaternion(_yawQuat);
     _idealLook.copy(_bodyPos).add(_lookOffset);
 
     // Smooth follow with framerate-independent lerp
