@@ -52,7 +52,7 @@ export function Vehicle() {
         type="dynamic"
         colliders={false}
         mass={config.chassisMass}
-        position={[0, 5, 0]}
+        position={[0, 0.5, 0]}
         linearDamping={0.1}
         angularDamping={0.5}
         canSleep={false}
