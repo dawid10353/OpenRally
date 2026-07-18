@@ -23,6 +23,46 @@ export interface WheelInfo {
 }
 
 /**
+ * Engine configuration
+ */
+export interface EngineConfig {
+  /** Maximum engine force applied to powered wheels */
+  readonly maxForce: number;
+  /** Maximum speed in km/h (for HUD / limiter) */
+  readonly maxSpeed: number;
+}
+
+/**
+ * Braking configuration
+ */
+export interface BrakesConfig {
+  /** Maximum braking force */
+  readonly maxForce: number;
+  /** Handbrake force (applied to rear wheels only) */
+  readonly handbrakeForce: number;
+  /** Brake bias towards the front (0.0 = 100% rear, 1.0 = 100% front). Typically ~0.7. */
+  readonly frontBias: number;
+}
+
+/**
+ * Handling and steering configuration
+ */
+export interface HandlingConfig {
+  /** Maximum steering angle in radians */
+  readonly maxSteeringAngle: number;
+  /** Steering speed (how fast the wheel turns) */
+  readonly steeringSpeed: number;
+}
+
+/**
+ * Aerodynamics configuration
+ */
+export interface AerodynamicsConfig {
+  /** Downforce coefficient to keep the car glued to the ground at high speeds */
+  readonly downforceFactor: number;
+}
+
+/**
  * Full vehicle configuration — physics and visual parameters.
  */
 export interface VehicleConfig {
@@ -30,22 +70,13 @@ export interface VehicleConfig {
   readonly chassisMass: number;
   /** Chassis dimensions [width, height, length] */
   readonly chassisSize: Vector3Tuple;
-  /** Maximum engine force applied to powered wheels */
-  readonly maxEngineForce: number;
-  /** Maximum braking force */
-  readonly maxBrakeForce: number;
-  /** Handbrake force (applied to rear wheels only) */
-  readonly handbrakeForce: number;
-  /** Maximum steering angle in radians */
-  readonly maxSteeringAngle: number;
-  /** Steering speed (how fast the wheel turns) */
-  readonly steeringSpeed: number;
-  /** Maximum speed in km/h (for HUD / limiter) */
-  readonly maxSpeed: number;
-  /** Downforce coefficient to keep the car glued to the ground at high speeds */
-  readonly downforceFactor: number;
+  
+  readonly engine: EngineConfig;
+  readonly brakes: BrakesConfig;
+  readonly handling: HandlingConfig;
+  readonly aerodynamics: AerodynamicsConfig;
+  
   /** Configuration for each wheel (4 wheels) */
   readonly wheels: readonly [WheelInfo, WheelInfo, WheelInfo, WheelInfo];
 }
-
 

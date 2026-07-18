@@ -53,13 +53,22 @@ export const MAX_DELTA = 0.05;
 export const DEFAULT_VEHICLE_CONFIG: VehicleConfig = {
   chassisMass: 150,
   chassisSize: [2, 0.6, 4],
-  maxEngineForce: 400, // Reduced from 800 because now 4 wheels are powered (AWD)
-  maxBrakeForce: 60,
-  handbrakeForce: 100,
-  maxSteeringAngle: Math.PI / 6, // 30 degrees
-  steeringSpeed: 5,
-  maxSpeed: 240,
-  downforceFactor: 50, // Applied per m/s of speed
+  engine: {
+    maxForce: 400, // Reduced from 800 because now 4 wheels are powered (AWD)
+    maxSpeed: 240,
+  },
+  brakes: {
+    maxForce: 60,
+    handbrakeForce: 100,
+    frontBias: 0.7, // Add frontBias for brakes (prevent rear from lifting)
+  },
+  handling: {
+    maxSteeringAngle: Math.PI / 6, // 30 degrees
+    steeringSpeed: 5,
+  },
+  aerodynamics: {
+    downforceFactor: 50, // Applied per m/s of speed
+  },
   wheels: [
     {
       // Front-left

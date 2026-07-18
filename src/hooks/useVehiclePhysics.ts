@@ -32,6 +32,180 @@ const _velocity = new Vector3();
 const _quat = new Quaternion();
 const _euler = new Euler();
 
+// ─── Physics Helper Functions ────────────────────────────────────────
+
+function applyDrivetrain(
+  controller: any,
+  config: VehicleConfig,
+  input: any,
+  forwardSpeed: number,
+  currentGear: number
+) {
+  const gearRatio = currentGear > 0 ? GEAR_RATIOS[currentGear] : 1;
+
+  for (let i = 0; i < config.wheels.length; i++) {
+    const wheel = config.wheels[i];
+    if (wheel.powered) {
+      let engineForce = 0;
+      if (input.throttle > 0) {
+        engineForce = config.engine.maxForce * input.throttle * gearRatio;
+      } else if (input.brake > 0 && forwardSpeed > BRAKE_SPEED_THRESHOLD) {
+        // Braking when moving forward
+        engineForce = 0;
+      } else if (input.brake > 0) {
+        // Reverse
+        engineForce = -config.engine.maxForce * input.brake * REVERSE_FORCE_MULTIPLIER;
+      }
+      controller.setWheelEngineForce(i, engineForce);
+    } else {
+      controller.setWheelEngineForce(i, 0);
+    }
+  }
+}
+
+function applyTireFrictionAndBrakes(
+  controller: any,
+  config: VehicleConfig,
+  input: any,
+  forwardSpeed: number,
+  posY: number
+) {
+  for (let i = 0; i < config.wheels.length; i++) {
+    const wheel = config.wheels[i];
+
+    // Braking
+    let brakeForce = 0;
+    if (input.brake > 0 && forwardSpeed > BRAKE_SPEED_THRESHOLD) {
+      // Brake Bias
+      const frontBias = config.brakes.frontBias;
+      const rearBias = 1.0 - frontBias;
+      // Multiplier ensures the total braking power remains consistent
+      const brakeMultiplier = wheel.steerable ? (frontBias * 2) : (rearBias * 2);
+      brakeForce = config.brakes.maxForce * input.brake * brakeMultiplier;
+    }
+
+    // Base friction — terrain surface detection
+    let baseSlip = wheel.steerable ? FRICTION_FRONT_NORMAL : FRICTION_REAR_NORMAL;
+    if (posY < SAND_ELEVATION_THRESHOLD) {
+      baseSlip = wheel.steerable ? FRICTION_FRONT_SAND : FRICTION_REAR_SAND;
+    }
+
+    // Handbrake — rear wheels only
+    if (input.handbrake && !wheel.steerable) {
+      brakeForce = config.brakes.handbrakeForce;
+      // Reduce rear friction for drift
+      controller.setWheelFrictionSlip(i, FRICTION_HANDBRAKE);
+    } else {
+      controller.setWheelFrictionSlip(i, baseSlip);
+    }
+    controller.setWheelBrake(i, brakeForce);
+
+    // Steering
+    if (wheel.steerable) {
+      const steerAngle = input.steering * config.handling.maxSteeringAngle;
+      controller.setWheelSteering(i, steerAngle);
+    }
+  }
+}
+
+function applyAerodynamics(
+  body: RapierRigidBody,
+  config: VehicleConfig,
+  forwardSpeed: number,
+  velocity: Vector3,
+  posY: number,
+  dt: number
+) {
+  // Apply aerodynamic downforce to keep the car grounded
+  const downforce = Math.abs(forwardSpeed) * config.aerodynamics.downforceFactor * dt;
+  body.applyImpulse({ x: 0, y: -downforce, z: 0 }, true);
+
+  // Apply water drag if partially submerged
+  const WATER_SURFACE_CHASSIS_Y = -7.15; // Chassis Y when wheels just touch water
+  if (posY < WATER_SURFACE_CHASSIS_Y) {
+    const depth = Math.max(0, WATER_SURFACE_CHASSIS_Y - posY);
+    // Increased drag based on depth
+    const dragFactor = depth * 80 * dt;
+    body.applyImpulse({ 
+      x: -velocity.x * dragFactor, 
+      y: 0, 
+      z: -velocity.z * dragFactor 
+    }, true);
+  }
+}
+
+function syncWheelVisuals(
+  controller: any,
+  wheelRefs: React.RefObject<(Object3D | null)[]>,
+  config: VehicleConfig,
+  forwardSpeed: number,
+  dt: number
+) {
+  const wheels = wheelRefs.current;
+  if (!wheels) return;
+
+  for (let i = 0; i < config.wheels.length; i++) {
+    const wheelObj = wheels[i];
+    if (!wheelObj) continue;
+
+    const connection = controller.wheelChassisConnectionPointCs(i);
+    const suspension = controller.wheelSuspensionLength(i);
+    const steer = controller.wheelSteering(i);
+    const wheelConfig = config.wheels[i];
+
+    if (connection != null && suspension != null) {
+      // Position: connection point - suspension compression
+      wheelObj.position.set(
+        connection.x,
+        connection.y - suspension,
+        connection.z,
+      );
+
+      // Steering rotation (Y axis)
+      if (steer != null) {
+        wheelObj.rotation.y = steer;
+      }
+
+      // Spin rotation (X axis) based on speed
+      const spinSpeed = (forwardSpeed / wheelConfig.radius) * dt;
+      wheelObj.children[0]?.rotateX(spinSpeed);
+    }
+  }
+}
+
+function calculateRPM(
+  speedKmh: number,
+  currentGear: number,
+  input: any
+): number {
+  let targetRpm = 1000;
+  if (currentGear === -1) {
+    // Realistic RPM for reverse gear
+    targetRpm = 1000 + (Math.min(speedKmh, 40) / 40) * 4000;
+    
+    // Rev blip when starting in reverse
+    if (input.brake > 0 && speedKmh < 10) {
+      targetRpm += input.brake * 1500 * (1 - speedKmh / 10);
+    }
+  } else if (currentGear > 0) {
+    const minSpeed = currentGear === 1 ? 0 : SHIFT_UP_SPEEDS[currentGear - 1];
+    const maxSpeed = SHIFT_UP_SPEEDS[currentGear] === 999 ? 240 : SHIFT_UP_SPEEDS[currentGear];
+    const speedInRange = Math.max(0, speedKmh - minSpeed);
+    const range = Math.max(1, maxSpeed - minSpeed);
+    targetRpm = 1000 + (speedInRange / range) * 7000;
+    
+    // Rev blip when starting or holding throttle at low speeds
+    if (input.throttle > 0 && speedKmh < 10) {
+      targetRpm += input.throttle * 1500 * (1 - speedKmh / 10);
+    }
+  }
+  
+  // Add small random fluctuation to RPM for realism
+  targetRpm += (Math.random() - 0.5) * 50;
+  
+  // Clamp RPM
+  return Math.min(8000, Math.max(800, targetRpm));
+}
 
 /**
  * Vehicle physics hook using Rapier's DynamicRayCastVehicleController.
@@ -138,145 +312,26 @@ export function useVehiclePhysics(
       }
     }
 
-    const gearRatio = currentGear > 0 ? GEAR_RATIOS[currentGear] : 1;
+    // --- 1. APPLY DRIVETRAIN (Engine, Reverse) ---
+    applyDrivetrain(controller, config, input, forwardSpeed, currentGear);
 
-    // Apply engine force to powered wheels
-    for (let i = 0; i < config.wheels.length; i++) {
-      const wheel = config.wheels[i];
+    // --- 2. APPLY TIRE FRICTION & BRAKES ---
+    applyTireFrictionAndBrakes(controller, config, input, forwardSpeed, pos.y);
 
-      if (wheel.powered) {
-        let engineForce = 0;
-        if (input.throttle > 0) {
-          engineForce = config.maxEngineForce * input.throttle * gearRatio;
-        } else if (input.brake > 0 && forwardSpeed > BRAKE_SPEED_THRESHOLD) {
-          // Braking when moving forward
-          engineForce = 0;
-        } else if (input.brake > 0) {
-          // Reverse
-          engineForce = -config.maxEngineForce * input.brake * REVERSE_FORCE_MULTIPLIER;
-        }
-        controller.setWheelEngineForce(i, engineForce);
-      } else {
-        controller.setWheelEngineForce(i, 0);
-      }
-
-      // Braking
-      let brakeForce = 0;
-      if (input.brake > 0 && forwardSpeed > BRAKE_SPEED_THRESHOLD) {
-        // Przesunięcie balansu hamulców (Brake Bias) na tył zapobiega podnoszeniu się tyłu pojazdu.
-        // Ograniczamy hamowanie przednich kół, aby samochód nie nurkował i nie "przewracał się" przez przód.
-        const brakeMultiplier = wheel.steerable ? 0.3 : 1.7;
-        brakeForce = config.maxBrakeForce * input.brake * brakeMultiplier;
-      }
-
-      // Base friction — terrain surface detection
-      let baseSlip = wheel.steerable ? FRICTION_FRONT_NORMAL : FRICTION_REAR_NORMAL;
-      if (pos.y < SAND_ELEVATION_THRESHOLD) {
-        baseSlip = wheel.steerable ? FRICTION_FRONT_SAND : FRICTION_REAR_SAND;
-      }
-
-      // Handbrake — rear wheels only
-      if (input.handbrake && !wheel.steerable) {
-        brakeForce = config.handbrakeForce;
-        // Reduce rear friction for drift
-        controller.setWheelFrictionSlip(i, FRICTION_HANDBRAKE);
-      } else {
-        controller.setWheelFrictionSlip(i, baseSlip);
-      }
-      controller.setWheelBrake(i, brakeForce);
-
-      // Steering
-      if (wheel.steerable) {
-        const steerAngle = input.steering * config.maxSteeringAngle;
-        controller.setWheelSteering(i, steerAngle);
-      }
-    }
-
-    // Update the vehicle controller
+    // --- 3. UPDATE RAPIER VEHICLE ---
     controller.updateVehicle(dt);
 
-    // Apply aerodynamic downforce to keep the car grounded
-    const downforce = Math.abs(forwardSpeed) * config.downforceFactor * dt;
-    body.applyImpulse({ x: 0, y: -downforce, z: 0 }, true);
+    // --- 4. APPLY AERODYNAMICS & EXTERNAL FORCES ---
+    applyAerodynamics(body, config, forwardSpeed, _velocity, pos.y, dt);
 
-    // Apply water drag if partially submerged
-    const WATER_SURFACE_CHASSIS_Y = -7.15; // Chassis Y when wheels just touch water
-    if (pos.y < WATER_SURFACE_CHASSIS_Y) {
-      const depth = Math.max(0, WATER_SURFACE_CHASSIS_Y - pos.y);
-      // Increased drag based on depth
-      const dragFactor = depth * 80 * dt;
-      body.applyImpulse({ 
-        x: -_velocity.x * dragFactor, 
-        y: 0, 
-        z: -_velocity.z * dragFactor 
-      }, true);
-    }
+    // --- 5. SYNC VISUALS ---
+    syncWheelVisuals(controller, wheelRefs, config, forwardSpeed, dt);
 
-    // Sync visual wheels with physics
-    const wheels = wheelRefs.current;
-    if (wheels) {
-      for (let i = 0; i < config.wheels.length; i++) {
-        const wheelObj = wheels[i];
-        if (!wheelObj) continue;
-
-        const connection = controller.wheelChassisConnectionPointCs(i);
-        const suspension = controller.wheelSuspensionLength(i);
-        const steer = controller.wheelSteering(i);
-        const wheelConfig = config.wheels[i];
-
-        if (connection != null && suspension != null) {
-          // Position: connection point - suspension compression
-          wheelObj.position.set(
-            connection.x,
-            connection.y - suspension,
-            connection.z,
-          );
-
-          // Steering rotation (Y axis)
-          if (steer != null) {
-            wheelObj.rotation.y = steer;
-          }
-
-          // Spin rotation (X axis) based on speed
-          const spinSpeed = (forwardSpeed / wheelConfig.radius) * dt;
-          wheelObj.children[0]?.rotateX(spinSpeed);
-        }
-      }
-    }
-
-    // Calculate RPM
-    let targetRpm = 1000;
-    if (currentGear === -1) {
-      // Bardziej realistyczne obroty dla biegu wstecznego (max ~5000 RPM)
-      targetRpm = 1000 + (Math.min(speedKmh, 40) / 40) * 4000;
-      
-      // Podbicie obrotów przy ruszaniu na wstecznym
-      if (input.brake > 0 && speedKmh < 10) {
-        targetRpm += input.brake * 1500 * (1 - speedKmh / 10);
-      }
-    } else if (currentGear > 0) {
-      const minSpeed = currentGear === 1 ? 0 : SHIFT_UP_SPEEDS[currentGear - 1];
-      const maxSpeed = SHIFT_UP_SPEEDS[currentGear] === 999 ? 240 : SHIFT_UP_SPEEDS[currentGear];
-      const speedInRange = Math.max(0, speedKmh - minSpeed);
-      const range = Math.max(1, maxSpeed - minSpeed);
-      targetRpm = 1000 + (speedInRange / range) * 7000;
-      
-      // Rev blip when starting or holding throttle at low speeds
-      if (input.throttle > 0 && speedKmh < 10) {
-        targetRpm += input.throttle * 1500 * (1 - speedKmh / 10);
-      }
-    }
-    
-    // Add small random fluctuation to RPM for realism
-    targetRpm += (Math.random() - 0.5) * 50;
-    
-    // Clamp RPM
-    targetRpm = Math.min(8000, Math.max(800, targetRpm));
-
-    // Heading from quaternion
+    // --- 6. UPDATE TELEMETRY & HUD ---
+    const targetRpm = calculateRPM(speedKmh, currentGear, input);
     _euler.setFromQuaternion(_quat, 'YXZ');
 
-    // Batch all state updates into one call to avoid multiple re-renders/subscribers execution
+    // Batch all state updates into one call
     useGameStore.setState({
       speed: Math.round(speedKmh),
       rpm: Math.round(targetRpm),
@@ -285,8 +340,7 @@ export function useVehiclePhysics(
       position: [pos.x, pos.y, pos.z],
     });
 
-
-    // Reset vehicle if it falls below the terrain (into the ocean) or if user presses R
+    // --- 7. CHECK RESET STATE ---
     const resetState = useGameStore.getState();
     if (pos.y < FALL_RESET_Y || input.reset || resetState.pendingReset) {
       body.setTranslation({ x: RESET_SPAWN_POSITION[0], y: RESET_SPAWN_POSITION[1], z: RESET_SPAWN_POSITION[2] }, true);
