@@ -1,6 +1,12 @@
+import { CatmullRomCurve3, Vector3 } from 'three';
 import { createNoise2D } from 'simplex-noise';
 import type { HeightmapData, TerrainConfig } from '@/types/terrain';
-
+import {
+  TRACK_POINTS,
+  TRACK_WIDTH,
+  TRACK_FALLOFF,
+  TRACK_TARGET_HEIGHT,
+} from '@/config/track';
 /**
  * Seed-based PRNG (mulberry32) for deterministic noise.
  * @param seed - Integer seed value
@@ -45,6 +51,16 @@ export function generateHeightmap(config: TerrainConfig): HeightmapData {
   let minHeight = Infinity;
   let maxHeight = -Infinity;
 
+  // --- Track Spline Precalculation ---
+  const trackCurve = new CatmullRomCurve3(
+    TRACK_POINTS.map((p) => new Vector3(p.x, 0, p.z)),
+    true, // closed curve
+    'catmullrom',
+    0.5,
+  );
+  // Sample the curve into discrete segments for fast distance checking
+  const trackSamples = trackCurve.getSpacedPoints(400);
+
   for (let z = 0; z < size; z++) {
     for (let x = 0; x < size; x++) {
       // Normalize coordinates to [0, 1] range, then scale by frequency
@@ -81,54 +97,54 @@ export function generateHeightmap(config: TerrainConfig): HeightmapData {
         value *= 1 - flattenFactor;
       }
 
-      // Track generation
-      const trackNoiseFreq = 3.0;
-      const angle = Math.atan2(cz, cx);
-      const trackNx = Math.cos(angle) * trackNoiseFreq;
-      const trackNz = Math.sin(angle) * trackNoiseFreq;
-      const trackWiggle = noise2D(trackNx, trackNz);
-      
-      const trackBaseRadius = 220;
-      const trackVariance = 80;
-      const trackRadius = trackBaseRadius + trackWiggle * trackVariance;
-      let trackWidth = 22; // Szeroka droga, by pomieścić pojazd bez kolizji z uskokami
-
-      // Rozszerzenie drogi w okolicach koordynatów X: -180, Z: -109.5
+      // Track generation via Spline
       const worldX = cx * config.width;
       const worldZ = cz * config.depth;
-      const widenTargetX = -180;
-      const widenTargetZ = -109.5;
-      const distToWidenTarget = Math.sqrt((worldX - widenTargetX) ** 2 + (worldZ - widenTargetZ) ** 2);
       
-      const widenRadius = 80; // Promień w jakim działa rozszerzenie
-      if (distToWidenTarget < widenRadius) {
-        const t = 1.0 - (distToWidenTarget / widenRadius);
-        const smoothT = t * t * (3 - 2 * t);
-        const addedWidth = 40; // Maksymalne dodatkowe poszerzenie
-        trackWidth += smoothT * addedWidth;
+      let minDistanceSq = Infinity;
+      
+      for (let i = 0; i < trackSamples.length - 1; i++) {
+        const v = trackSamples[i];
+        const w = trackSamples[i + 1];
+        
+        // Distance from (worldX, worldZ) to line segment (v, w)
+        const l2 = (w.x - v.x) ** 2 + (w.z - v.z) ** 2;
+        let distSq: number;
+        
+        if (l2 === 0) {
+          distSq = (worldX - v.x) ** 2 + (worldZ - v.z) ** 2;
+        } else {
+          let t = ((worldX - v.x) * (w.x - v.x) + (worldZ - v.z) * (w.z - v.z)) / l2;
+          t = Math.max(0, Math.min(1, t));
+          const projX = v.x + t * (w.x - v.x);
+          const projZ = v.z + t * (w.z - v.z);
+          distSq = (worldX - projX) ** 2 + (worldZ - projZ) ** 2;
+        }
+        
+        if (distSq < minDistanceSq) {
+          minDistanceSq = distSq;
+        }
       }
-
-      const trackFalloff = 40; // gładki spadek zanikania śladu
+      
+      const distToTrack = Math.sqrt(minDistanceSq);
       
       let trackMask = 0;
-      const distToTrack = Math.abs(distFromCenter - trackRadius);
       
-      if (distToTrack < trackWidth) {
+      if (distToTrack < TRACK_WIDTH) {
         trackMask = 1.0;
-      } else if (distToTrack < trackWidth + trackFalloff) {
+      } else if (distToTrack < TRACK_WIDTH + TRACK_FALLOFF) {
         // Smoothstep interpolation for muddy track falloff
-        const t = 1.0 - (distToTrack - trackWidth) / trackFalloff;
+        const t = 1.0 - (distToTrack - TRACK_WIDTH) / TRACK_FALLOFF;
         trackMask = t * t * (3 - 2 * t);
       }
 
-      if (distFromCenter > 40 && trackMask > 0) {
-        const trackTargetHeight = -0.5; // płyciutkie, by siatka nie dostała cieni
-        const carveStrength = trackMask * 0.9; // 90% siły, tworzy gładki i stabilny teren do jazdy (brak bocznych pochyłości na klifach)
-        value = value * (1 - carveStrength) + trackTargetHeight * carveStrength;
+      if (trackMask > 0) {
+        const carveStrength = trackMask * 0.9; // 90% siły, tworzy gładki i stabilny teren do jazdy
+        value = value * (1 - carveStrength) + TRACK_TARGET_HEIGHT * carveStrength;
       }
 
       if (distFromCenter <= 40) {
-        trackMask = 0; // ensure spawn is clean
+        trackMask = 0; // ensure spawn is clean (no mud texture)
       }
 
       // --- Huge Mountain Challenge ---
