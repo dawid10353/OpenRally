@@ -15,21 +15,17 @@ export const GEAR_RATIOS = [0, 2.5, 1.8, 1.3, 1.0, 0.8]; // Index is gear (0=N/R
 export const SHIFT_UP_SPEEDS = [0, 40, 80, 130, 180, 999]; // Shift to next gear when exceeding these speeds (km/h)
 export const SHIFT_DOWN_SPEEDS = [0, 0, 30, 70, 120, 170]; // Shift to previous gear when falling below these speeds (km/h)
 
-// ─── Friction ────────────────────────────────────────────────────────
-/** Base friction slip for steerable (front) wheels on normal terrain */
-export const FRICTION_FRONT_NORMAL = 3.0;
-
-/** Base friction slip for powered (rear) wheels on normal terrain */
-export const FRICTION_REAR_NORMAL = 3.5;
-
-/** Friction slip for steerable wheels on sand/low terrain */
-export const FRICTION_FRONT_SAND = 1.5;
-
-/** Friction slip for powered wheels on sand/low terrain */
-export const FRICTION_REAR_SAND = 2.0;
-
-/** Friction slip applied to rear wheels during handbrake (drift mode) */
-export const FRICTION_HANDBRAKE = 0.5;
+// ─── Friction & Tire Models ──────────────────────────────────────────
+export const TIRE_MODELS: Record<'tarmac' | 'sand', import('@/types/vehicle').TireConfig> = {
+  tarmac: {
+    frontGrip: 3.0,
+    rearGrip: 3.5,
+  },
+  sand: {
+    frontGrip: 1.5,
+    rearGrip: 2.0,
+  },
+};
 
 /** Terrain elevation threshold below which sand friction is applied */
 export const SAND_ELEVATION_THRESHOLD = 0;
@@ -63,8 +59,17 @@ export const DEFAULT_VEHICLE_CONFIG: VehicleConfig = {
     frontBias: 0.7, // Add frontBias for brakes (prevent rear from lifting)
   },
   handling: {
-    maxSteeringAngle: Math.PI / 6, // 30 degrees
+    steeringCurve: [
+      [0, Math.PI / 4],      // 45 degrees at 0 km/h
+      [50, Math.PI / 6],     // 30 degrees at 50 km/h
+      [120, Math.PI / 12],   // 15 degrees at 120 km/h
+      [200, Math.PI / 24],   // 7.5 degrees at 200 km/h
+    ],
     steeringSpeed: 5,
+    assists: {
+      yawDamping: 0.1,
+      driftGripMultiplier: 0.15, // 0.15 * 3.5 = ~0.52 (similar to old 0.5)
+    },
   },
   aerodynamics: {
     downforceFactor: 50, // Applied per m/s of speed

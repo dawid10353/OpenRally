@@ -45,13 +45,33 @@ export interface BrakesConfig {
 }
 
 /**
+ * Configuration for tire grip on different surfaces.
+ */
+export interface TireConfig {
+  /** Base grip level for the front wheels */
+  readonly frontGrip: number;
+  /** Base grip level for the rear wheels */
+  readonly rearGrip: number;
+}
+
+/**
  * Handling and steering configuration
  */
 export interface HandlingConfig {
-  /** Maximum steering angle in radians */
-  readonly maxSteeringAngle: number;
+  /** 
+   * Steering curve mapping speed (km/h) to max steering angle (radians).
+   * Example: [[0, Math.PI / 4], [100, Math.PI / 8]]
+   */
+  readonly steeringCurve: readonly [number, number][];
   /** Steering speed (how fast the wheel turns) */
   readonly steeringSpeed: number;
+  /** Arcade assists configuration */
+  readonly assists: {
+    /** How much the game helps to keep the car straight when sliding */
+    readonly yawDamping: number;
+    /** Grip multiplier applied to rear wheels during handbrake */
+    readonly driftGripMultiplier: number;
+  };
 }
 
 /**

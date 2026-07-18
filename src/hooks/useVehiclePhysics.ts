@@ -11,23 +11,19 @@ import {
   MS_TO_KMH,
   BRAKE_SPEED_THRESHOLD,
   REVERSE_FORCE_MULTIPLIER,
-  FRICTION_FRONT_NORMAL,
-  FRICTION_REAR_NORMAL,
-  FRICTION_FRONT_SAND,
-  FRICTION_REAR_SAND,
-  FRICTION_HANDBRAKE,
+  TIRE_MODELS,
   SAND_ELEVATION_THRESHOLD,
   FALL_RESET_Y,
   RESET_SPAWN_POSITION,
   RESET_SPAWN_ROTATION_Y,
   MAX_DELTA,
   GEAR_RATIOS,
-  SHIFT_UP_SPEEDS,
-  SHIFT_DOWN_SPEEDS,
 } from '@/config/vehicle';
+import { updateGearbox, calculateRPM } from '@/utils/physics/powertrain';
 
 // ─── Reusable Three.js objects (avoids per-frame GC pressure) ────────
 const _forward = new Vector3();
+const _right = new Vector3();
 const _velocity = new Vector3();
 const _quat = new Quaternion();
 const _euler = new Euler();
@@ -63,13 +59,31 @@ function applyDrivetrain(
   }
 }
 
+function getInterpolatedSteeringAngle(speedKmh: number, curve: readonly [number, number][]): number {
+  if (!curve || curve.length === 0) return 0;
+  if (speedKmh <= curve[0][0]) return curve[0][1];
+  if (speedKmh >= curve[curve.length - 1][0]) return curve[curve.length - 1][1];
+
+  for (let i = 0; i < curve.length - 1; i++) {
+    if (speedKmh >= curve[i][0] && speedKmh <= curve[i + 1][0]) {
+      const t = (speedKmh - curve[i][0]) / (curve[i + 1][0] - curve[i][0]);
+      return curve[i][1] + t * (curve[i + 1][1] - curve[i][1]);
+    }
+  }
+  return curve[0][1];
+}
+
 function applyTireFrictionAndBrakes(
   controller: any,
   config: VehicleConfig,
   input: any,
+  speedKmh: number,
   forwardSpeed: number,
   posY: number
 ) {
+  const isSand = posY < SAND_ELEVATION_THRESHOLD;
+  const tireModel = isSand ? TIRE_MODELS.sand : TIRE_MODELS.tarmac;
+
   for (let i = 0; i < config.wheels.length; i++) {
     const wheel = config.wheels[i];
 
@@ -84,27 +98,34 @@ function applyTireFrictionAndBrakes(
       brakeForce = config.brakes.maxForce * input.brake * brakeMultiplier;
     }
 
-    // Base friction — terrain surface detection
-    let baseSlip = wheel.steerable ? FRICTION_FRONT_NORMAL : FRICTION_REAR_NORMAL;
-    if (posY < SAND_ELEVATION_THRESHOLD) {
-      baseSlip = wheel.steerable ? FRICTION_FRONT_SAND : FRICTION_REAR_SAND;
-    }
+    // Base friction
+    let currentFriction = wheel.steerable ? tireModel.frontGrip : tireModel.rearGrip;
 
-    // Handbrake — rear wheels only
+    // Handbrake — drift assist grip multiplier
     if (input.handbrake && !wheel.steerable) {
       brakeForce = config.brakes.handbrakeForce;
-      // Reduce rear friction for drift
-      controller.setWheelFrictionSlip(i, FRICTION_HANDBRAKE);
-    } else {
-      controller.setWheelFrictionSlip(i, baseSlip);
+      currentFriction *= config.handling.assists.driftGripMultiplier;
     }
+
+    controller.setWheelFrictionSlip(i, currentFriction);
     controller.setWheelBrake(i, brakeForce);
 
     // Steering
     if (wheel.steerable) {
-      const steerAngle = input.steering * config.handling.maxSteeringAngle;
+      const maxSteerAngle = getInterpolatedSteeringAngle(speedKmh, config.handling.steeringCurve);
+      const steerAngle = input.steering * maxSteerAngle;
       controller.setWheelSteering(i, steerAngle);
     }
+  }
+}
+
+function applyAssists(body: RapierRigidBody, config: VehicleConfig, slipAngle: number, lateralSpeed: number, dt: number) {
+  // Simple yaw damping assist:
+  // If the car is sliding (high slip angle/lateral speed), apply a slight counter-torque
+  // to prevent it from spinning out instantly, simulating a more arcade feel.
+  if (Math.abs(lateralSpeed) > 2) {
+    const damping = -slipAngle * config.handling.assists.yawDamping * dt * 50;
+    body.applyTorqueImpulse({ x: 0, y: damping, z: 0 }, true);
   }
 }
 
@@ -173,40 +194,6 @@ function syncWheelVisuals(
   }
 }
 
-function calculateRPM(
-  speedKmh: number,
-  currentGear: number,
-  input: any
-): number {
-  let targetRpm = 1000;
-  if (currentGear === -1) {
-    // Realistic RPM for reverse gear
-    targetRpm = 1000 + (Math.min(speedKmh, 40) / 40) * 4000;
-    
-    // Rev blip when starting in reverse
-    if (input.brake > 0 && speedKmh < 10) {
-      targetRpm += input.brake * 1500 * (1 - speedKmh / 10);
-    }
-  } else if (currentGear > 0) {
-    const minSpeed = currentGear === 1 ? 0 : SHIFT_UP_SPEEDS[currentGear - 1];
-    const maxSpeed = SHIFT_UP_SPEEDS[currentGear] === 999 ? 240 : SHIFT_UP_SPEEDS[currentGear];
-    const speedInRange = Math.max(0, speedKmh - minSpeed);
-    const range = Math.max(1, maxSpeed - minSpeed);
-    targetRpm = 1000 + (speedInRange / range) * 7000;
-    
-    // Rev blip when starting or holding throttle at low speeds
-    if (input.throttle > 0 && speedKmh < 10) {
-      targetRpm += input.throttle * 1500 * (1 - speedKmh / 10);
-    }
-  }
-  
-  // Add small random fluctuation to RPM for realism
-  targetRpm += (Math.random() - 0.5) * 50;
-  
-  // Clamp RPM
-  return Math.min(8000, Math.max(800, targetRpm));
-}
-
 /**
  * Vehicle physics hook using Rapier's DynamicRayCastVehicleController.
  * Handles engine force, steering, braking, and handbrake.
@@ -256,8 +243,6 @@ export function useVehiclePhysics(
       controller.setWheelMaxSuspensionTravel(i, wheel.suspensionTravel);
       controller.setWheelSuspensionCompression(i, wheel.suspensionDamping * 0.8);
       controller.setWheelSuspensionRelaxation(i, wheel.suspensionDamping);
-      // Friction slip
-      controller.setWheelFrictionSlip(i, wheel.steerable ? FRICTION_FRONT_NORMAL : FRICTION_REAR_NORMAL);
     }
 
     vehicleControllerRef.current = controller;
@@ -283,64 +268,62 @@ export function useVehiclePhysics(
     const pos = body.translation();
 
     _forward.set(0, 0, 1);
+    _right.set(-1, 0, 0); // Local right vector (assuming vehicle faces +Z and +X is left, so -X is right. Check this! 
+    // In ThreeJS default, if forward is +Z, left is +X, right is -X. 
     const bodyQuat = body.rotation();
     _quat.set(bodyQuat.x, bodyQuat.y, bodyQuat.z, bodyQuat.w);
     _forward.applyQuaternion(_quat);
+    _right.applyQuaternion(_quat);
 
     _velocity.set(linvel.x, linvel.y, linvel.z);
     const forwardSpeed = _velocity.dot(_forward); // m/s along forward axis
+    const lateralSpeed = _velocity.dot(_right);   // m/s along lateral axis
     const speedKmh = Math.abs(forwardSpeed) * MS_TO_KMH;
+    
+    // Slip angle calculation
+    let slipAngle = 0;
+    if (Math.abs(forwardSpeed) > 1.0) {
+      slipAngle = Math.atan2(lateralSpeed, forwardSpeed);
+    }
 
     // Automatic Gearbox Logic
     const state = useGameStore.getState();
-    let currentGear = state.gear;
-
-    if (input.brake > 0 && forwardSpeed < BRAKE_SPEED_THRESHOLD) {
-      currentGear = -1; // Reverse
-    } else if (speedKmh < 1 && input.throttle === 0 && input.brake === 0) {
-      currentGear = 1; // Idle in 1st gear
-    } else {
-      if (currentGear < 1) currentGear = 1; // Ensure forward gear
-
-      // Shift up
-      if (currentGear < 5 && speedKmh > SHIFT_UP_SPEEDS[currentGear]) {
-        currentGear++;
-      } 
-      // Shift down
-      else if (currentGear > 1 && speedKmh < SHIFT_DOWN_SPEEDS[currentGear]) {
-        currentGear--;
-      }
-    }
+    const currentGear = updateGearbox(speedKmh, forwardSpeed, input, state.gear);
 
     // --- 1. APPLY DRIVETRAIN (Engine, Reverse) ---
     applyDrivetrain(controller, config, input, forwardSpeed, currentGear);
 
     // --- 2. APPLY TIRE FRICTION & BRAKES ---
-    applyTireFrictionAndBrakes(controller, config, input, forwardSpeed, pos.y);
+    applyTireFrictionAndBrakes(controller, config, input, speedKmh, forwardSpeed, pos.y);
 
-    // --- 3. UPDATE RAPIER VEHICLE ---
+    // --- 3. APPLY ARCADE ASSISTS ---
+    applyAssists(body, config, slipAngle, lateralSpeed, dt);
+
+    // --- 4. UPDATE RAPIER VEHICLE ---
     controller.updateVehicle(dt);
 
-    // --- 4. APPLY AERODYNAMICS & EXTERNAL FORCES ---
+    // --- 5. APPLY AERODYNAMICS & EXTERNAL FORCES ---
     applyAerodynamics(body, config, forwardSpeed, _velocity, pos.y, dt);
 
-    // --- 5. SYNC VISUALS ---
+    // --- 6. SYNC VISUALS ---
     syncWheelVisuals(controller, wheelRefs, config, forwardSpeed, dt);
 
-    // --- 6. UPDATE TELEMETRY & HUD ---
+    // --- 7. UPDATE TELEMETRY & HUD ---
     const targetRpm = calculateRPM(speedKmh, currentGear, input);
     _euler.setFromQuaternion(_quat, 'YXZ');
 
     // Batch all state updates into one call
     useGameStore.setState({
       speed: Math.round(speedKmh),
+      lateralSpeed,
+      slipAngle,
       rpm: Math.round(targetRpm),
       gear: currentGear,
       heading: _euler.y,
       position: [pos.x, pos.y, pos.z],
     });
 
-    // --- 7. CHECK RESET STATE ---
+    // --- 8. CHECK RESET STATE ---
     const resetState = useGameStore.getState();
     if (pos.y < FALL_RESET_Y || input.reset || resetState.pendingReset) {
       body.setTranslation({ x: RESET_SPAWN_POSITION[0], y: RESET_SPAWN_POSITION[1], z: RESET_SPAWN_POSITION[2] }, true);
