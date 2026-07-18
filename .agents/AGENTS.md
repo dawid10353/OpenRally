@@ -1,139 +1,139 @@
-# 3D Car Simulator — Dokumentacja Wewnętrzna dla AI
+# 3D Car Simulator — Internal Documentation for AI
 
-## Status Projektu
-- **Etap**: 2/3 (Polerowanie / Rozbudowa) — silnik fizyki, teren i efekty są już w dużej mierze zaimplementowane.
-- **Co zrobiono**: Fundamenty, fizyka pojazdu (Rapier), kamery, ślady opon, cząsteczki kurzu, dźwięk silnika, konfiguracje (`src/config`), poprawki błędów TypeScript.
-- **Środowisko**: Projekt jest uruchamiany w WSL (Linux) z wykorzystaniem Google Antigravity. Używaj wyłącznie standardowych komend Linux (np. `npm install`, `npm run dev`, `npx`). Nie używaj już obejść dla Windowsa (takich jak `cmd.exe /c`), ponieważ terminal działa w środowisku linuksowym.
-  - **Testowanie gry**: Serwer deweloperski (`npm run dev`) działa w WSL, a browser_agent wyświetla grę w przeglądarce na Windowsie. Port jest mapowany automatycznie na `http://localhost:5173/`.
+## Project Status
+- **Stage**: 2/3 (Polishing / Expansion) — physics engine, terrain, and effects are largely implemented.
+- **Done**: Foundations, vehicle physics (Rapier), cameras, tire tracks, dust particles, engine sound, configurations (`src/config`), TypeScript bug fixes.
+- **Environment**: The project is run in WSL (Linux) using Google Antigravity. Use only standard Linux commands (e.g., `npm install`, `npm run dev`, `npx`). Do not use Windows workarounds anymore (such as `cmd.exe /c`), because the terminal operates in a Linux environment.
+  - **Game Testing**: The development server (`npm run dev`) runs in WSL, and the browser_agent displays the game in a browser on Windows. The port is automatically mapped to `http://localhost:5173/`.
 ---
 
-## Wizja Gry
-Gra 3D w przeglądarce:
-- Jazda samochodem po **nierównym, otwartym terenie** (pagórki, doliny, wzniesienia)
-- Fizyka **arcade-sim** (niski próg wejścia, ale drift i praca zawieszenia dają satysfakcję)
-- Projekt wieloletni, rozwijany **wyłącznie przez AI**
+## Game Vision
+3D browser game:
+- Driving a car over **uneven, open terrain** (hills, valleys, elevations)
+- **Arcade-sim** physics (low entry barrier, but drifting and suspension work provide satisfaction)
+- Multi-year project, developed **exclusively by AI**
 
 ---
 
-## Stos Technologiczny
+## Technology Stack
 
-| Warstwa | Technologia |
+| Layer | Technology |
 |---|---|
-| Język | TypeScript (strict mode) |
+| Language | TypeScript (strict mode) |
 | Bundler | Vite |
-| Framework UI | React 18+ |
-| Grafika 3D | React Three Fiber (R3F) + @react-three/drei |
-| Fizyka | @react-three/rapier (Rapier3D, WASM) |
-| Stan gry | Zustand |
+| UI Framework | React 18+ |
+| 3D Graphics | React Three Fiber (R3F) + @react-three/drei |
+| Physics | @react-three/rapier (Rapier3D, WASM) |
+| Game State | Zustand |
 | Post-processing | @react-three/postprocessing |
-| Format modeli | GLB/GLTF |
-| Linting | Oxlint (NIE ESLint!) + opcjonalnie Prettier |
+| Model Format | GLB/GLTF |
+| Linting | Oxlint (NOT ESLint!) + optional Prettier |
 
-### Zależności do zainstalowania (npm install):
+### Dependencies to install (npm install):
 ```
 @react-three/fiber three @react-three/drei @react-three/rapier @react-three/postprocessing zustand
 ```
 
 ---
 
-## Struktura Katalogów
+## Directory Structure
 
 ```
 src/
 ├── components/
-│   ├── canvas/          # Scena 3D (Canvas, światła, post-processing)
-│   ├── vehicle/         # Samochód: model wizualny, efekty (kurz, ślady)
-│   ├── terrain/         # Generator terenu, heightmapa, tekstury
-│   ├── environment/     # Niebo, pogoda, obiekty dekoracyjne
-│   └── ui/              # HUD, menu, prędkościomierz (React overlay)
+│   ├── canvas/          # 3D Scene (Canvas, lights, post-processing)
+│   ├── vehicle/         # Car: visual model, effects (dust, tracks)
+│   ├── terrain/         # Terrain generator, heightmap, textures
+│   ├── environment/     # Sky, weather, decorative objects
+│   └── ui/              # HUD, menu, speedometer (React overlay)
 ├── hooks/
-│   ├── useVehiclePhysics.ts   # Logika fizyki pojazdu (raycast vehicle)
-│   ├── useInput.ts            # Obsługa klawiatury / gamepada
-│   ├── useChaseCamera.ts      # Kamera podążająca
-│   ├── useBumperCamera.ts     # Kamera zderzaka
-│   └── useEngineSound.ts      # Obsługa dźwięku silnika
+│   ├── useVehiclePhysics.ts   # Vehicle physics logic (raycast vehicle)
+│   ├── useInput.ts            # Keyboard / gamepad handling
+│   ├── useChaseCamera.ts      # Chase camera
+│   ├── useBumperCamera.ts     # Bumper camera
+│   └── useEngineSound.ts      # Engine sound handling
 ├── store/
-│   ├── gameStore.ts           # Stan gry (prędkość, pozycja, tryb)
-│   └── settingsStore.ts       # Ustawienia (grafika, sterowanie)
-├── config/                    # Globalne pliki konfiguracyjne (zmienne, stałe, balanse)
+│   ├── gameStore.ts           # Game state (speed, position, mode)
+│   └── settingsStore.ts       # Settings (graphics, controls)
+├── config/                    # Global configuration files (variables, constants, balances)
 ├── utils/
-│   ├── terrainGenerator.ts    # Perlin noise, heightmapa
-│   └── math.ts                # Funkcje pomocnicze (lerp, clamp)
-├── types/                     # Interfejsy TypeScript
+│   ├── terrainGenerator.ts    # Perlin noise, heightmap
+│   └── math.ts                # Helper functions (lerp, clamp)
+├── types/                     # TypeScript interfaces
 ├── App.tsx
 └── main.tsx
 public/
 └── models/
-    ├── vehicles/              # Modele GLB samochodów (z AI)
-    └── props/                 # Drzewa, kamienie, budynki (z AI)
+    ├── vehicles/              # Car GLB models (from AI)
+    └── props/                 # Trees, rocks, buildings (from AI)
 ```
 
 ---
 
-## Konwencje Kodowania
+## Coding Conventions
 
-1. **Jeden hook = jeden plik** w `src/hooks/`
-2. **Jeden komponent = jeden plik** w odpowiednim podfolderze `src/components/`
-3. **Konfiguracje** wydzielone do plików w `src/config/` (np. balans fizyki, pojazdu)
-4. **Typy globalne** w `src/types/` (np. `vehicle.ts`, `terrain.ts`, `game.ts`)
-5. **Store'y Zustand** w `src/store/` — każdy store w osobnym pliku
-6. **Nazewnictwo**: PascalCase dla komponentów, camelCase dla hooków i utils
-7. **Komentarze JSDoc** przy każdej eksportowanej funkcji/typie
-8. **Brak `any`** — zawsze typuj explicite
+1. **One hook = one file** in `src/hooks/`
+2. **One component = one file** in the appropriate subfolder of `src/components/`
+3. **Configurations** separated into files in `src/config/` (e.g., physics balance, vehicle)
+4. **Global types** in `src/types/` (e.g., `vehicle.ts`, `terrain.ts`, `game.ts`)
+5. **Zustand stores** in `src/store/` — each store in a separate file
+6. **Naming**: PascalCase for components, camelCase for hooks and utils
+7. **JSDoc comments** for every exported function/type
+8. **No `any`** — always type explicitly
 
 ---
 
-## Cechy Gry Zaimplementowane (Etap 1 i część 2)
+## Implemented Game Features (Stage 1 and part of 2)
 
-### Teren (Heightmap)
-- Perlin noise do generacji heightmapy
-- Rapier HeightfieldCollider (fizyczna kolizja z terenem)
+### Terrain (Heightmap)
+- Perlin noise for heightmap generation
+- Rapier HeightfieldCollider (physical collision with the terrain)
 
-### Fizyka Samochodu
-- Rapier Raycast Vehicle — zawieszenie
-- Zoptymalizowany balans hamulców i driftu, ślady opon
+### Car Physics
+- Rapier Raycast Vehicle — suspension
+- Optimized brake and drift balance, tire tracks
 
-### Kamera
+### Camera
 - Chase camera (lerp), Free camera, Bumper camera
 
-### HUD & Wizualia
-- Dynamiczny skybox, cienie real-time, efekty post-processing (Bloom, Vignette)
-- Efekty cząsteczkowe (DustParticles), dźwięk silnika (EngineSound)
+### HUD & Visuals
+- Dynamic skybox, real-time shadows, post-processing effects (Bloom, Vignette)
+- Particle effects (DustParticles), engine sound (EngineSound)
 
 ---
 
-## Generowanie Obiektów 3D przez AI
+## Generating 3D Objects via AI
 
-Narzędzia do generacji modeli 3D:
-- **Meshy AI** (meshy.ai) — text-to-3D, image-to-3D, auto-rigging, PBR, eksport GLB
-- **Tripo AI** (tripo3d.ai) — czysta topologia, hard-surface, eksport GLB
-- **Rodin AI** (hyper3d.ai) — fotorealizm, hero assets, eksport GLB
+Tools for 3D model generation:
+- **Meshy AI** (meshy.ai) — text-to-3D, image-to-3D, auto-rigging, PBR, GLB export
+- **Tripo AI** (tripo3d.ai) — clean topology, hard-surface, GLB export
+- **Rodin AI** (hyper3d.ai) — photorealism, hero assets, GLB export
 
-Pipeline: Prompt → API → .glb → /public/models/ → useGLTF() → gra
+Pipeline: Prompt → API → .glb → /public/models/ → useGLTF() → game
 
-Targetowane poly-count:
-- Pojazdy: 5 000–15 000 trójkątów
-- Obiekty otoczenia: 500–3 000 trójkątów
+Target poly-count:
+- Vehicles: 5,000–15,000 triangles
+- Environment objects: 500–3,000 triangles
 
-Na start: samochód z prostych kształtów Three.js (box/cylinder), podmiana na GLB = 1 linia kodu.
-
----
-
-## Roadmapa
-
-### Etap 1 — Fundament (ZAKOŃCZONY)
-Teren, fizyka, kamera, sterowanie, HUD, oświetlenie
-
-### Etap 2 — Polerowanie (W TRAKCIE)
-Efekty cząsteczkowe, dźwięk, różne podłoża, obiekty na mapie, post-processing
-
-### Etap 3 — Rozbudowa ⬅️ TERAZ (Główny focus)
-Modele AI (GLB), podmiana klockowych modeli na prawdziwe modele 3D pojazdów i otoczenia, poprawki optymalizacyjne, refactoring
-
-### Etap 4+ — Przyszłość
-Multiplayer, edytor map, pogoda, automatyzacja generacji assetów
+Initially: car from simple Three.js shapes (box/cylinder), replacing with GLB = 1 line of code.
 
 ---
 
-## ⚠️ Typowe Błędy do Uniknięcia (AI Rules)
-1. **Błąd w `tsconfig.app.json`**: NIGDY nie dodawaj opcji `"ignoreDeprecations": "6.0"` w plikach konfiguracyjnych TypeScript (np. `tsconfig.app.json`). Projekt domyślnie w ogóle nie potrzebuje tej flagi. Jej dodanie zawsze psuje konfigurację i rzuca błędem, ze względu na specyfikę aktualnej wersji kompilatora.
+## Roadmap
+
+### Stage 1 — Foundation (COMPLETED)
+Terrain, physics, camera, controls, HUD, lighting
+
+### Stage 2 — Polishing (IN PROGRESS)
+Particle effects, sound, different surfaces, objects on the map, post-processing
+
+### Stage 3 — Expansion ⬅️ NOW (Main focus)
+AI models (GLB), replacing blocky models with real 3D vehicle and environment models, optimization tweaks, refactoring
+
+### Stage 4+ — Future
+Multiplayer, map editor, weather, asset generation automation
+
+---
+
+## ⚠️ Common Mistakes to Avoid (AI Rules)
+1. **Error in `tsconfig.app.json`**: NEVER add the `"ignoreDeprecations": "6.0"` option in TypeScript configuration files (e.g., `tsconfig.app.json`). The project defaults to not needing this flag at all. Adding it always breaks the configuration and throws an error due to the specifics of the current compiler version.
