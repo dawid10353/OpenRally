@@ -1,12 +1,7 @@
 import { CatmullRomCurve3, Vector3 } from 'three';
 import { createNoise2D } from 'simplex-noise';
-import type { HeightmapData, TerrainConfig } from '@/types/terrain';
-import {
-  TRACK_POINTS,
-  TRACK_WIDTH,
-  TRACK_FALLOFF,
-  TRACK_TARGET_HEIGHT,
-} from '@/config/track';
+import type { HeightmapData, TerrainConfig, MountainFeature, LakeFeature, SpawnFlattenFeature } from '@/types/terrain';
+
 /**
  * Seed-based PRNG (mulberry32) for deterministic noise.
  * @param seed - Integer seed value
@@ -23,6 +18,7 @@ function mulberry32(seed: number): () => number {
 
 /**
  * Generate a heightmap using fractal Brownian motion (fBM) with simplex noise.
+ * Features from config.features are applied dynamically.
  *
  * The returned Float32Array has (subdivisions+1)^2 elements in row-major order
  * (iterating Z first, then X), matching Rapier's HeightfieldCollider expectations.
@@ -39,6 +35,8 @@ export function generateHeightmap(config: TerrainConfig): HeightmapData {
     lacunarity,
     persistence,
     seed,
+    features,
+    track
   } = config;
 
   const rng = mulberry32(seed);
@@ -53,7 +51,7 @@ export function generateHeightmap(config: TerrainConfig): HeightmapData {
 
   // --- Track Spline Precalculation ---
   const trackCurve = new CatmullRomCurve3(
-    TRACK_POINTS.map((p) => new Vector3(p.x, 0, p.z)),
+    track.points.map((p) => new Vector3(p.x, 0, p.z)),
     true, // closed curve
     'catmullrom',
     0.5,
@@ -83,31 +81,64 @@ export function generateHeightmap(config: TerrainConfig): HeightmapData {
       // Normalize to [-1, 1] then scale by amplitude
       value = (value / maxAmp) * amplitude;
 
-      // Flatten center area for spawn zone (smooth falloff within radius 30 units)
       const cx = x / subdivisions - 0.5;
       const cz = z / subdivisions - 0.5;
-      const distFromCenter = Math.sqrt(cx * cx + cz * cz) * config.width;
-      const flattenRadius = 30;
-      const flattenFalloff = 20;
-      if (distFromCenter < flattenRadius + flattenFalloff) {
-        const flattenFactor = Math.max(
-          0,
-          1 - Math.max(0, distFromCenter - flattenRadius) / flattenFalloff,
-        );
-        value *= 1 - flattenFactor;
-      }
-
-      // Track generation via Spline
       const worldX = cx * config.width;
       const worldZ = cz * config.depth;
-      
+
+      // --- Apply Features (Data-Driven) ---
+      if (features) {
+        for (const feature of features) {
+          const dist = Math.sqrt((worldX - feature.x) ** 2 + (worldZ - feature.z) ** 2);
+          
+          if (feature.type === 'spawn_flatten') {
+            const spawnFeature = feature as SpawnFlattenFeature;
+            if (dist < spawnFeature.radius + spawnFeature.falloff) {
+              const flattenFactor = Math.max(
+                0,
+                1 - Math.max(0, dist - spawnFeature.radius) / spawnFeature.falloff,
+              );
+              value *= 1 - flattenFactor;
+            }
+          }
+          else if (feature.type === 'mountain') {
+            const mountFeature = feature as MountainFeature;
+            if (dist < mountFeature.radius) {
+              const t = 1.0 - (dist / mountFeature.radius);
+              let mountProfile = Math.pow(t, 1.5); 
+              
+              if (mountFeature.flattenTop) {
+                const flattenThreshold = 0.8;
+                if (mountProfile > flattenThreshold) {
+                  const excess = mountProfile - flattenThreshold;
+                  const maxExcess = 1.0 - flattenThreshold;
+                  const smoothedExcess = excess - (excess * excess) / (2 * maxExcess);
+                  mountProfile = flattenThreshold + smoothedExcess;
+                }
+              }
+              value += mountProfile * mountFeature.height;
+            }
+          }
+          else if (feature.type === 'lake') {
+            const lakeFeature = feature as LakeFeature;
+            if (dist < lakeFeature.radius) {
+              const t = 1.0 - (dist / lakeFeature.radius);
+              // smooth dip
+              const lakeProfile = t * t * (3 - 2 * t);
+              // Carve into the terrain
+              value = value * (1 - lakeProfile) + lakeFeature.depth * lakeProfile;
+            }
+          }
+        }
+      }
+
+      // --- Track generation via Spline ---
       let minDistanceSq = Infinity;
       
       for (let i = 0; i < trackSamples.length - 1; i++) {
         const v = trackSamples[i];
         const w = trackSamples[i + 1];
         
-        // Distance from (worldX, worldZ) to line segment (v, w)
         const l2 = (w.x - v.x) ** 2 + (w.z - v.z) ** 2;
         let distSq: number;
         
@@ -127,67 +158,40 @@ export function generateHeightmap(config: TerrainConfig): HeightmapData {
       }
       
       const distToTrack = Math.sqrt(minDistanceSq);
-      
       let trackMask = 0;
       
-      if (distToTrack < TRACK_WIDTH) {
+      if (distToTrack < track.width) {
         trackMask = 1.0;
-      } else if (distToTrack < TRACK_WIDTH + TRACK_FALLOFF) {
-        // Smoothstep interpolation for muddy track falloff
-        const t = 1.0 - (distToTrack - TRACK_WIDTH) / TRACK_FALLOFF;
+      } else if (distToTrack < track.width + track.falloff) {
+        const t = 1.0 - (distToTrack - track.width) / track.falloff;
         trackMask = t * t * (3 - 2 * t);
       }
 
       if (trackMask > 0) {
-        const carveStrength = trackMask * 0.9; // 90% siły, tworzy gładki i stabilny teren do jazdy
-        value = value * (1 - carveStrength) + TRACK_TARGET_HEIGHT * carveStrength;
+        const carveStrength = trackMask * 0.9;
+        value = value * (1 - carveStrength) + track.targetHeight * carveStrength;
       }
 
+      // Ensure spawn zone is clean of mud texture
+      const distFromCenter = Math.sqrt(worldX * worldX + worldZ * worldZ);
       if (distFromCenter <= 40) {
-        trackMask = 0; // ensure spawn is clean (no mud texture)
+        trackMask = 0;
       }
 
-      // --- Huge Mountain Challenge ---
-      const mountWorldX = cx * config.width;
-      const mountWorldZ = cz * config.depth;
-      const mountCenterX = 280; // near the top-right edge (max is 400)
-      const mountCenterZ = -280; // changed to negative Z to not overlap too much with the start
-      const mountDist = Math.sqrt((mountWorldX - mountCenterX) ** 2 + (mountWorldZ - mountCenterZ) ** 2);
-      const mountRadius = 180;
-      
-      if (mountDist < mountRadius) {
-        const t = 1.0 - (mountDist / mountRadius);
-        // A power of 1.5 gives a nice steep slope that is somewhat smooth
-        let mountProfile = Math.pow(t, 1.5); 
-        
-        // Flatten the peak to allow cars to drive and park there
-        const flattenThreshold = 0.8;
-        if (mountProfile > flattenThreshold) {
-          const excess = mountProfile - flattenThreshold;
-          // Smoothly compress the excess from [0, 0.2] to [0, 0.1] with derivative reaching 0
-          const maxExcess = 1.0 - flattenThreshold;
-          const smoothedExcess = excess - (excess * excess) / (2 * maxExcess);
-          mountProfile = flattenThreshold + smoothedExcess;
-        }
-
-        const mountHeight = 160; // Very high mountain
-        value += mountProfile * mountHeight;
-      }
-
-      // Map edges fade to underwater to avoid sharp cutoffs
+      // Map edges fade to underwater
       const distToEdgeX = (0.5 - Math.abs(cx)) * config.width;
       const distToEdgeZ = (0.5 - Math.abs(cz)) * config.depth;
       const minEdgeDist = Math.min(distToEdgeX, distToEdgeZ);
-      const edgeFalloff = 50; // Units from the edge where the fade starts
+      const edgeFalloff = 50;
 
       if (minEdgeDist < edgeFalloff) {
         const edgeFactor = Math.max(0, minEdgeDist / edgeFalloff);
-        let smoothEdge = edgeFactor * edgeFactor * (3 - 2 * edgeFactor); // Ease in-out
+        let smoothEdge = edgeFactor * edgeFactor * (3 - 2 * edgeFactor); 
         
-        // Zabezpiecz drogę (trackMask) przed wpadaniem do wody - tworzymy łagodne przewężenie lądowe
+        // Protect track from going underwater at the edge
         smoothEdge = Math.min(1.0, smoothEdge + trackMask);
         
-        const underwaterDepth = -15; // Ocean is at -15
+        const underwaterDepth = -15;
         value = underwaterDepth + (value - underwaterDepth) * smoothEdge;
       }
 

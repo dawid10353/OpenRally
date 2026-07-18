@@ -1,19 +1,11 @@
 import { Color } from 'three';
 import type { TerrainConfig } from '@/types/terrain';
 
+import { LEVEL1_CONFIG } from './level1';
+
 // ─── Default Terrain Config ─────────────────────────────────────────
 /** Default terrain configuration for Stage 1 */
-export const DEFAULT_TERRAIN_CONFIG: TerrainConfig = {
-  width: 800,
-  depth: 800,
-  subdivisions: 256,
-  amplitude: 30,
-  frequency: 0.003,
-  octaves: 5,
-  lacunarity: 2.0,
-  persistence: 0.45,
-  seed: 42,
-};
+export const DEFAULT_TERRAIN_CONFIG: TerrainConfig = LEVEL1_CONFIG;
 
 // ─── Spawn Flatten Zone ─────────────────────────────────────────────
 /** Radius of the flat spawn zone at the center of the map (world units) */
