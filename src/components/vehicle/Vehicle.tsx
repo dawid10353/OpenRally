@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { RigidBody, CuboidCollider } from '@react-three/rapier';
+import { RigidBody, RoundCuboidCollider } from '@react-three/rapier';
 import type { RapierRigidBody } from '@react-three/rapier';
 import { Group, Object3D } from 'three';
 import { Wheel } from '@/components/vehicle/Wheel';
@@ -57,13 +57,15 @@ export function Vehicle() {
         angularDamping={0.5}
         canSleep={false}
       >
-        {/* Chassis collider */}
-        <CuboidCollider
+        {/* Chassis collider with rounded edges to slide over terrain */}
+        <RoundCuboidCollider
           args={[
-            config.chassisSize[0] / 2,
-            config.chassisSize[1] / 2,
-            config.chassisSize[2] / 2,
+            config.chassisSize[0] / 2 - 0.1,
+            config.chassisSize[1] / 2 - 0.1,
+            config.chassisSize[2] / 2 - 0.1,
+            0.1 // borderRadius
           ]}
+          position={[0, 0.15, 0]}
           mass={config.chassisMass}
         />
 

@@ -59,49 +59,50 @@ export const DEFAULT_VEHICLE_CONFIG: VehicleConfig = {
   maxSteeringAngle: Math.PI / 6, // 30 degrees
   steeringSpeed: 5,
   maxSpeed: 240,
-  downforceFactor: 50, // Applied per m/s of speed
+  downforceFactor: 25, // Reduced from 30 to prevent scraping at high speeds
+  maxDownforce: 1000, // Clamp maximum downforce (reduced from 1500)
   wheels: [
     {
       // Front-left
-      position: [-0.76, -0.2, 1.45],
+      position: [-0.76, -0.3, 1.45],
       radius: 0.35,
-      suspensionRestLength: 0.3,
+      suspensionRestLength: 0.4,
       suspensionTravel: 0.3,
-      suspensionStiffness: 20,
+      suspensionStiffness: 25,
       suspensionDamping: 2.5,
       steerable: true,
       powered: true, // Now AWD to prevent wheelies
     },
     {
       // Front-right
-      position: [0.76, -0.2, 1.45],
+      position: [0.76, -0.3, 1.45],
       radius: 0.35,
-      suspensionRestLength: 0.3,
+      suspensionRestLength: 0.4,
       suspensionTravel: 0.3,
-      suspensionStiffness: 20,
+      suspensionStiffness: 25,
       suspensionDamping: 2.5,
       steerable: true,
       powered: true, // Now AWD
     },
     {
       // Rear-left
-      position: [-0.76, -0.2, -1.4],
+      position: [-0.76, -0.3, -1.4],
       radius: 0.35,
-      suspensionRestLength: 0.3,
+      suspensionRestLength: 0.4,
       suspensionTravel: 0.3,
-      suspensionStiffness: 20,
-      suspensionDamping: 2.5,
+      suspensionStiffness: 35, // Increased to support weight transfer and downforce
+      suspensionDamping: 3.5,
       steerable: false,
       powered: true,
     },
     {
       // Rear-right
-      position: [0.76, -0.2, -1.4],
+      position: [0.76, -0.3, -1.4],
       radius: 0.35,
-      suspensionRestLength: 0.3,
+      suspensionRestLength: 0.4,
       suspensionTravel: 0.3,
-      suspensionStiffness: 20,
-      suspensionDamping: 2.5,
+      suspensionStiffness: 35, // Increased to support weight transfer and downforce
+      suspensionDamping: 3.5,
       steerable: false,
       powered: true,
     },
