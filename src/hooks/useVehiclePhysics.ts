@@ -195,8 +195,8 @@ export function useVehiclePhysics(
     // Update the vehicle controller
     controller.updateVehicle(dt);
 
-    // Apply aerodynamic downforce to keep the car grounded
-    const downforce = Math.abs(forwardSpeed) * config.downforceFactor * dt;
+    // Apply aerodynamic downforce to keep the car grounded, capped at maxDownforce
+    const downforce = Math.min(Math.abs(forwardSpeed) * config.downforceFactor, config.maxDownforce) * dt;
     body.applyImpulse({ x: 0, y: -downforce, z: 0 }, true);
 
     // Apply water drag if partially submerged
