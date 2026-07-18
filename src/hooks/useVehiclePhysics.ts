@@ -9,17 +9,18 @@ import { useGameStore } from '@/store/gameStore';
 import {
   DEFAULT_VEHICLE_CONFIG,
   MS_TO_KMH,
-  BRAKE_SPEED_THRESHOLD,
-  REVERSE_FORCE_MULTIPLIER,
-  TIRE_MODELS,
-  SAND_ELEVATION_THRESHOLD,
   FALL_RESET_Y,
   RESET_SPAWN_POSITION,
   RESET_SPAWN_ROTATION_Y,
   MAX_DELTA,
-  GEAR_RATIOS,
 } from '@/config/vehicle';
 import { updateGearbox, calculateRPM } from '@/utils/physics/powertrain';
+import { applyDrivetrain } from '@/utils/physics/drivetrain';
+import { applyTireFrictionAndBrakes } from '@/utils/physics/tires';
+import { applyAerodynamics } from '@/utils/physics/aerodynamics';
+import { applyAssists } from '@/utils/physics/assists';
+import { syncWheelVisuals } from '@/utils/physics/visuals';
+import { applyAntiRollBars } from '@/utils/physics/suspension';
 
 // ─── Reusable Three.js objects (avoids per-frame GC pressure) ────────
 const _forward = new Vector3();
@@ -27,172 +28,6 @@ const _right = new Vector3();
 const _velocity = new Vector3();
 const _quat = new Quaternion();
 const _euler = new Euler();
-
-// ─── Physics Helper Functions ────────────────────────────────────────
-
-function applyDrivetrain(
-  controller: any,
-  config: VehicleConfig,
-  input: any,
-  forwardSpeed: number,
-  currentGear: number
-) {
-  const gearRatio = currentGear > 0 ? GEAR_RATIOS[currentGear] : 1;
-
-  for (let i = 0; i < config.wheels.length; i++) {
-    const wheel = config.wheels[i];
-    if (wheel.powered) {
-      let engineForce = 0;
-      if (input.throttle > 0) {
-        engineForce = config.engine.maxForce * input.throttle * gearRatio;
-      } else if (input.brake > 0 && forwardSpeed > BRAKE_SPEED_THRESHOLD) {
-        // Braking when moving forward
-        engineForce = 0;
-      } else if (input.brake > 0) {
-        // Reverse
-        engineForce = -config.engine.maxForce * input.brake * REVERSE_FORCE_MULTIPLIER;
-      }
-      controller.setWheelEngineForce(i, engineForce);
-    } else {
-      controller.setWheelEngineForce(i, 0);
-    }
-  }
-}
-
-function getInterpolatedSteeringAngle(speedKmh: number, curve: readonly [number, number][]): number {
-  if (!curve || curve.length === 0) return 0;
-  if (speedKmh <= curve[0][0]) return curve[0][1];
-  if (speedKmh >= curve[curve.length - 1][0]) return curve[curve.length - 1][1];
-
-  for (let i = 0; i < curve.length - 1; i++) {
-    if (speedKmh >= curve[i][0] && speedKmh <= curve[i + 1][0]) {
-      const t = (speedKmh - curve[i][0]) / (curve[i + 1][0] - curve[i][0]);
-      return curve[i][1] + t * (curve[i + 1][1] - curve[i][1]);
-    }
-  }
-  return curve[0][1];
-}
-
-function applyTireFrictionAndBrakes(
-  controller: any,
-  config: VehicleConfig,
-  input: any,
-  speedKmh: number,
-  forwardSpeed: number,
-  posY: number
-) {
-  const isSand = posY < SAND_ELEVATION_THRESHOLD;
-  const tireModel = isSand ? TIRE_MODELS.sand : TIRE_MODELS.tarmac;
-
-  for (let i = 0; i < config.wheels.length; i++) {
-    const wheel = config.wheels[i];
-
-    // Braking
-    let brakeForce = 0;
-    if (input.brake > 0 && forwardSpeed > BRAKE_SPEED_THRESHOLD) {
-      // Brake Bias
-      const frontBias = config.brakes.frontBias;
-      const rearBias = 1.0 - frontBias;
-      // Multiplier ensures the total braking power remains consistent
-      const brakeMultiplier = wheel.steerable ? (frontBias * 2) : (rearBias * 2);
-      brakeForce = config.brakes.maxForce * input.brake * brakeMultiplier;
-    }
-
-    // Base friction
-    let currentFriction = wheel.steerable ? tireModel.frontGrip : tireModel.rearGrip;
-
-    // Handbrake — drift assist grip multiplier
-    if (input.handbrake && !wheel.steerable) {
-      brakeForce = config.brakes.handbrakeForce;
-      currentFriction *= config.handling.assists.driftGripMultiplier;
-    }
-
-    controller.setWheelFrictionSlip(i, currentFriction);
-    controller.setWheelBrake(i, brakeForce);
-
-    // Steering
-    if (wheel.steerable) {
-      const maxSteerAngle = getInterpolatedSteeringAngle(speedKmh, config.handling.steeringCurve);
-      const steerAngle = input.steering * maxSteerAngle;
-      controller.setWheelSteering(i, steerAngle);
-    }
-  }
-}
-
-function applyAssists(body: RapierRigidBody, config: VehicleConfig, slipAngle: number, lateralSpeed: number, dt: number) {
-  // Simple yaw damping assist:
-  // If the car is sliding (high slip angle/lateral speed), apply a slight counter-torque
-  // to prevent it from spinning out instantly, simulating a more arcade feel.
-  if (Math.abs(lateralSpeed) > 2) {
-    const damping = -slipAngle * config.handling.assists.yawDamping * dt * 50;
-    body.applyTorqueImpulse({ x: 0, y: damping, z: 0 }, true);
-  }
-}
-
-function applyAerodynamics(
-  body: RapierRigidBody,
-  config: VehicleConfig,
-  forwardSpeed: number,
-  velocity: Vector3,
-  posY: number,
-  dt: number
-) {
-  // Apply aerodynamic downforce to keep the car grounded
-  const downforce = Math.abs(forwardSpeed) * config.aerodynamics.downforceFactor * dt;
-  body.applyImpulse({ x: 0, y: -downforce, z: 0 }, true);
-
-  // Apply water drag if partially submerged
-  const WATER_SURFACE_CHASSIS_Y = -7.15; // Chassis Y when wheels just touch water
-  if (posY < WATER_SURFACE_CHASSIS_Y) {
-    const depth = Math.max(0, WATER_SURFACE_CHASSIS_Y - posY);
-    // Increased drag based on depth
-    const dragFactor = depth * 80 * dt;
-    body.applyImpulse({ 
-      x: -velocity.x * dragFactor, 
-      y: 0, 
-      z: -velocity.z * dragFactor 
-    }, true);
-  }
-}
-
-function syncWheelVisuals(
-  controller: any,
-  wheelRefs: React.RefObject<(Object3D | null)[]>,
-  config: VehicleConfig,
-  forwardSpeed: number,
-  dt: number
-) {
-  const wheels = wheelRefs.current;
-  if (!wheels) return;
-
-  for (let i = 0; i < config.wheels.length; i++) {
-    const wheelObj = wheels[i];
-    if (!wheelObj) continue;
-
-    const connection = controller.wheelChassisConnectionPointCs(i);
-    const suspension = controller.wheelSuspensionLength(i);
-    const steer = controller.wheelSteering(i);
-    const wheelConfig = config.wheels[i];
-
-    if (connection != null && suspension != null) {
-      // Position: connection point - suspension compression
-      wheelObj.position.set(
-        connection.x,
-        connection.y - suspension,
-        connection.z,
-      );
-
-      // Steering rotation (Y axis)
-      if (steer != null) {
-        wheelObj.rotation.y = steer;
-      }
-
-      // Spin rotation (X axis) based on speed
-      const spinSpeed = (forwardSpeed / wheelConfig.radius) * dt;
-      wheelObj.children[0]?.rotateX(spinSpeed);
-    }
-  }
-}
 
 /**
  * Vehicle physics hook using Rapier's DynamicRayCastVehicleController.
@@ -294,10 +129,13 @@ export function useVehiclePhysics(
     applyDrivetrain(controller, config, input, forwardSpeed, currentGear);
 
     // --- 2. APPLY TIRE FRICTION & BRAKES ---
-    applyTireFrictionAndBrakes(controller, config, input, speedKmh, forwardSpeed, pos.y);
+    const tireGrips = applyTireFrictionAndBrakes(controller, config, input, speedKmh, forwardSpeed, pos.y, slipAngle);
 
     // --- 3. APPLY ARCADE ASSISTS ---
     applyAssists(body, config, slipAngle, lateralSpeed, dt);
+
+    // --- 3.5. APPLY SUSPENSION ARB ---
+    applyAntiRollBars(body, controller, config, dt);
 
     // --- 4. UPDATE RAPIER VEHICLE ---
     controller.updateVehicle(dt);
@@ -321,6 +159,7 @@ export function useVehiclePhysics(
       gear: currentGear,
       heading: _euler.y,
       position: [pos.x, pos.y, pos.z],
+      tireGrips,
     });
 
     // --- 8. CHECK RESET STATE ---

@@ -25,6 +25,10 @@ interface GameStore {
   position: [number, number, number];
   /** Flag to request a physics reset from UI */
   pendingReset: boolean;
+  /** Whether the telemetry HUD is visible */
+  telemetryEnabled: boolean;
+  /** Current friction multiplier for each tire [FL, FR, RL, RR] */
+  tireGrips: number[];
 
   // Actions
   setGameState: (state: GameState) => void;
@@ -38,6 +42,8 @@ interface GameStore {
   cycleCameraMode: () => void;
   togglePause: () => void;
   triggerReset: (val: boolean) => void;
+  setTelemetryEnabled: (val: boolean) => void;
+  setTireGrips: (val: number[]) => void;
 }
 
 const CAMERA_MODES: CameraMode[] = ['chase_close', 'chase', 'bumper', 'free'];
@@ -53,6 +59,8 @@ export const useGameStore = create<GameStore>((set) => ({
   heading: 0,
   position: [0, 0.5, 0],
   pendingReset: false,
+  telemetryEnabled: false,
+  tireGrips: [0, 0, 0, 0],
 
   setGameState: (gameState) => set({ gameState }),
   setSpeed: (speed) => set({ speed }),
@@ -75,4 +83,6 @@ export const useGameStore = create<GameStore>((set) => ({
       gameState: state.gameState === 'playing' ? 'paused' : 'playing',
     })),
   triggerReset: (val) => set({ pendingReset: val }),
+  setTelemetryEnabled: (val) => set({ telemetryEnabled: val }),
+  setTireGrips: (val) => set({ tireGrips: val }),
 }));

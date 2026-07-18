@@ -45,13 +45,40 @@ export interface BrakesConfig {
 }
 
 /**
+ * Drivetrain configuration
+ */
+export interface DrivetrainConfig {
+  /** Torque bias towards the front (0.0 = 100% rear-wheel drive, 1.0 = 100% front-wheel drive, 0.5 = 50/50 AWD) */
+  readonly frontBias: number;
+}
+
+/**
+ * Suspension & Chassis dynamics configuration
+ */
+export interface SuspensionConfig {
+  /** Stiffness of the front anti-roll bar */
+  readonly frontAntiRollBarStiffness: number;
+  /** Stiffness of the rear anti-roll bar */
+  readonly rearAntiRollBarStiffness: number;
+}
+
+/**
  * Configuration for tire grip on different surfaces.
  */
+export interface TireGripCurve {
+  /** Base grip level before peak slip angle */
+  readonly baseGrip: number;
+  /** The slip angle (radians) at which grip is highest */
+  readonly peakSlipAngle: number;
+  /** Grip level after exceeding peak slip angle (sliding) */
+  readonly slideGrip: number;
+}
+
 export interface TireConfig {
-  /** Base grip level for the front wheels */
-  readonly frontGrip: number;
-  /** Base grip level for the rear wheels */
-  readonly rearGrip: number;
+  /** Grip curve for the front wheels */
+  readonly front: TireGripCurve;
+  /** Grip curve for the rear wheels */
+  readonly rear: TireGripCurve;
 }
 
 /**
@@ -92,7 +119,9 @@ export interface VehicleConfig {
   readonly chassisSize: Vector3Tuple;
   
   readonly engine: EngineConfig;
+  readonly drivetrain: DrivetrainConfig;
   readonly brakes: BrakesConfig;
+  readonly suspension: SuspensionConfig;
   readonly handling: HandlingConfig;
   readonly aerodynamics: AerodynamicsConfig;
   

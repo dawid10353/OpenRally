@@ -1,8 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
-
-
+import { TelemetryHUD } from './TelemetryHUD';
 
 
 /**
@@ -82,6 +81,8 @@ export function HUD() {
     <div id="hud" style={styles.container}>
       {/* Background Music */}
       <audio ref={bgmRef} src="/sounds/freeroam-music.mp3" autoPlay loop />
+
+      <TelemetryHUD />
 
       {/* Speedometer */}
       <div id="speedometer" style={styles.speedometer}>

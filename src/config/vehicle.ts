@@ -18,12 +18,12 @@ export const SHIFT_DOWN_SPEEDS = [0, 0, 30, 70, 120, 170]; // Shift to previous 
 // ─── Friction & Tire Models ──────────────────────────────────────────
 export const TIRE_MODELS: Record<'tarmac' | 'sand', import('@/types/vehicle').TireConfig> = {
   tarmac: {
-    frontGrip: 3.0,
-    rearGrip: 3.5,
+    front: { baseGrip: 3.0, peakSlipAngle: Math.PI / 8, slideGrip: 3.0 },
+    rear: { baseGrip: 3.5, peakSlipAngle: Math.PI / 8, slideGrip: 3.5 },
   },
   sand: {
-    frontGrip: 1.5,
-    rearGrip: 2.0,
+    front: { baseGrip: 1.5, peakSlipAngle: Math.PI / 8, slideGrip: 1.5 },
+    rear: { baseGrip: 2.0, peakSlipAngle: Math.PI / 8, slideGrip: 2.0 },
   },
 };
 
@@ -53,10 +53,17 @@ export const DEFAULT_VEHICLE_CONFIG: VehicleConfig = {
     maxForce: 400, // Reduced from 800 because now 4 wheels are powered (AWD)
     maxSpeed: 240,
   },
+  drivetrain: {
+    frontBias: 0.5, // 50/50 AWD
+  },
   brakes: {
     maxForce: 60,
     handbrakeForce: 100,
     frontBias: 0.7, // Add frontBias for brakes (prevent rear from lifting)
+  },
+  suspension: {
+    frontAntiRollBarStiffness: 0, // Disabled by default for Stage 1 compatibility
+    rearAntiRollBarStiffness: 0,
   },
   handling: {
     steeringCurve: [
