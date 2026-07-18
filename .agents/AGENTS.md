@@ -4,8 +4,7 @@
 - **Etap**: 2/3 (Polerowanie / Rozbudowa) — silnik fizyki, teren i efekty są już w dużej mierze zaimplementowane.
 - **Co zrobiono**: Fundamenty, fizyka pojazdu (Rapier), kamery, ślady opon, cząsteczki kurzu, dźwięk silnika, konfiguracje (`src/config`), poprawki błędów TypeScript.
 - **Środowisko**: Projekt jest uruchamiany w WSL (Linux) z wykorzystaniem Google Antigravity. Używaj wyłącznie standardowych komend Linux (np. `npm install`, `npm run dev`, `npx`). Nie używaj już obejść dla Windowsa (takich jak `cmd.exe /c`), ponieważ terminal działa w środowisku linuksowym.
-  - **Testowanie przez AI (Browser Subagents)**: Serwer deweloperski (`npm run dev`) działa w WSL, a użytkownik wyświetla grę w przeglądarce na Windowsie. Port jest mapowany automatycznie, więc aplikacja jest dostępna pod adresem `http://localhost:5173/`.
-  - Aby AI mogło samodzielnie testować grę za pomocą narzędzia `browser_subagent`, poleć subagentowi otworzyć adres URL: `http://localhost:5173/`. Zanim to zrobisz, upewnij się, że serwer deweloperski (np. `npm run dev`) został poprawnie uruchomiony w tle (background task) i jest w pełni gotowy do przyjmowania połączeń.
+  - **Testowanie gry**: Serwer deweloperski (`npm run dev`) działa w WSL, a browser_agent wyświetla grę w przeglądarce na Windowsie. Port jest mapowany automatycznie na `http://localhost:5173/`.
 ---
 
 ## Wizja Gry
