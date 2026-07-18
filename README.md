@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="openrally_logo.png" alt="OpenRally Logo" width="400" />
+  <img src="public/openrally_logo.png" alt="OpenRally Logo" width="400" />
 </div>
 
 # OpenRally
