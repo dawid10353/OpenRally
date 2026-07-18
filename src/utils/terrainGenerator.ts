@@ -158,7 +158,18 @@ export function generateHeightmap(config: TerrainConfig): HeightmapData {
       if (mountDist < mountRadius) {
         const t = 1.0 - (mountDist / mountRadius);
         // A power of 1.5 gives a nice steep slope that is somewhat smooth
-        const mountProfile = Math.pow(t, 1.5); 
+        let mountProfile = Math.pow(t, 1.5); 
+        
+        // Flatten the peak to allow cars to drive and park there
+        const flattenThreshold = 0.8;
+        if (mountProfile > flattenThreshold) {
+          const excess = mountProfile - flattenThreshold;
+          // Smoothly compress the excess from [0, 0.2] to [0, 0.1] with derivative reaching 0
+          const maxExcess = 1.0 - flattenThreshold;
+          const smoothedExcess = excess - (excess * excess) / (2 * maxExcess);
+          mountProfile = flattenThreshold + smoothedExcess;
+        }
+
         const mountHeight = 160; // Very high mountain
         value += mountProfile * mountHeight;
       }
