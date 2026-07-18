@@ -88,9 +88,9 @@ export const LEVEL1_DATA: LevelData = {
     {
       x: 280,
       z: -280,
-      radius: 180,
-      heightDelta: 160,
-      shape: 'smooth' // acts like the old mountain
+      radius: 220,
+      heightDelta: 100,
+      shape: 'sphere' // smoothstep creates a rounded, flat top instead of a point
     }
   ],
   props: generateLevel1Props(800, 800),

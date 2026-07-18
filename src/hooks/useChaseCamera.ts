@@ -16,6 +16,8 @@ import {
   LOOK_SMOOTH_RATE,
   FOV_SMOOTH_BASE,
   MIN_CAM_Y_OFFSET,
+  PITCH_SMOOTH_RATE,
+  PITCH_INFLUENCE,
 } from '@/config/camera';
 
 // ─── Reusable Three.js objects (avoids per-frame GC pressure) ────────
@@ -23,11 +25,11 @@ const _bodyPos = new Vector3();
 const _worldQuat = new Quaternion();
 const _euler = new Euler();
 const _yawQuat = new Quaternion();
-const _yAxis = new Vector3(0, 1, 0);
 const _offset = new Vector3();
 const _idealPos = new Vector3();
 const _lookOffset = new Vector3();
 const _idealLook = new Vector3();
+const _forward = new Vector3();
 
 /**
  * Chase camera hook — follows the vehicle with smooth interpolation
@@ -42,6 +44,7 @@ export function useChaseCamera(
   const idealPosRef = useRef(new Vector3());
   const idealLookRef = useRef(new Vector3());
   const currentFovRef = useRef(MIN_FOV);
+  const smoothedPitchRef = useRef(0);
   const cameraMode = useGameStore((s) => s.cameraMode);
 
   useFrame((_, delta) => {
@@ -56,9 +59,22 @@ export function useChaseCamera(
     target.getWorldPosition(_bodyPos);
     target.getWorldQuaternion(_worldQuat);
 
-    // Extract yaw (rotation around Y axis) to prevent camera from pitching up/down on bumps
+    // Extract pitch from forward vector
+    _forward.set(0, 0, 1).applyQuaternion(_worldQuat);
+    const targetPitch = Math.asin(MathUtils.clamp(_forward.y, -0.99, 0.99));
+    
+    // Smooth the pitch
+    const pitchSmoothFactor = 1 - Math.exp(-PITCH_SMOOTH_RATE * delta);
+    if (idealPosRef.current.lengthSq() === 0) {
+      smoothedPitchRef.current = targetPitch;
+    } else {
+      smoothedPitchRef.current = MathUtils.lerp(smoothedPitchRef.current, targetPitch, pitchSmoothFactor);
+    }
+
+    // Extract yaw and apply smoothed pitch to the camera offset pivot
     _euler.setFromQuaternion(_worldQuat, 'YXZ');
-    _yawQuat.setFromAxisAngle(_yAxis, _euler.y);
+    _euler.set(-smoothedPitchRef.current * PITCH_INFLUENCE, _euler.y, 0, 'YXZ');
+    _yawQuat.setFromEuler(_euler);
 
     const lookBack = activeKeys.has('KeyB');
 

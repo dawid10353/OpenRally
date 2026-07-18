@@ -30,6 +30,12 @@ export const LOOK_SMOOTH_RATE = 10;
 /** FOV smoothing factor base (per-second decay). Closer to 0 = snappier. */
 export const FOV_SMOOTH_BASE = 0.1;
 
+/** Smoothing rate for the car pitch tracking (prevents camera shake on bumps) */
+export const PITCH_SMOOTH_RATE = 5;
+
+/** How much the vehicle's pitch affects the camera's tilt (0.0 to 1.0) */
+export const PITCH_INFLUENCE = 0.5;
+
 // ─── Constraints ─────────────────────────────────────────────────────
 /** Minimum camera Y offset above the vehicle body position */
 export const MIN_CAM_Y_OFFSET = 1.5;
