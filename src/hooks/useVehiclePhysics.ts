@@ -2,7 +2,7 @@ import { useRef, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useRapier } from '@react-three/rapier';
 import type { RapierRigidBody } from '@react-three/rapier';
-import { Vector3, Quaternion, Euler, Object3D, MathUtils } from 'three';
+import { Vector3, Quaternion, Euler, Object3D } from 'three';
 import type { VehicleConfig } from '@/types/vehicle';
 import { useInputUpdater } from '@/hooks/useInput';
 import { useGameStore } from '@/store/gameStore';
@@ -195,8 +195,8 @@ export function useVehiclePhysics(
     // Update the vehicle controller
     controller.updateVehicle(dt);
 
-    // Apply aerodynamic downforce to keep the car grounded, capped at maxDownforce
-    const downforce = Math.min(Math.abs(forwardSpeed) * config.downforceFactor, config.maxDownforce) * dt;
+    // Apply aerodynamic downforce to keep the car grounded
+    const downforce = Math.abs(forwardSpeed) * config.downforceFactor * dt;
     body.applyImpulse({ x: 0, y: -downforce, z: 0 }, true);
 
     // Apply water drag if partially submerged
@@ -212,10 +212,8 @@ export function useVehiclePhysics(
       }, true);
     }
 
-    // Sync visual wheels with physics and detect ground contact
+    // Sync visual wheels with physics
     const wheels = wheelRefs.current;
-    let isGrounded = false;
-
     if (wheels) {
       for (let i = 0; i < config.wheels.length; i++) {
         const wheelObj = wheels[i];
@@ -227,13 +225,6 @@ export function useVehiclePhysics(
         const wheelConfig = config.wheels[i];
 
         if (connection != null && suspension != null) {
-          // Check if wheel is touching the ground (suspension is compressed)
-          // Epsilon (0.05) accounts for floating point inaccuracies
-          const maxSuspension = wheelConfig.suspensionRestLength + wheelConfig.suspensionTravel;
-          if (suspension < maxSuspension - 0.05) {
-            isGrounded = true;
-          }
-
           // Position: connection point - suspension compression
           wheelObj.position.set(
             connection.x,
@@ -254,52 +245,33 @@ export function useVehiclePhysics(
     }
 
     // Calculate RPM
-    const currentRpm = state.rpm;
-    let speedRpm = 1000;
-
+    let targetRpm = 1000;
     if (currentGear === -1) {
       // Bardziej realistyczne obroty dla biegu wstecznego (max ~5000 RPM)
-      speedRpm = 1000 + (Math.min(speedKmh, 40) / 40) * 4000;
+      targetRpm = 1000 + (Math.min(speedKmh, 40) / 40) * 4000;
+      
+      // Podbicie obrotów przy ruszaniu na wstecznym
+      if (input.brake > 0 && speedKmh < 10) {
+        targetRpm += input.brake * 1500 * (1 - speedKmh / 10);
+      }
     } else if (currentGear > 0) {
       const minSpeed = currentGear === 1 ? 0 : SHIFT_UP_SPEEDS[currentGear - 1];
       const maxSpeed = SHIFT_UP_SPEEDS[currentGear] === 999 ? 240 : SHIFT_UP_SPEEDS[currentGear];
       const speedInRange = Math.max(0, speedKmh - minSpeed);
       const range = Math.max(1, maxSpeed - minSpeed);
-      speedRpm = 1000 + (speedInRange / range) * 7000;
+      targetRpm = 1000 + (speedInRange / range) * 7000;
+      
+      // Rev blip when starting or holding throttle at low speeds
+      if (input.throttle > 0 && speedKmh < 10) {
+        targetRpm += input.throttle * 1500 * (1 - speedKmh / 10);
+      }
     }
     
-    // Obroty "w powietrzu" lub przy wciśniętym sprzęgle (czyste wciśnięcie gazu)
-    const throttleRpm = 1000 + input.throttle * 7000;
-
-    let targetRpm = 1000;
-
-    if (isGrounded) {
-      if (input.throttle > 0 || (currentGear === -1 && input.brake > 0)) {
-        // Dodajemy gaz (lub cofamy używając hamulca), koła napędzają obroty silnika
-        targetRpm = speedRpm;
-        
-        // Rev blip when starting or holding throttle at low speeds
-        if (speedKmh < 10) {
-          const activeInput = currentGear === -1 ? input.brake : input.throttle;
-          targetRpm += activeInput * 1500 * (1 - speedKmh / 10);
-        }
-      } else {
-        // Puszczony gaz na ziemi - lekkie hamowanie silnikiem (Coasting)
-        targetRpm = Math.max(1000, speedRpm * 0.5); 
-      }
-    } else {
-      // W powietrzu lub na dachu - silnik reaguje tylko na gaz
-      targetRpm = throttleRpm;
-    }
-
     // Add small random fluctuation to RPM for realism
     targetRpm += (Math.random() - 0.5) * 50;
     
     // Clamp RPM
     targetRpm = Math.min(8000, Math.max(800, targetRpm));
-
-    // Smooth transition (Lerp) to target RPM
-    const lerpedRpm = MathUtils.lerp(currentRpm, targetRpm, dt * 8);
 
     // Heading from quaternion
     _euler.setFromQuaternion(_quat, 'YXZ');
@@ -307,7 +279,7 @@ export function useVehiclePhysics(
     // Batch all state updates into one call to avoid multiple re-renders/subscribers execution
     useGameStore.setState({
       speed: Math.round(speedKmh),
-      rpm: Math.round(lerpedRpm),
+      rpm: Math.round(targetRpm),
       gear: currentGear,
       heading: _euler.y,
       position: [pos.x, pos.y, pos.z],

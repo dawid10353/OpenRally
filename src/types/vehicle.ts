@@ -44,8 +44,6 @@ export interface VehicleConfig {
   readonly maxSpeed: number;
   /** Downforce coefficient to keep the car glued to the ground at high speeds */
   readonly downforceFactor: number;
-  /** Maximum downforce force limit */
-  readonly maxDownforce: number;
   /** Configuration for each wheel (4 wheels) */
   readonly wheels: readonly [WheelInfo, WheelInfo, WheelInfo, WheelInfo];
 }
