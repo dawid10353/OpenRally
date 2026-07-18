@@ -113,9 +113,9 @@ export function TireTracks({ wheelsRef, chassisRef }: TireTracksProps) {
 
         wheel.getWorldPosition(currentPos);
         
-        // Ground contact point (wheel radius is ~0.35, subtract it to be on the ground)
-        // Add a slight offset (0.02) to prevent z-fighting with the terrain
-        currentPos.addScaledVector(carUp, -0.32);
+        // Ground contact point (wheel radius is 0.35)
+        // We set it exactly at the wheel's bottom edge. polygonOffset in the material handles z-fighting.
+        currentPos.addScaledVector(carUp, -0.35);
 
         const lastPos = lastWheelPositions.current[i];
         
@@ -170,7 +170,7 @@ export function TireTracks({ wheelsRef, chassisRef }: TireTracksProps) {
         const wheel = wheels[i];
         if (wheel) {
            wheel.getWorldPosition(currentPos);
-           currentPos.addScaledVector(carUp, -0.32);
+           currentPos.addScaledVector(carUp, -0.35);
            lastWheelPositions.current[i].copy(currentPos);
         }
       }
