@@ -1,2 +1,2 @@
 export * from '@/utils/math';
-export * from '@/utils/terrainGenerator';
+export * from '@/utils/terrainCompiler';

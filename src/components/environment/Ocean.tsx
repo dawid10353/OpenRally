@@ -95,7 +95,7 @@ function generateWaterNormalTexture(size: number): DataTexture {
 export function Ocean() {
   const waterRef = useRef<Water>(null);
   const { scene, size } = useThree();
-  const { heightmapData, config } = useTerrainData();
+  const { heightmapData, levelData } = useTerrainData();
   const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
 
   const normalMapSize = graphicsQuality === 'low' ? 128 : graphicsQuality === 'medium' ? 256 : WATER_NORMAL_TEXTURE_SIZE;
@@ -134,7 +134,7 @@ export function Ocean() {
     const sunDir = new Vector3(...SKY_CONFIG.sunPosition).normalize();
     const commonUniforms = {
       u_terrainHeightmap: { value: terrainHeightmap },
-      u_terrainSize: { value: new Vector2(config.width, config.depth) },
+      u_terrainSize: { value: new Vector2(levelData.terrainBase.width, levelData.terrainBase.depth) },
       resolution: { value: new Vector2(size.width, size.height) },
       u_waveA: { value: new Vector4(WATER_WAVE_A_DIR.x, WATER_WAVE_A_DIR.y, WATER_WAVE_A_STEEPNESS, WATER_WAVE_A_WAVELENGTH) },
       u_waveB: { value: new Vector4(WATER_WAVE_B_DIR.x, WATER_WAVE_B_DIR.y, WATER_WAVE_B_STEEPNESS, WATER_WAVE_B_WAVELENGTH) },
@@ -421,7 +421,7 @@ export function Ocean() {
 
       return waterMesh;
     }
-  }, [waterNormals, scene.fog, terrainHeightmap, config, size, segmentsCount, graphicsQuality]);
+  }, [waterNormals, scene.fog, terrainHeightmap, levelData, size, segmentsCount, graphicsQuality]);
 
   useFrame(() => {
     const mat = water.material as any;

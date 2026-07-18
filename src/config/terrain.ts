@@ -1,11 +1,11 @@
 import { Color } from 'three';
-import type { TerrainConfig } from '@/types/terrain';
+import type { LevelData } from '@/types/level';
 
-import { LEVEL1_CONFIG } from './level1';
+import { LEVEL1_DATA } from './level1';
 
-// ─── Default Terrain Config ─────────────────────────────────────────
-/** Default terrain configuration for Stage 1 */
-export const DEFAULT_TERRAIN_CONFIG: TerrainConfig = LEVEL1_CONFIG;
+// ─── Default Level Config ─────────────────────────────────────────
+/** Default level configuration for Stage 1 */
+export const DEFAULT_LEVEL_DATA: LevelData = LEVEL1_DATA;
 
 // ─── Spawn Flatten Zone ─────────────────────────────────────────────
 /** Radius of the flat spawn zone at the center of the map (world units) */
@@ -28,18 +28,6 @@ export const BIOME_COLOR_HIGH = new Color(0x888888);
 export const BIOME_MID_THRESHOLD = 0.4;
 
 // ─── Props ──────────────────────────────────────────────────────────
-/** Number of environment props (trees/rocks) to scatter */
-export const NUM_PROPS = 800;
-
-/** Minimum distance from center to keep the spawn clearing free of props */
-export const PROPS_CLEARING_RADIUS = 40;
-
-/** Fraction of the map edge used to keep props within bounds */
-export const PROPS_EDGE_MARGIN = 0.9;
-
-/** Probability of a prop being a tree (vs. rock) */
-export const TREE_PROBABILITY = 0.7;
-
 /** Color used for tree props */
 export const PROP_COLOR_TREE = new Color('#2d4c1e');
 

@@ -133,7 +133,7 @@ interface GrassChunkData {
 }
 
 export function GrassField() {
-  const { heightmapData, config } = useTerrainData();
+  const { heightmapData, levelData } = useTerrainData();
   const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
   
   // We'll store all the uniform references so we can update them every frame
@@ -145,8 +145,8 @@ export function GrassField() {
   
   const { chunksData, geometry } = useMemo(() => {
     const { heights, trackMasks, rows, cols, minHeight, maxHeight } = heightmapData;
-    const mapWidth = config.width;
-    const mapDepth = config.depth;
+    const mapWidth = levelData.terrainBase.width;
+    const mapDepth = levelData.terrainBase.depth;
 
     const dummy = new Object3D();
     const tempColor = new Color();
@@ -237,7 +237,7 @@ export function GrassField() {
     const geo = createGrassTuftGeometry();
 
     return { chunksData: chunks, geometry: geo };
-  }, [heightmapData, config, graphicsQuality]);
+  }, [heightmapData, levelData, graphicsQuality]);
 
   // Create a shared material using onBeforeCompile
   const material = useMemo(() => {

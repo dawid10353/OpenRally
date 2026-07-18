@@ -1,10 +1,10 @@
 import { CatmullRomCurve3, Vector3 } from 'three';
 import { createNoise2D } from 'simplex-noise';
-import type { HeightmapData, TerrainConfig, MountainFeature, LakeFeature, SpawnFlattenFeature } from '@/types/terrain';
+import type { HeightmapData } from '@/types/terrain';
+import type { LevelData } from '@/types/level';
 
 /**
  * Seed-based PRNG (mulberry32) for deterministic noise.
- * @param seed - Integer seed value
  */
 function mulberry32(seed: number): () => number {
   let s = seed | 0;
@@ -17,27 +17,12 @@ function mulberry32(seed: number): () => number {
 }
 
 /**
- * Generate a heightmap using fractal Brownian motion (fBM) with simplex noise.
- * Features from config.features are applied dynamically.
- *
- * The returned Float32Array has (subdivisions+1)^2 elements in row-major order
- * (iterating Z first, then X), matching Rapier's HeightfieldCollider expectations.
- *
- * @param config - Terrain generation configuration
- * @returns HeightmapData with heights and metadata
+ * Compiles a LevelData definition into a final HeightmapData array.
+ * This separates the Data-Driven state from the procedural rendering logic.
  */
-export function generateHeightmap(config: TerrainConfig): HeightmapData {
-  const {
-    subdivisions,
-    amplitude,
-    frequency,
-    octaves,
-    lacunarity,
-    persistence,
-    seed,
-    features,
-    track
-  } = config;
+export function compileTerrain(level: LevelData): HeightmapData {
+  const { terrainBase, track, heightModifiers } = level;
+  const { subdivisions, amplitude, frequency, octaves, lacunarity, persistence, seed, width, depth } = terrainBase;
 
   const rng = mulberry32(seed);
   const noise2D = createNoise2D(rng);
@@ -62,10 +47,10 @@ export function generateHeightmap(config: TerrainConfig): HeightmapData {
   for (let z = 0; z < size; z++) {
     for (let x = 0; x < size; x++) {
       // Normalize coordinates to [0, 1] range, then scale by frequency
-      const nx = (x / subdivisions) * config.width * frequency;
-      const nz = (z / subdivisions) * config.depth * frequency;
+      const nx = (x / subdivisions) * width * frequency;
+      const nz = (z / subdivisions) * depth * frequency;
 
-      // Fractal Brownian Motion
+      // Base: Fractal Brownian Motion
       let value = 0;
       let amp = 1;
       let freq = 1;
@@ -83,50 +68,34 @@ export function generateHeightmap(config: TerrainConfig): HeightmapData {
 
       const cx = x / subdivisions - 0.5;
       const cz = z / subdivisions - 0.5;
-      const worldX = cx * config.width;
-      const worldZ = cz * config.depth;
+      const worldX = cx * width;
+      const worldZ = cz * depth;
 
-      // --- Apply Features (Data-Driven) ---
-      if (features) {
-        for (const feature of features) {
-          const dist = Math.sqrt((worldX - feature.x) ** 2 + (worldZ - feature.z) ** 2);
-          
-          if (feature.type === 'spawn_flatten') {
-            const spawnFeature = feature as SpawnFlattenFeature;
-            if (dist < spawnFeature.radius + spawnFeature.falloff) {
-              const flattenFactor = Math.max(
-                0,
-                1 - Math.max(0, dist - spawnFeature.radius) / spawnFeature.falloff,
-              );
-              value *= 1 - flattenFactor;
-            }
-          }
-          else if (feature.type === 'mountain') {
-            const mountFeature = feature as MountainFeature;
-            if (dist < mountFeature.radius) {
-              const t = 1.0 - (dist / mountFeature.radius);
-              let mountProfile = Math.pow(t, 1.5); 
-              
-              if (mountFeature.flattenTop) {
-                const flattenThreshold = 0.8;
-                if (mountProfile > flattenThreshold) {
-                  const excess = mountProfile - flattenThreshold;
-                  const maxExcess = 1.0 - flattenThreshold;
-                  const smoothedExcess = excess - (excess * excess) / (2 * maxExcess);
-                  mountProfile = flattenThreshold + smoothedExcess;
-                }
+      // --- Apply Explicit Data-Driven Modifiers (Brushes) ---
+      if (heightModifiers) {
+        for (const mod of heightModifiers) {
+          const dist = Math.sqrt((worldX - mod.x) ** 2 + (worldZ - mod.z) ** 2);
+          if (dist < mod.radius) {
+            const t = 1.0 - (dist / mod.radius);
+            
+            if (mod.shape === 'sphere') {
+              // Smooth spherical falloff
+              const profile = t * t * (3 - 2 * t); // Smoothstep
+              if (mod.heightDelta !== undefined) {
+                value += profile * mod.heightDelta;
+              } else if (mod.absoluteHeight !== undefined) {
+                value = value * (1 - profile) + mod.absoluteHeight * profile;
               }
-              value += mountProfile * mountFeature.height;
-            }
-          }
-          else if (feature.type === 'lake') {
-            const lakeFeature = feature as LakeFeature;
-            if (dist < lakeFeature.radius) {
-              const t = 1.0 - (dist / lakeFeature.radius);
-              // smooth dip
-              const lakeProfile = t * t * (3 - 2 * t);
-              // Carve into the terrain
-              value = value * (1 - lakeProfile) + lakeFeature.depth * lakeProfile;
+            } else if (mod.shape === 'flat') {
+              // Hard flat transition
+              if (mod.absoluteHeight !== undefined) {
+                value = mod.absoluteHeight;
+              }
+            } else if (mod.shape === 'smooth') {
+               const profile = Math.pow(t, 1.5);
+               if (mod.heightDelta !== undefined) {
+                 value += profile * mod.heightDelta;
+               }
             }
           }
         }
@@ -172,15 +141,9 @@ export function generateHeightmap(config: TerrainConfig): HeightmapData {
         value = value * (1 - carveStrength) + track.targetHeight * carveStrength;
       }
 
-      // Ensure spawn zone is clean of mud texture
-      const distFromCenter = Math.sqrt(worldX * worldX + worldZ * worldZ);
-      if (distFromCenter <= 40) {
-        trackMask = 0;
-      }
-
       // Map edges fade to underwater
-      const distToEdgeX = (0.5 - Math.abs(cx)) * config.width;
-      const distToEdgeZ = (0.5 - Math.abs(cz)) * config.depth;
+      const distToEdgeX = (0.5 - Math.abs(cx)) * width;
+      const distToEdgeZ = (0.5 - Math.abs(cz)) * depth;
       const minEdgeDist = Math.min(distToEdgeX, distToEdgeZ);
       const edgeFalloff = 50;
 

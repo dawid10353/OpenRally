@@ -3,14 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import { InstancedRigidBodies } from '@react-three/rapier';
 import { InstancedMesh, Object3D, Color, Matrix4, Vector3 } from 'three';
 import { useTerrainData } from '@/components/terrain/TerrainContext';
-import {
-  NUM_PROPS,
-  PROPS_CLEARING_RADIUS,
-  PROPS_EDGE_MARGIN,
-  TREE_PROBABILITY,
-  PROP_COLOR_TREE,
-  PROP_COLOR_ROCK,
-} from '@/config/terrain';
+import { PROP_COLOR_TREE, PROP_COLOR_ROCK } from '@/config/terrain';
 
 // Dystanse dla LOD (do kwadratu dla szybszych obliczeń)
 const LOD0_DISTANCE_SQ = 60 * 60; // 60 metrów - cienie
@@ -21,12 +14,12 @@ export function PropsInstancer() {
   const meshLOD0Ref = useRef<InstancedMesh>(null);
   const meshLOD1Ref = useRef<InstancedMesh>(null);
   const lastUpdatePos = useRef<Vector3 | null>(null);
-  const { heightmapData, config } = useTerrainData();
+  const { heightmapData, levelData } = useTerrainData();
 
   const { positions, rotations, scales, colors, matrices } = useMemo(() => {
     const { heights, trackMasks, rows, cols } = heightmapData;
-    const mapWidth = config.width;
-    const mapDepth = config.depth;
+    const mapWidth = levelData.terrainBase.width;
+    const mapDepth = levelData.terrainBase.depth;
 
     const getHeightAt = (worldX: number, worldZ: number) => {
       const nx = (worldX + mapWidth / 2) / mapWidth;
@@ -60,50 +53,35 @@ export function PropsInstancer() {
     const colsArr: Color[] = [];
     const mats: Matrix4[] = [];
 
-    const random = (seed: number) => {
-      let x = Math.sin(seed++) * 10000;
-      return x - Math.floor(x);
-    };
-
     const dummy = new Object3D();
 
-    for (let i = 0; i < NUM_PROPS; i++) {
-      const isTree = random(i * 5) > (1 - TREE_PROBABILITY);
-
-      const x = (random(i * 5 + 1) - 0.5) * mapWidth * PROPS_EDGE_MARGIN;
-      const z = (random(i * 5 + 2) - 0.5) * mapDepth * PROPS_EDGE_MARGIN;
-
-      if (Math.abs(x) < PROPS_CLEARING_RADIUS && Math.abs(z) < PROPS_CLEARING_RADIUS) continue;
+    for (const prop of levelData.props) {
+      const [x, originalY, z] = prop.position;
+      
+      // Dynamic track filtering (so Map Editor doesn't have to perfectly align props, the game cleans them up)
       if (getTrackMaskAt(x, z) > 0) continue;
 
-      const y = getHeightAt(x, z);
+      // If originalY is 0, we assume it needs to be snapped to the terrain
+      const y = originalY !== 0 ? originalY : getHeightAt(x, z);
+      const isTree = prop.type === 'tree';
+      const yOffset = isTree ? -0.5 : -0.2; // sink slightly into ground
+      const finalY = y + yOffset;
 
-      const yOffset = isTree ? -0.5 : -0.2;
-      pos.push([x, y + yOffset, z]);
-
-      const yRot = random(i * 5 + 3) * Math.PI * 2;
-      rot.push([0, yRot, 0]);
-
-      const scaleBase = isTree ? 1.5 + random(i * 5 + 4) * 2 : 0.5 + random(i * 5 + 4) * 1.5;
-      const s: [number, number, number] = [
-        scaleBase,
-        isTree ? scaleBase * (1.5 + random(i * 5 + 6)) : scaleBase,
-        scaleBase,
-      ];
-      scl.push(s);
-
+      pos.push([x, finalY, z]);
+      rot.push(prop.rotation);
+      scl.push(prop.scale);
       colsArr.push(isTree ? PROP_COLOR_TREE : PROP_COLOR_ROCK);
 
-      // Prekalkulacja macierzy dla szybszego LOD
-      dummy.position.set(x, y + yOffset, z);
-      dummy.rotation.set(0, yRot, 0);
-      dummy.scale.set(s[0], s[1], s[2]);
+      // Precalculate matrix for faster LOD updates
+      dummy.position.set(x, finalY, z);
+      dummy.rotation.set(...prop.rotation);
+      dummy.scale.set(...prop.scale);
       dummy.updateMatrix();
       mats.push(dummy.matrix.clone());
     }
 
     return { positions: pos, rotations: rot, scales: scl, colors: colsArr, matrices: mats };
-  }, [heightmapData, config]);
+  }, [heightmapData, levelData]);
 
   const frameCountRef = useRef(0);
 

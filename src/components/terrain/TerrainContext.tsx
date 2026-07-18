@@ -1,40 +1,42 @@
 import { createContext, useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';
-import type { HeightmapData, TerrainConfig } from '@/types/terrain';
-import { generateHeightmap } from '@/utils/terrainGenerator';
-import { DEFAULT_TERRAIN_CONFIG } from '@/config/terrain';
+import type { HeightmapData } from '@/types/terrain';
+import type { LevelData } from '@/types/level';
+import { compileTerrain } from '@/utils/terrainCompiler';
+import { DEFAULT_LEVEL_DATA } from '@/config/terrain';
 
 /**
- * Shared terrain data — generated once and consumed by both
+ * Shared terrain data — compiled once from LevelData and consumed by both
  * the visual Terrain mesh and the PropsInstancer.
  */
 interface TerrainContextValue {
-  /** The generated heightmap data */
+  /** The compiled heightmap data */
   heightmapData: HeightmapData;
-  /** The terrain configuration used to generate the heightmap */
-  config: TerrainConfig;
+  /** The explicit level data defining the map */
+  levelData: LevelData;
 }
 
 const TerrainCtx = createContext<TerrainContextValue | null>(null);
 
 interface TerrainProviderProps {
-  config?: TerrainConfig;
+  levelData?: LevelData;
   children: ReactNode;
 }
 
 /**
- * TerrainProvider generates the heightmap once and provides it to all
- * child components via React Context. This avoids duplicate heightmap
- * generation in Terrain and PropsInstancer.
+ * TerrainProvider compiles the map data once and provides it to all
+ * child components via React Context.
  */
 export function TerrainProvider({
-  config = DEFAULT_TERRAIN_CONFIG,
+  levelData = DEFAULT_LEVEL_DATA,
   children,
 }: TerrainProviderProps) {
   const value = useMemo<TerrainContextValue>(() => {
-    const heightmapData = generateHeightmap(config);
-    return { heightmapData, config };
-  }, [config]);
+    // In Stage 4, this might be asynchronous if we load PNG heightmaps.
+    // For now, we compile the Float32Array directly from the JSON instructions.
+    const heightmapData = compileTerrain(levelData);
+    return { heightmapData, levelData };
+  }, [levelData]);
 
   return <TerrainCtx.Provider value={value}>{children}</TerrainCtx.Provider>;
 }

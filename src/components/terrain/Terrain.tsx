@@ -143,16 +143,16 @@ function createDetailedTerrainMaterial(quality: 'low' | 'medium' | 'high'): Mesh
  * Heightmap data is consumed from TerrainContext (shared with PropsInstancer).
  */
 export function Terrain() {
-  const { heightmapData, config } = useTerrainData();
+  const { heightmapData, levelData } = useTerrainData();
   const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
 
   const geometry = useMemo(() => {
     // Create plane geometry matching heightmap dimensions
     const geo = new PlaneGeometry(
-      config.width,
-      config.depth,
-      config.subdivisions,
-      config.subdivisions,
+      levelData.terrainBase.width,
+      levelData.terrainBase.depth,
+      levelData.terrainBase.subdivisions,
+      levelData.terrainBase.subdivisions,
     );
 
     // Rotate plane to lie flat (PlaneGeometry is in XY, we need XZ)
@@ -200,7 +200,7 @@ export function Terrain() {
     geo.computeVertexNormals();
 
     return geo;
-  }, [heightmapData, config]);
+  }, [heightmapData, levelData]);
 
   // Custom material with detail noise (created once)
   const material = useMemo(() => createDetailedTerrainMaterial(graphicsQuality), [graphicsQuality]);
@@ -225,13 +225,13 @@ export function Terrain() {
     <RigidBody type="fixed" colliders={false} friction={1.2}>
       <HeightfieldCollider
         args={[
-          config.subdivisions,
-          config.subdivisions,
+          levelData.terrainBase.subdivisions,
+          levelData.terrainBase.subdivisions,
           rapierHeights as unknown as number[],
           {
-            x: config.width,
+            x: levelData.terrainBase.width,
             y: 1,
-            z: config.depth,
+            z: levelData.terrainBase.depth,
           },
         ]}
       />
