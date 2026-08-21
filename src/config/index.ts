@@ -6,3 +6,6 @@ export * from '@/config/terrain';
 export * from '@/config/vehicle';
 export * from '@/config/assets';
 export * from '@/config/environment';
+export * from '@/config/surfaceRegistry';
+export * from '@/config/vehicleRegistry';
+export * from '@/config/levelRegistry';

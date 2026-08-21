@@ -1,5 +1,5 @@
 import type { RapierRigidBody } from '@react-three/rapier';
-import type { VehicleConfig } from '@/types/vehicle';
+import type { VehicleConfig, IRapierVehicleController } from '@/types/vehicle';
 import { Vector3, Quaternion } from 'three';
 
 const _localPoint = new Vector3();
@@ -10,10 +10,10 @@ const _bodyQuat = new Quaternion();
 
 export function applyAntiRollBars(
   body: RapierRigidBody,
-  controller: any,
+  controller: IRapierVehicleController,
   config: VehicleConfig,
   dt: number
-) {
+): void {
   if (!config.suspension) return;
 
   const pos = body.translation();
@@ -34,7 +34,7 @@ export function applyAntiRollBars(
 
 function applyAxleARB(
   body: RapierRigidBody,
-  controller: any,
+  controller: IRapierVehicleController,
   config: VehicleConfig,
   leftIndex: number,
   rightIndex: number,
@@ -62,7 +62,7 @@ function applyAxleARB(
   applyWheelForce(body, controller, rightIndex, -antiRollForce * dt);
 }
 
-function applyWheelForce(body: RapierRigidBody, controller: any, wheelIndex: number, forceY: number) {
+function applyWheelForce(body: RapierRigidBody, controller: IRapierVehicleController, wheelIndex: number, forceY: number) {
   const conn = controller.wheelChassisConnectionPointCs(wheelIndex);
   if (!conn) return;
   
@@ -74,3 +74,4 @@ function applyWheelForce(body: RapierRigidBody, controller: any, wheelIndex: num
   
   body.applyImpulseAtPoint(_impulse, _worldPoint, true);
 }
+

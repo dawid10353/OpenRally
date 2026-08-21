@@ -52,3 +52,42 @@ export interface LevelData {
   heightModifiers: HeightmapModification[];
   props: PropData[];
 }
+
+/**
+ * Complete level preset definition including gameplay metadata,
+ * spawn positioning, reset bounds, and environmental styling.
+ */
+export interface LevelPreset {
+  /** Unique level identifier */
+  readonly id: string;
+  /** Display title */
+  readonly name: string;
+  /** Description / subtitle */
+  readonly description: string;
+  /** Track difficulty label */
+  readonly difficulty: 'easy' | 'medium' | 'hard';
+  /** Primary surface type description for UI */
+  readonly surfaceDescription: string;
+  /** Underlying terrain, track, and props dataset */
+  readonly data: LevelData;
+  /** Vehicle spawn coordinates [x, y, z] */
+  readonly spawnPosition: [number, number, number];
+  /** Vehicle spawn heading (radians around Y axis) */
+  readonly spawnRotationY: number;
+  /** Y elevation threshold below which vehicle resets */
+  readonly fallResetY: number;
+  /** Optional custom environment styling */
+  readonly environment?: {
+    sky?: {
+      sunPosition?: [number, number, number];
+      inclination?: number;
+      azimuth?: number;
+    };
+    fog?: {
+      color?: string;
+      near?: number;
+      far?: number;
+    };
+  };
+}
+

@@ -1,14 +1,24 @@
 import { create } from 'zustand';
-import type { CameraMode, GameState } from '@/types/game';
+import type { CameraMode, GameMode, GameState } from '@/types/game';
+import type { SurfaceType } from '@/types/vehicle';
+import { DEFAULT_VEHICLE_ID } from '@/config/vehicleRegistry';
+import { DEFAULT_LEVEL_ID } from '@/config/levelRegistry';
 
 /**
- * Core game state store — vehicle telemetry, game phase, camera mode.
+ * Core game state store — vehicle telemetry, game phase, camera mode,
+ * selected vehicle and active level.
  */
 interface GameStore {
   /** Current game state */
   gameState: GameState;
+  /** Active game mode: Free Roam or Time Attack */
+  gameMode: GameMode;
   /** Active camera mode */
   cameraMode: CameraMode;
+  /** ID of the selected vehicle preset */
+  selectedVehicleId: string;
+  /** ID of the active level preset */
+  selectedLevelId: string;
   /** Vehicle speed in km/h */
   speed: number;
   /** Lateral speed in m/s (used for drifting/sliding detection) */
@@ -29,9 +39,14 @@ interface GameStore {
   telemetryEnabled: boolean;
   /** Current friction multiplier for each tire [FL, FR, RL, RR] */
   tireGrips: number[];
+  /** Current surface under the vehicle */
+  surface: SurfaceType;
 
   // Actions
   setGameState: (state: GameState) => void;
+  setGameMode: (mode: GameMode) => void;
+  setSelectedVehicleId: (id: string) => void;
+  setSelectedLevelId: (id: string) => void;
   setSpeed: (speed: number) => void;
   setLateralSpeed: (lateralSpeed: number) => void;
   setSlipAngle: (slipAngle: number) => void;
@@ -44,25 +59,33 @@ interface GameStore {
   triggerReset: (val: boolean) => void;
   setTelemetryEnabled: (val: boolean) => void;
   setTireGrips: (val: number[]) => void;
+  setSurface: (val: SurfaceType) => void;
 }
 
 const CAMERA_MODES: CameraMode[] = ['chase_close', 'chase', 'bumper', 'free'];
 
 export const useGameStore = create<GameStore>((set) => ({
   gameState: 'menu',
+  gameMode: 'timeattack',
   cameraMode: 'chase_close',
+  selectedVehicleId: DEFAULT_VEHICLE_ID,
+  selectedLevelId: DEFAULT_LEVEL_ID,
   speed: 0,
   lateralSpeed: 0,
   slipAngle: 0,
   rpm: 1000,
-  gear: 1, // Start in 1st gear (or 0 for neutral)
+  gear: 1,
   heading: 0,
   position: [0, 0.5, 0],
   pendingReset: false,
   telemetryEnabled: false,
   tireGrips: [0, 0, 0, 0],
+  surface: 'mud',
 
   setGameState: (gameState) => set({ gameState }),
+  setGameMode: (gameMode) => set({ gameMode }),
+  setSelectedVehicleId: (selectedVehicleId) => set({ selectedVehicleId }),
+  setSelectedLevelId: (selectedLevelId) => set({ selectedLevelId }),
   setSpeed: (speed) => set({ speed }),
   setLateralSpeed: (lateralSpeed) => set({ lateralSpeed }),
   setSlipAngle: (slipAngle) => set({ slipAngle }),
@@ -85,4 +108,5 @@ export const useGameStore = create<GameStore>((set) => ({
   triggerReset: (val) => set({ pendingReset: val }),
   setTelemetryEnabled: (val) => set({ telemetryEnabled: val }),
   setTireGrips: (val) => set({ tireGrips: val }),
+  setSurface: (val) => set({ surface: val }),
 }));

@@ -6,8 +6,7 @@ const PROPS_EDGE_MARGIN = 0.9;
 const TREE_PROBABILITY = 0.7;
 
 /**
- * Procedurally generates the placeholder props array for Level 1.
- * In a fully data-driven pipeline (Stage 4), this array would be loaded from a JSON file.
+ * Procedurally generates props for Level 1 (Island Circuit).
  */
 function generateLevel1Props(mapWidth: number, mapDepth: number): PropData[] {
   const props: PropData[] = [];
@@ -22,11 +21,8 @@ function generateLevel1Props(mapWidth: number, mapDepth: number): PropData[] {
     const x = (random(i * 5 + 1) - 0.5) * mapWidth * PROPS_EDGE_MARGIN;
     const z = (random(i * 5 + 2) - 0.5) * mapDepth * PROPS_EDGE_MARGIN;
 
-    // Keep spawn area clear
+    // Keep spawn and start line area clear of random props
     if (Math.abs(x) < PROPS_CLEARING_RADIUS && Math.abs(z) < PROPS_CLEARING_RADIUS) continue;
-    
-    // Note: Track mask clearing will be done dynamically by PropsInstancer 
-    // or the Map Editor in the future. For now, PropsInstancer will filter them.
 
     const yRot = random(i * 5 + 3) * Math.PI * 2;
     const scaleBase = isTree ? 1.5 + random(i * 5 + 4) * 2 : 0.5 + random(i * 5 + 4) * 1.5;
@@ -37,7 +33,7 @@ function generateLevel1Props(mapWidth: number, mapDepth: number): PropData[] {
     props.push({
       id: `prop_${i}`,
       type: isTree ? 'tree' : 'rock',
-      position: [x, 0, z], // y will be snapped to terrain by PropsInstancer
+      position: [x, 0, z], // y snapped to terrain by PropsInstancer
       rotation: [0, yRot, 0],
       scale: [sX, sY, sZ],
     });
@@ -48,7 +44,7 @@ function generateLevel1Props(mapWidth: number, mapDepth: number): PropData[] {
 
 export const LEVEL1_DATA: LevelData = {
   id: 'level1',
-  name: 'Default Rally Track',
+  name: 'Island Circuit',
   terrainBase: {
     width: 800,
     depth: 800,
@@ -65,33 +61,34 @@ export const LEVEL1_DATA: LevelData = {
     falloff: 40,
     targetHeight: -0.5,
     points: [
-      { x: 0, z: 0 },
-      { x: 100, z: -50 },
-      { x: 180, z: -100 },
-      { x: 220, z: 0 },
-      { x: 150, z: 120 },
-      { x: 0, z: 200 },
-      { x: -150, z: 100 },
-      { x: -200, z: 0 },
-      { x: -100, z: -150 },
-      { x: -50, z: -50 },
+      { x: 0, z: 0 },         // Checkpoint 0: Start / Finish Gantry
+      { x: 90, z: -45 },      // Checkpoint 1: Fast Straight Exit
+      { x: 180, z: -90 },     // Checkpoint 2: Sweeping High-Speed Right
+      { x: 240, z: -10 },     // Checkpoint 3: Coastal Cliffs
+      { x: 200, z: 110 },     // Checkpoint 4: Hill Crest
+      { x: 70, z: 190 },      // Checkpoint 5: Southern Valley
+      { x: -80, z: 210 },     // Checkpoint 6: South-West Basin
+      { x: -190, z: 120 },    // Checkpoint 7: Western Elevation
+      { x: -220, z: -20 },    // Checkpoint 8: North-West Plateau
+      { x: -150, z: -120 },   // Checkpoint 9: Coastal Chicane
+      { x: -70, z: 35 },      // Checkpoint 10: Start Straight Approach
     ],
   },
   heightModifiers: [
     {
       x: 0,
       z: 0,
-      radius: 50, // 30 + 20 falloff
+      radius: 65,
       absoluteHeight: 0,
-      shape: 'sphere' // acts like spawn_flatten
+      shape: 'sphere', // Level spawn & start straight foundation
     },
     {
       x: 280,
       z: -280,
       radius: 220,
       heightDelta: 100,
-      shape: 'sphere' // smoothstep creates a rounded, flat top instead of a point
-    }
+      shape: 'sphere',
+    },
   ],
   props: generateLevel1Props(800, 800),
 };

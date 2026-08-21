@@ -1,13 +1,14 @@
-import type { VehicleConfig } from '@/types/vehicle';
+import type { VehicleConfig, IRapierVehicleController } from '@/types/vehicle';
+import type { InputState } from '@/types/game';
 import { GEAR_RATIOS, BRAKE_SPEED_THRESHOLD, REVERSE_FORCE_MULTIPLIER } from '@/config/vehicle';
 
 export function applyDrivetrain(
-  controller: any,
+  controller: IRapierVehicleController,
   config: VehicleConfig,
-  input: any,
+  input: Pick<InputState, 'throttle' | 'brake'>,
   forwardSpeed: number,
   currentGear: number
-) {
+): void {
   const gearRatio = currentGear > 0 ? GEAR_RATIOS[currentGear] : 1;
 
   for (let i = 0; i < config.wheels.length; i++) {

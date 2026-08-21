@@ -1,13 +1,13 @@
 import { Object3D } from 'three';
-import type { VehicleConfig } from '@/types/vehicle';
+import type { VehicleConfig, IRapierVehicleController } from '@/types/vehicle';
 
 export function syncWheelVisuals(
-  controller: any,
+  controller: IRapierVehicleController,
   wheelRefs: React.RefObject<(Object3D | null)[]>,
   config: VehicleConfig,
   forwardSpeed: number,
   dt: number
-) {
+): void {
   const wheels = wheelRefs.current;
   if (!wheels) return;
 

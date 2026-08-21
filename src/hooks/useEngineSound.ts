@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useFrame } from '@react-three/fiber';
+import { getOrLoadAudioBuffer } from '@/utils/audioCache';
 import {
   ENGINE_VOLUME,
   IDLE_PITCH,
   IDLE_FILTER_CUTOFF,
   FILTER_CUTOFF_PER_KMH,
   AUDIO_RAMP_TIME,
-  GAIN_RAMP_TIME,
 } from '@/config/sound';
 
 /** Augment Window for Safari's prefixed AudioContext */
@@ -22,6 +22,7 @@ interface WebkitWindow extends Window {
  */
 export function useEngineSound() {
   const [isInitialized, setIsInitialized] = useState(false);
+  const isInitializingRef = useRef(false);
 
   // Audio nodes
   const ctxRef = useRef<AudioContext | null>(null);
@@ -32,19 +33,28 @@ export function useEngineSound() {
   const gameState = useGameStore((s) => s.gameState);
   const sfxVolume = useSettingsStore((s) => s.sfxVolume);
 
+  const sfxVolumeRef = useRef(sfxVolume);
+  sfxVolumeRef.current = sfxVolume;
+
   // Initialize audio on first 'playing' state (user gesture required)
   useEffect(() => {
-    if (gameState === 'playing' && !isInitialized) {
+    if (gameState === 'playing' && !isInitialized && !isInitializingRef.current) {
+      isInitializingRef.current = true;
+
       const initAudio = async () => {
         try {
           const AudioCtx = window.AudioContext || (window as unknown as WebkitWindow).webkitAudioContext;
           if (!AudioCtx) return;
           const ctx = new AudioCtx();
 
+          const currentPlaying = useGameStore.getState().gameState === 'playing';
+
           // Master gain
           const masterGain = ctx.createGain();
-          masterGain.gain.value = ENGINE_VOLUME * sfxVolume;
-          masterGain.connect(ctx.destination);
+          masterGain.gain.value = currentPlaying ? ENGINE_VOLUME * sfxVolumeRef.current : 0;
+          if (currentPlaying) {
+            masterGain.connect(ctx.destination);
+          }
 
           // Engine Filter to make it sound muffled/bassy
           const filter = ctx.createBiquadFilter();
@@ -52,10 +62,8 @@ export function useEngineSound() {
           filter.frequency.value = IDLE_FILTER_CUTOFF;
           filter.connect(masterGain);
 
-          // Fetch and decode audio file
-          const response = await fetch('/sounds/engine-loop.mp3');
-          const arrayBuffer = await response.arrayBuffer();
-          const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+          // Fetch and decode audio file (cached)
+          const audioBuffer = await getOrLoadAudioBuffer('/sounds/engine-loop.mp3', ctx);
 
           // Audio buffer source for the engine loop
           const source = ctx.createBufferSource();
@@ -65,6 +73,10 @@ export function useEngineSound() {
           source.connect(filter);
           source.start();
 
+          if (!currentPlaying && ctx.state === 'running') {
+            ctx.suspend();
+          }
+
           ctxRef.current = ctx;
           sourceRef.current = source;
           gainRef.current = masterGain;
@@ -73,29 +85,56 @@ export function useEngineSound() {
           setIsInitialized(true);
         } catch (e) {
           console.warn('AudioContext or audio fetching failed', e);
+          isInitializingRef.current = false;
         }
       };
 
       initAudio();
     }
-  }, [gameState, isInitialized]); // We intentionally do not include sfxVolume here to avoid re-init
+  }, [gameState, isInitialized]);
 
   // Mute/Resume audio based on game state and global sfx volume
   useEffect(() => {
     if (ctxRef.current && gainRef.current) {
       if (gameState === 'playing') {
-        if (ctxRef.current.state === 'suspended') ctxRef.current.resume();
-        gainRef.current.gain.setTargetAtTime(ENGINE_VOLUME * sfxVolume, ctxRef.current.currentTime, GAIN_RAMP_TIME);
+        try {
+          if (ctxRef.current.state === 'suspended') {
+            ctxRef.current.resume();
+          }
+          gainRef.current.disconnect();
+          gainRef.current.connect(ctxRef.current.destination);
+        } catch {
+          // ignore
+        }
+        gainRef.current.gain.cancelScheduledValues(0);
+        gainRef.current.gain.setValueAtTime(ENGINE_VOLUME * sfxVolume, ctxRef.current.currentTime);
       } else {
-        // Mute when paused/menu
-        gainRef.current.gain.setTargetAtTime(0, ctxRef.current.currentTime, GAIN_RAMP_TIME);
+        // Mute, disconnect, and suspend immediately when paused or in menu
+        gainRef.current.gain.cancelScheduledValues(0);
+        gainRef.current.gain.setValueAtTime(0, ctxRef.current.currentTime);
+        gainRef.current.gain.value = 0;
+        try {
+          gainRef.current.disconnect();
+        } catch {
+          // ignore
+        }
+        if (ctxRef.current.state === 'running') {
+          ctxRef.current.suspend();
+        }
       }
     }
-  }, [gameState, sfxVolume]);
+  }, [gameState, sfxVolume, isInitialized]);
 
   // Update pitch based on RPM and filter based on speed
   useFrame(() => {
-    if (!isInitialized || !sourceRef.current || !ctxRef.current) return;
+    if (!isInitialized || !sourceRef.current || !ctxRef.current || !gainRef.current || gameState !== 'playing') {
+      if (gainRef.current && gameState !== 'playing') {
+        gainRef.current.gain.cancelScheduledValues(0);
+        gainRef.current.gain.setValueAtTime(0, 0);
+        gainRef.current.gain.value = 0;
+      }
+      return;
+    }
 
     const store = useGameStore.getState();
     const speed = store.speed;
@@ -120,7 +159,10 @@ export function useEngineSound() {
   useEffect(() => {
     return () => {
       if (ctxRef.current) {
-        ctxRef.current.close();
+        try {
+          ctxRef.current.close();
+        } catch {}
+        ctxRef.current = null;
       }
     };
   }, []);

@@ -1,0 +1,98 @@
+import { describe, it, expect } from 'vitest';
+import { compileTerrain, getInterpolatedHeight } from '../terrainCompiler';
+import type { LevelData } from '@/types/level';
+
+describe('terrainCompiler', () => {
+  const mockLevel: LevelData = {
+    id: 'test-level',
+    name: 'Test Island',
+    terrainBase: {
+      width: 100,
+      depth: 100,
+      subdivisions: 10,
+      amplitude: 15,
+      frequency: 0.02,
+      octaves: 3,
+      lacunarity: 2,
+      persistence: 0.5,
+      seed: 42,
+    },
+    track: {
+      points: [
+        { x: -20, z: -20 },
+        { x: 20, z: -20 },
+        { x: 20, z: 20 },
+        { x: -20, z: 20 },
+      ],
+      width: 6,
+      falloff: 2,
+      targetHeight: 2,
+    },
+    heightModifiers: [
+      {
+        x: 0,
+        z: 0,
+        radius: 10,
+        heightDelta: 5,
+        shape: 'sphere',
+      },
+    ],
+    props: [],
+  };
+
+  it('compiles deterministic heightmap and track mask with matching dimensions', () => {
+    const data1 = compileTerrain(mockLevel);
+    const data2 = compileTerrain(mockLevel);
+
+    const expectedSize = mockLevel.terrainBase.subdivisions + 1; // 11
+    const totalSamples = expectedSize * expectedSize; // 121
+
+    expect(data1.cols).toBe(expectedSize);
+    expect(data1.rows).toBe(expectedSize);
+    expect(data1.heights.length).toBe(totalSamples);
+    expect(data1.trackMasks.length).toBe(totalSamples);
+
+    // Deterministic results with the same seed
+    expect(data1.heights[0]).toBeCloseTo(data2.heights[0], 5);
+    expect(data1.minHeight).toBeLessThanOrEqual(data1.maxHeight);
+  });
+
+  it('computes valid track mask values in [0, 1] range', () => {
+    const data = compileTerrain(mockLevel);
+    for (let i = 0; i < data.trackMasks.length; i++) {
+      const mask = data.trackMasks[i];
+      expect(mask).toBeGreaterThanOrEqual(0);
+      expect(mask).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('applies height modifiers correctly', () => {
+    const withModifier = compileTerrain(mockLevel);
+    const withoutModifier = compileTerrain({
+      ...mockLevel,
+      heightModifiers: [],
+    });
+
+    // Center point (x=5, z=5 in 11x11 grid) should be elevated by the sphere modifier
+    const centerIndex = 5 * 11 + 5;
+    expect(withModifier.heights[centerIndex]).toBeGreaterThan(withoutModifier.heights[centerIndex]);
+  });
+
+  it('smoothly interpolates heights with getInterpolatedHeight', () => {
+    const data = compileTerrain(mockLevel);
+    // At center (0, 0)
+    const centerH = getInterpolatedHeight(0, 0, data.heights, data.rows, data.cols, 100, 100);
+    const centerIndex = 5 * 11 + 5;
+    expect(centerH).toBeCloseTo(data.heights[centerIndex], 4);
+
+    // Interpolation between grid points (x=2.5, z=0 -> halfway between x=5 and x=6 in 10-subdivision 100m grid)
+    const midH = getInterpolatedHeight(5, 0, data.heights, data.rows, data.cols, 100, 100);
+    const h55 = data.heights[5 * 11 + 5];
+    const h56 = data.heights[5 * 11 + 6];
+    const expectedInterpH = (h55 + h56) / 2;
+    expect(midH).toBeCloseTo(expectedInterpH, 4);
+
+    // Out of bounds safely returns 0
+    expect(getInterpolatedHeight(-200, 0, data.heights, data.rows, data.cols, 100, 100)).toBe(0);
+  });
+});

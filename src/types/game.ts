@@ -4,9 +4,19 @@
 export type GameState = 'loading' | 'playing' | 'paused' | 'menu';
 
 /**
+ * Game modes: Free Roam (open world exploration) or Time Attack (checkpoint racing against the clock).
+ */
+export type GameMode = 'freeroam' | 'timeattack';
+
+/**
  * Camera view modes.
  */
 export type CameraMode = 'chase_close' | 'chase' | 'bumper' | 'free';
+
+/**
+ * Graphics quality preset levels.
+ */
+export type GraphicsQuality = 'low' | 'medium' | 'high';
 
 /**
  * Normalized input state from keyboard / gamepad.

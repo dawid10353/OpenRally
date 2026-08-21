@@ -1,25 +1,27 @@
 import { createContext, useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { HeightmapData } from '@/types/terrain';
-import type { LevelData } from '@/types/level';
+import type { LevelData, LevelPreset } from '@/types/level';
 import { compileTerrain } from '@/utils/terrainCompiler';
-import { DEFAULT_LEVEL_DATA } from '@/config/terrain';
+import { LEVEL_PRESET_ISLAND } from '@/config/levelRegistry';
 
 /**
- * Shared terrain data — compiled once from LevelData and consumed by both
- * the visual Terrain mesh and the PropsInstancer.
+ * Shared terrain data — compiled once from LevelPreset/LevelData and consumed by
+ * the visual Terrain mesh, PropsInstancer, physics, and checkpoints.
  */
 interface TerrainContextValue {
   /** The compiled heightmap data */
   heightmapData: HeightmapData;
   /** The explicit level data defining the map */
   levelData: LevelData;
+  /** Active level preset metadata (spawns, resets, environment) */
+  levelPreset: LevelPreset;
 }
 
 const TerrainCtx = createContext<TerrainContextValue | null>(null);
 
 interface TerrainProviderProps {
-  levelData?: LevelData;
+  levelPreset?: LevelPreset;
   children: ReactNode;
 }
 
@@ -28,21 +30,20 @@ interface TerrainProviderProps {
  * child components via React Context.
  */
 export function TerrainProvider({
-  levelData = DEFAULT_LEVEL_DATA,
+  levelPreset = LEVEL_PRESET_ISLAND,
   children,
 }: TerrainProviderProps) {
   const value = useMemo<TerrainContextValue>(() => {
-    // In Stage 4, this might be asynchronous if we load PNG heightmaps.
-    // For now, we compile the Float32Array directly from the JSON instructions.
+    const levelData = levelPreset.data;
     const heightmapData = compileTerrain(levelData);
-    return { heightmapData, levelData };
-  }, [levelData]);
+    return { heightmapData, levelData, levelPreset };
+  }, [levelPreset]);
 
   return <TerrainCtx.Provider value={value}>{children}</TerrainCtx.Provider>;
 }
 
 /**
- * Hook to consume the shared heightmap data from TerrainProvider.
+ * Hook to consume the shared heightmap data and active level metadata from TerrainProvider.
  * Must be used within a <TerrainProvider>.
  */
 export function useTerrainData(): TerrainContextValue {

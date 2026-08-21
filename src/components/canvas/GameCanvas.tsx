@@ -4,19 +4,22 @@ import { Physics } from '@react-three/rapier';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import { Terrain } from '@/components/terrain/Terrain';
 import { GrassField } from '@/components/terrain/GrassField';
+import { PropsInstancer } from '@/components/terrain/PropsInstancer';
 
 import { TerrainProvider } from '@/components/terrain/TerrainContext';
 import { Ocean } from '@/components/environment/Ocean';
+import { Checkpoints } from '@/components/environment/Checkpoints';
 import { Vehicle } from '@/components/vehicle/Vehicle';
 import { Lights } from '@/components/canvas/Lights';
 import { Environment, Sky, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useGameStore } from '@/store/gameStore';
+import { getLevelPreset } from '@/config/levelRegistry';
 import { SKY_CONFIG, FOG_CONFIG, POSTPROCESSING_CONFIG } from '@/config/environment';
 
 /**
  * Main game canvas — wraps the R3F Canvas with Physics, scene objects,
- * and post-processing effects.
+ * dynamic level environments, and post-processing effects.
  */
 export function GameCanvas() {
   const postProcessingEnabled = useSettingsStore(
@@ -26,6 +29,17 @@ export function GameCanvas() {
   const debugPhysics = useSettingsStore((s) => s.debugPhysics);
   const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
   const gameState = useGameStore((s) => s.gameState);
+  const selectedLevelId = useGameStore((s) => s.selectedLevelId);
+
+  const levelPreset = getLevelPreset(selectedLevelId);
+
+  const fogColor = levelPreset.environment?.fog?.color ?? FOG_CONFIG.color;
+  const fogNear = levelPreset.environment?.fog?.near ?? FOG_CONFIG.near;
+  const fogFar = levelPreset.environment?.fog?.far ?? FOG_CONFIG.far;
+
+  const sunPosition = (levelPreset.environment?.sky?.sunPosition ?? SKY_CONFIG.sunPosition) as [number, number, number];
+  const inclination = levelPreset.environment?.sky?.inclination ?? SKY_CONFIG.inclination;
+  const azimuth = levelPreset.environment?.sky?.azimuth ?? SKY_CONFIG.azimuth;
 
   const dpr: [number, number] =
     graphicsQuality === 'low'
@@ -50,7 +64,7 @@ export function GameCanvas() {
         <AdaptiveDpr pixelated />
         <AdaptiveEvents />
         {/* Fog for atmosphere and distance culling */}
-        <fog attach="fog" args={[FOG_CONFIG.color, FOG_CONFIG.near, FOG_CONFIG.far]} />
+        <fog attach="fog" args={[fogColor, fogNear, fogFar]} />
 
         {/* Lighting */}
         <Lights />
@@ -58,29 +72,38 @@ export function GameCanvas() {
         {/* Procedural Sky visible to player */}
         <Sky 
           distance={SKY_CONFIG.distance} 
-          sunPosition={SKY_CONFIG.sunPosition} // Matches DirectionalLight
-          inclination={SKY_CONFIG.inclination} 
-          azimuth={SKY_CONFIG.azimuth} 
+          sunPosition={sunPosition}
+          inclination={inclination} 
+          azimuth={azimuth} 
         />
         {/* Environment captures the Sky for realistic reflections on water and car */}
         <Environment background={false} resolution={256} frames={1}>
           <Sky 
             distance={SKY_CONFIG.distance} 
-            sunPosition={SKY_CONFIG.sunPosition} 
-            inclination={SKY_CONFIG.inclination} 
-            azimuth={SKY_CONFIG.azimuth} 
+            sunPosition={sunPosition} 
+            inclination={inclination} 
+            azimuth={azimuth} 
           />
         </Environment>
 
-        {/* Terrain context wraps both physics terrain, visual grass, and ocean (for heightmap access) */}
-        <TerrainProvider>
+        {/* Terrain context wraps both physics terrain, visual grass, ocean, props, and checkpoints */}
+        <TerrainProvider key={selectedLevelId} levelPreset={levelPreset}>
           {/* Ocean boundary */}
           <Ocean />
 
           {/* Physics world */}
-          <Physics gravity={[0, -9.81, 0]} debug={debugPhysics} paused={gameState !== 'playing'}>
+          <Physics 
+            gravity={[0, -9.81, 0]} 
+            timeStep={1 / 60} 
+            debug={debugPhysics} 
+            paused={gameState !== 'playing'}
+          >
             <Terrain />
+            <PropsInstancer />
             
+            {/* Rally Checkpoint Gates with physics colliders */}
+            <Checkpoints />
+
             {/* Player vehicle */}
             <Vehicle />
           </Physics>

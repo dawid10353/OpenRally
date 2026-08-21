@@ -16,14 +16,22 @@ export const SHIFT_UP_SPEEDS = [0, 40, 80, 130, 180, 999]; // Shift to next gear
 export const SHIFT_DOWN_SPEEDS = [0, 0, 30, 70, 120, 170]; // Shift to previous gear when falling below these speeds (km/h)
 
 // ─── Friction & Tire Models ──────────────────────────────────────────
-export const TIRE_MODELS: Record<'tarmac' | 'sand', import('@/types/vehicle').TireConfig> = {
+export const TIRE_MODELS: Record<'tarmac' | 'mud' | 'grass' | 'sand', import('@/types/vehicle').TireConfig> = {
   tarmac: {
-    front: { baseGrip: 3.0, peakSlipAngle: Math.PI / 8, slideGrip: 3.0 },
-    rear: { baseGrip: 3.5, peakSlipAngle: Math.PI / 8, slideGrip: 3.5 },
+    front: { baseGrip: 3.2, peakSlipAngle: Math.PI / 8, slideGrip: 3.0 },
+    rear: { baseGrip: 3.6, peakSlipAngle: Math.PI / 8, slideGrip: 3.3 },
+  },
+  mud: {
+    front: { baseGrip: 2.3, peakSlipAngle: Math.PI / 6, slideGrip: 1.9 },
+    rear: { baseGrip: 2.5, peakSlipAngle: Math.PI / 6, slideGrip: 2.0 },
+  },
+  grass: {
+    front: { baseGrip: 2.0, peakSlipAngle: Math.PI / 7, slideGrip: 1.6 },
+    rear: { baseGrip: 2.3, peakSlipAngle: Math.PI / 7, slideGrip: 1.8 },
   },
   sand: {
-    front: { baseGrip: 1.5, peakSlipAngle: Math.PI / 8, slideGrip: 1.5 },
-    rear: { baseGrip: 2.0, peakSlipAngle: Math.PI / 8, slideGrip: 2.0 },
+    front: { baseGrip: 1.5, peakSlipAngle: Math.PI / 6, slideGrip: 1.3 },
+    rear: { baseGrip: 1.8, peakSlipAngle: Math.PI / 6, slideGrip: 1.5 },
   },
 };
 
@@ -50,68 +58,71 @@ export const DEFAULT_VEHICLE_CONFIG: VehicleConfig = {
   chassisMass: 150,
   chassisSize: [2, 0.6, 4],
   engine: {
-    maxForce: 400, // Reduced from 800 because now 4 wheels are powered (AWD)
+    maxForce: 400, // AWD powered
     maxSpeed: 240,
   },
   drivetrain: {
     frontBias: 0.5, // 50/50 AWD
   },
   brakes: {
-    maxForce: 60,
-    handbrakeForce: 100,
-    frontBias: 0.7, // Add frontBias for brakes (prevent rear from lifting)
+    maxForce: 20, // Firm and responsive braking with realistic weight transfer
+    handbrakeForce: 65,
+    frontBias: 0.50, // 50/50 even 4-wheel brake distribution
   },
   suspension: {
-    frontAntiRollBarStiffness: 0, // Disabled by default for Stage 1 compatibility
-    rearAntiRollBarStiffness: 0,
+    frontAntiRollBarStiffness: 14.0, // Active ARB prevents rollovers on aggressive turns
+    rearAntiRollBarStiffness: 10.0,
   },
   handling: {
     steeringCurve: [
       [0, Math.PI / 4],      // 45 degrees at 0 km/h
-      [50, Math.PI / 6],     // 30 degrees at 50 km/h
-      [120, Math.PI / 12],   // 15 degrees at 120 km/h
-      [200, Math.PI / 24],   // 7.5 degrees at 200 km/h
+      [50, Math.PI / 5.5],   // ~33 degrees at 50 km/h (great responsive cornering)
+      [120, Math.PI / 10],   // 18 degrees at 120 km/h
+      [200, Math.PI / 20],   // 9 degrees at 200 km/h
     ],
-    steeringSpeed: 5,
+    steeringSpeed: 6, // Fast, agile steering response
     assists: {
-      yawDamping: 0.1,
-      driftGripMultiplier: 0.15, // 0.15 * 3.5 = ~0.52 (similar to old 0.5)
+      yawDamping: 0.12, // Subtle, natural drift assist for satisfying slides
+      driftGripMultiplier: 0.18,
     },
   },
   aerodynamics: {
-    downforceFactor: 50, // Applied per m/s of speed
+    downforceFactor: 15, // Smooth high-speed stability without crushing suspension
   },
   wheels: [
     {
       // Front-left
       position: [-0.76, -0.2, 1.45],
       radius: 0.35,
-      suspensionRestLength: 0.3,
-      suspensionTravel: 0.3,
-      suspensionStiffness: 20,
-      suspensionDamping: 2.5,
+      suspensionRestLength: 0.32,
+      suspensionTravel: 0.30,
+      suspensionStiffness: 32,
+      suspensionDamping: 3.5,
+      maxSuspensionForce: 8000,
       steerable: true,
-      powered: true, // Now AWD to prevent wheelies
+      powered: true,
     },
     {
       // Front-right
       position: [0.76, -0.2, 1.45],
       radius: 0.35,
-      suspensionRestLength: 0.3,
-      suspensionTravel: 0.3,
-      suspensionStiffness: 20,
-      suspensionDamping: 2.5,
+      suspensionRestLength: 0.32,
+      suspensionTravel: 0.30,
+      suspensionStiffness: 32,
+      suspensionDamping: 3.5,
+      maxSuspensionForce: 8000,
       steerable: true,
-      powered: true, // Now AWD
+      powered: true,
     },
     {
       // Rear-left
       position: [-0.76, -0.2, -1.4],
       radius: 0.35,
-      suspensionRestLength: 0.3,
-      suspensionTravel: 0.3,
-      suspensionStiffness: 20,
-      suspensionDamping: 2.5,
+      suspensionRestLength: 0.32,
+      suspensionTravel: 0.30,
+      suspensionStiffness: 32,
+      suspensionDamping: 3.5,
+      maxSuspensionForce: 8000,
       steerable: false,
       powered: true,
     },
@@ -119,10 +130,11 @@ export const DEFAULT_VEHICLE_CONFIG: VehicleConfig = {
       // Rear-right
       position: [0.76, -0.2, -1.4],
       radius: 0.35,
-      suspensionRestLength: 0.3,
-      suspensionTravel: 0.3,
-      suspensionStiffness: 20,
-      suspensionDamping: 2.5,
+      suspensionRestLength: 0.32,
+      suspensionTravel: 0.30,
+      suspensionStiffness: 32,
+      suspensionDamping: 3.5,
+      maxSuspensionForce: 8000,
       steerable: false,
       powered: true,
     },

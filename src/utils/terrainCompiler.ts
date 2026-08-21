@@ -175,3 +175,40 @@ export function compileTerrain(level: LevelData): HeightmapData {
     maxHeight,
   };
 }
+
+/**
+ * Bilinear height interpolation from heightmap data for smooth world coordinates sampling.
+ * Eliminates step artifacts and levitation on slopes.
+ */
+export function getInterpolatedHeight(
+  worldX: number,
+  worldZ: number,
+  heights: Float32Array,
+  rows: number,
+  cols: number,
+  mapWidth: number,
+  mapDepth: number,
+): number {
+  const nx = (worldX + mapWidth / 2) / mapWidth;
+  const nz = (worldZ + mapDepth / 2) / mapDepth;
+  const gx = nx * (cols - 1);
+  const gz = nz * (rows - 1);
+  const x0 = Math.floor(gx);
+  const z0 = Math.floor(gz);
+  const x1 = Math.min(x0 + 1, cols - 1);
+  const z1 = Math.min(z0 + 1, rows - 1);
+
+  if (x0 < 0 || x0 >= cols || z0 < 0 || z0 >= rows) return 0;
+
+  const fx = gx - x0;
+  const fz = gz - z0;
+
+  const h00 = heights[z0 * cols + x0];
+  const h10 = heights[z0 * cols + x1];
+  const h01 = heights[z1 * cols + x0];
+  const h11 = heights[z1 * cols + x1];
+
+  const h0 = h00 + (h10 - h00) * fx;
+  const h1 = h01 + (h11 - h01) * fx;
+  return h0 + (h1 - h0) * fz;
+}

@@ -31,7 +31,6 @@ const createDustTexture = () => {
 const dustTexture = createDustTexture();
 import {
   MAX_PARTICLES,
-  DUST_COLOR,
   SMOKE_COLOR,
   DRIFT_ANGVEL_THRESHOLD,
   DRIVING_SPEED_THRESHOLD,
@@ -39,6 +38,9 @@ import {
   DRIFT_PARTICLE_LIFETIME,
   DRIVE_PARTICLE_LIFETIME,
 } from '@/config/particles';
+import { useGameStore } from '@/store/gameStore';
+import { getSurfaceDefinition } from '@/config/surfaceRegistry';
+
 
 interface Particle {
   active: boolean;
@@ -139,7 +141,13 @@ export function DustParticles({ wheelsRef, chassisRef }: DustParticlesProps) {
             p.life = 0;
             p.maxLife = isDrifting ? DRIFT_PARTICLE_LIFETIME : DRIVE_PARTICLE_LIFETIME;
             p.scale = Math.random() * 0.3 + 0.1; // Even smaller for less volume
-            p.color.copy(isDrifting ? SMOKE_COLOR : DUST_COLOR);
+            const currentSurface = useGameStore.getState().surface;
+            const surfaceColorHex = getSurfaceDefinition(currentSurface).particles.color;
+            if (isDrifting) {
+              p.color.copy(SMOKE_COLOR);
+            } else {
+              p.color.set(surfaceColorHex);
+            }
             p.rotationAngle = Math.random() * Math.PI * 2;
             p.rotationSpeed = (Math.random() - 0.5) * 2;
 

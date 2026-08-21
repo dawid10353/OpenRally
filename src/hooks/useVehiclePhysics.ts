@@ -3,17 +3,10 @@ import { useFrame } from '@react-three/fiber';
 import { useRapier } from '@react-three/rapier';
 import type { RapierRigidBody } from '@react-three/rapier';
 import { Vector3, Quaternion, Euler, Object3D } from 'three';
-import type { VehicleConfig } from '@/types/vehicle';
+import type { VehicleConfig, SurfaceType } from '@/types/vehicle';
 import { useInputUpdater } from '@/hooks/useInput';
 import { useGameStore } from '@/store/gameStore';
-import {
-  DEFAULT_VEHICLE_CONFIG,
-  MS_TO_KMH,
-  FALL_RESET_Y,
-  RESET_SPAWN_POSITION,
-  RESET_SPAWN_ROTATION_Y,
-  MAX_DELTA,
-} from '@/config/vehicle';
+import { DEFAULT_VEHICLE_CONFIG, MS_TO_KMH, MAX_DELTA } from '@/config/vehicle';
 import { updateGearbox, calculateRPM } from '@/utils/physics/powertrain';
 import { applyDrivetrain } from '@/utils/physics/drivetrain';
 import { applyTireFrictionAndBrakes } from '@/utils/physics/tires';
@@ -21,6 +14,8 @@ import { applyAerodynamics } from '@/utils/physics/aerodynamics';
 import { applyAssists } from '@/utils/physics/assists';
 import { syncWheelVisuals } from '@/utils/physics/visuals';
 import { applyAntiRollBars } from '@/utils/physics/suspension';
+import { emitGameEvent } from '@/utils/events';
+import { useTerrainData } from '@/components/terrain/TerrainContext';
 
 // ─── Reusable Three.js objects (avoids per-frame GC pressure) ────────
 const _forward = new Vector3();
@@ -28,6 +23,9 @@ const _right = new Vector3();
 const _velocity = new Vector3();
 const _quat = new Quaternion();
 const _euler = new Euler();
+const _spawnQuat = new Quaternion();
+const _spawnEuler = new Euler();
+const _posTuple: [number, number, number] = [0, 0, 0];
 
 /**
  * Vehicle physics hook using Rapier's DynamicRayCastVehicleController.
@@ -43,6 +41,9 @@ export function useVehiclePhysics(
   config: VehicleConfig = DEFAULT_VEHICLE_CONFIG,
 ): void {
   const { world, rapier } = useRapier();
+  const { heightmapData, levelData, levelPreset } = useTerrainData();
+  const prevGearRef = useRef<number>(1);
+  const prevSurfaceRef = useRef<SurfaceType>('tarmac');
   const vehicleControllerRef = useRef<InstanceType<
     typeof rapier.DynamicRayCastVehicleController
   > | null>(null);
@@ -78,6 +79,7 @@ export function useVehiclePhysics(
       controller.setWheelMaxSuspensionTravel(i, wheel.suspensionTravel);
       controller.setWheelSuspensionCompression(i, wheel.suspensionDamping * 0.8);
       controller.setWheelSuspensionRelaxation(i, wheel.suspensionDamping);
+      controller.setWheelMaxSuspensionForce(i, wheel.maxSuspensionForce ?? 12000);
     }
 
     vehicleControllerRef.current = controller;
@@ -87,7 +89,7 @@ export function useVehiclePhysics(
       vehicleControllerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [config]);
 
   // Frame update: apply forces, read state
   useFrame((_, delta) => {
@@ -103,8 +105,7 @@ export function useVehiclePhysics(
     const pos = body.translation();
 
     _forward.set(0, 0, 1);
-    _right.set(-1, 0, 0); // Local right vector (assuming vehicle faces +Z and +X is left, so -X is right. Check this! 
-    // In ThreeJS default, if forward is +Z, left is +X, right is -X. 
+    _right.set(1, 0, 0); // Local right vector (+X is right in Three.js right-handed coordinates)
     const bodyQuat = body.rotation();
     _quat.set(bodyQuat.x, bodyQuat.y, bodyQuat.z, bodyQuat.w);
     _forward.applyQuaternion(_quat);
@@ -125,14 +126,42 @@ export function useVehiclePhysics(
     const state = useGameStore.getState();
     const currentGear = updateGearbox(speedKmh, forwardSpeed, input, state.gear);
 
+    if (currentGear !== prevGearRef.current) {
+      emitGameEvent('gear_shifted', {
+        fromGear: prevGearRef.current,
+        toGear: currentGear,
+      });
+      prevGearRef.current = currentGear;
+    }
+
     // --- 1. APPLY DRIVETRAIN (Engine, Reverse) ---
     applyDrivetrain(controller, config, input, forwardSpeed, currentGear);
 
     // --- 2. APPLY TIRE FRICTION & BRAKES ---
-    const tireGrips = applyTireFrictionAndBrakes(controller, config, input, speedKmh, forwardSpeed, pos.y, slipAngle);
+    const { grips: tireGrips, surface } = applyTireFrictionAndBrakes(
+      controller,
+      config,
+      input,
+      speedKmh,
+      forwardSpeed,
+      pos.x,
+      pos.y,
+      pos.z,
+      slipAngle,
+      heightmapData,
+      levelData,
+    );
+
+    if (surface !== prevSurfaceRef.current) {
+      emitGameEvent('surface_changed', {
+        from: prevSurfaceRef.current,
+        to: surface,
+      });
+      prevSurfaceRef.current = surface;
+    }
 
     // --- 3. APPLY ARCADE ASSISTS ---
-    applyAssists(body, config, slipAngle, lateralSpeed, dt);
+    applyAssists(body, config, input, forwardSpeed, dt);
 
     // --- 3.5. APPLY SUSPENSION ARB ---
     applyAntiRollBars(body, controller, config, dt);
@@ -151,6 +180,10 @@ export function useVehiclePhysics(
     _euler.setFromQuaternion(_quat, 'YXZ');
 
     // Batch all state updates into one call
+    _posTuple[0] = pos.x;
+    _posTuple[1] = pos.y;
+    _posTuple[2] = pos.z;
+
     useGameStore.setState({
       speed: Math.round(speedKmh),
       lateralSpeed,
@@ -158,20 +191,30 @@ export function useVehiclePhysics(
       rpm: Math.round(targetRpm),
       gear: currentGear,
       heading: _euler.y,
-      position: [pos.x, pos.y, pos.z],
+      position: _posTuple,
       tireGrips,
+      surface,
     });
 
     // --- 8. CHECK RESET STATE ---
     const resetState = useGameStore.getState();
-    if (pos.y < FALL_RESET_Y || input.reset || resetState.pendingReset) {
-      body.setTranslation({ x: RESET_SPAWN_POSITION[0], y: RESET_SPAWN_POSITION[1], z: RESET_SPAWN_POSITION[2] }, true);
+    const spawnPos = levelPreset.spawnPosition;
+    const spawnRotY = levelPreset.spawnRotationY;
+    const fallResetY = levelPreset.fallResetY;
+
+    if (pos.y < fallResetY || input.reset || resetState.pendingReset) {
+      body.setTranslation({ x: spawnPos[0], y: spawnPos[1], z: spawnPos[2] }, true);
       
-      const spawnQuat = new Quaternion().setFromEuler(new Euler(0, RESET_SPAWN_ROTATION_Y, 0));
-      body.setRotation({ x: spawnQuat.x, y: spawnQuat.y, z: spawnQuat.z, w: spawnQuat.w }, true);
+      _spawnEuler.set(0, spawnRotY, 0);
+      _spawnQuat.setFromEuler(_spawnEuler);
+      body.setRotation({ x: _spawnQuat.x, y: _spawnQuat.y, z: _spawnQuat.z, w: _spawnQuat.w }, true);
 
       body.setLinvel({ x: 0, y: 0, z: 0 }, true);
       body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+
+      emitGameEvent('vehicle_reset', {
+        reason: pos.y < fallResetY ? 'out_of_bounds' : 'manual',
+      });
 
       if (resetState.pendingReset) {
         resetState.triggerReset(false);

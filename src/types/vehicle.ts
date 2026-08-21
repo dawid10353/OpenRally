@@ -20,6 +20,8 @@ export interface WheelInfo {
   readonly steerable: boolean;
   /** Whether this wheel receives engine force */
   readonly powered: boolean;
+  /** Maximum force the suspension spring can apply (N) */
+  readonly maxSuspensionForce?: number;
 }
 
 /**
@@ -124,8 +126,73 @@ export interface VehicleConfig {
   readonly suspension: SuspensionConfig;
   readonly handling: HandlingConfig;
   readonly aerodynamics: AerodynamicsConfig;
-  
-  /** Configuration for each wheel (4 wheels) */
   readonly wheels: readonly [WheelInfo, WheelInfo, WheelInfo, WheelInfo];
 }
+
+/**
+ * Surface types present on the terrain.
+ */
+export type SurfaceType = 'tarmac' | 'mud' | 'grass' | 'sand' | 'snow' | 'gravel';
+
+/**
+ * Display category for vehicle selection.
+ */
+export type VehicleCategory = 'rally' | 'sports' | 'offroad' | 'arcade';
+
+/**
+ * Normalized 1-10 stats for UI gauges in garage/menu.
+ */
+export interface VehicleStats {
+  /** Top speed rating (1-10) */
+  readonly topSpeed: number;
+  /** Acceleration rating (1-10) */
+  readonly acceleration: number;
+  /** Handling / agility rating (1-10) */
+  readonly handling: number;
+  /** Offroad capability rating (1-10) */
+  readonly offroad: number;
+  /** Drivetrain label (e.g. 'AWD', 'RWD', 'FWD') */
+  readonly driveType: 'AWD' | 'RWD' | 'FWD';
+}
+
+/**
+ * Complete vehicle preset metadata and physical configuration.
+ */
+export interface VehiclePreset {
+  /** Unique vehicle identifier */
+  readonly id: string;
+  /** Display name shown in UI */
+  readonly name: string;
+  /** Short description / flavor text */
+  readonly description: string;
+  /** Vehicle category */
+  readonly category: VehicleCategory;
+  /** Path to primary chassis 3D GLB model */
+  readonly modelPath: string;
+  /** Optional custom wheel 3D GLB model path */
+  readonly wheelModelPath?: string;
+  /** Visual scale factor for chassis model */
+  readonly modelScale?: Vector3Tuple;
+  /** Visual offset position [x, y, z] for chassis model */
+  readonly modelPositionOffset?: Vector3Tuple;
+  /** Normalized UI stats */
+  readonly stats: VehicleStats;
+  /** Full physics and dynamics configuration */
+  readonly config: VehicleConfig;
+}
+
+/**
+ * Interface representing the Rapier DynamicRayCastVehicleController methods
+ * used by vehicle physics calculations and visual synchronization.
+ */
+export interface IRapierVehicleController {
+  setWheelEngineForce(wheelIndex: number, force: number): void;
+  setWheelBrake(wheelIndex: number, brake: number): void;
+  setWheelSteering(wheelIndex: number, steering: number): void;
+  setWheelFrictionSlip(wheelIndex: number, friction: number): void;
+  wheelSuspensionLength(wheelIndex: number): number | null | undefined;
+  wheelChassisConnectionPointCs(wheelIndex: number): { x: number; y: number; z: number } | null | undefined;
+  wheelSteering(wheelIndex: number): number | null | undefined;
+}
+
 

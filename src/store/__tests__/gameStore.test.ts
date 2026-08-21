@@ -1,0 +1,79 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { useGameStore } from '../gameStore';
+
+describe('gameStore', () => {
+  beforeEach(() => {
+    // Reset store state before each test
+    useGameStore.setState({
+      gameState: 'menu',
+      cameraMode: 'chase_close',
+      speed: 0,
+      lateralSpeed: 0,
+      slipAngle: 0,
+      rpm: 1000,
+      gear: 1,
+      heading: 0,
+      position: [0, 0.5, 0],
+      pendingReset: false,
+      telemetryEnabled: false,
+      tireGrips: [0, 0, 0, 0],
+      surface: 'mud',
+    });
+  });
+
+  it('cycles camera modes in order', () => {
+    expect(useGameStore.getState().cameraMode).toBe('chase_close');
+
+    useGameStore.getState().cycleCameraMode();
+    expect(useGameStore.getState().cameraMode).toBe('chase');
+
+    useGameStore.getState().cycleCameraMode();
+    expect(useGameStore.getState().cameraMode).toBe('bumper');
+
+    useGameStore.getState().cycleCameraMode();
+    expect(useGameStore.getState().cameraMode).toBe('free');
+
+    useGameStore.getState().cycleCameraMode();
+    expect(useGameStore.getState().cameraMode).toBe('chase_close');
+  });
+
+  it('toggles pause state when playing or paused', () => {
+    useGameStore.getState().setGameState('playing');
+    expect(useGameStore.getState().gameState).toBe('playing');
+
+    useGameStore.getState().togglePause();
+    expect(useGameStore.getState().gameState).toBe('paused');
+
+    useGameStore.getState().togglePause();
+    expect(useGameStore.getState().gameState).toBe('playing');
+  });
+
+  it('updates telemetry properties correctly', () => {
+    const { setSpeed, setRpm, setGear, setPosition, setSurface, setTireGrips } = useGameStore.getState();
+
+    setSpeed(120);
+    setRpm(5500);
+    setGear(3);
+    setPosition([10, 5, 20]);
+    setSurface('tarmac');
+    setTireGrips([3.2, 3.2, 3.6, 3.6]);
+
+    const state = useGameStore.getState();
+    expect(state.speed).toBe(120);
+    expect(state.rpm).toBe(5500);
+    expect(state.gear).toBe(3);
+    expect(state.position).toEqual([10, 5, 20]);
+    expect(state.surface).toBe('tarmac');
+    expect(state.tireGrips).toEqual([3.2, 3.2, 3.6, 3.6]);
+  });
+
+  it('switches game modes correctly between freeroam and timeattack', () => {
+    expect(useGameStore.getState().gameMode).toBe('timeattack');
+
+    useGameStore.getState().setGameMode('freeroam');
+    expect(useGameStore.getState().gameMode).toBe('freeroam');
+
+    useGameStore.getState().setGameMode('timeattack');
+    expect(useGameStore.getState().gameMode).toBe('timeattack');
+  });
+});

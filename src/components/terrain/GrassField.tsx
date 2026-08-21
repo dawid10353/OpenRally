@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useLayoutEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import {
   Color,
@@ -9,12 +9,14 @@ import {
   Vector3,
   MeshLambertMaterial,
   InstancedMesh,
+  type IUniform,
 } from 'three';
 import { createNoise2D } from 'simplex-noise';
 import { useTerrainData } from '@/components/terrain/TerrainContext';
 import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { mapRange } from '@/utils/math';
+import { getInterpolatedHeight } from '@/utils/terrainCompiler';
 import {
   GRASS_COUNT,
   GRASS_HEIGHT_MIN,
@@ -42,7 +44,7 @@ function createGrassTuftGeometry(): BufferGeometry {
   const verts: number[] = [];
   const tips: number[] = [];
   const uvs: number[] = [];
-  const normals: number[] = []; 
+  const normals: number[] = [];
 
   const angles = [0, Math.PI / 2];
 
@@ -55,7 +57,7 @@ function createGrassTuftGeometry(): BufferGeometry {
     const tlX = -tw * c, tlZ = -tw * s;
     const trX =  tw * c, trZ =  tw * s;
 
-    const normX = -s, normZ = c; 
+    const normX = -s, normZ = c;
 
     // Tri 1: base-left → base-right → tip-right
     verts.push(blX, 0, blZ,  brX, 0, brZ,  trX, h, trZ);
@@ -94,55 +96,64 @@ function getSeededRandomFn(seed: number) {
   };
 }
 
-function getInterpolatedHeight(
-  worldX: number,
-  worldZ: number,
-  heights: Float32Array,
-  rows: number,
-  cols: number,
-  mapWidth: number,
-  mapDepth: number,
-): number {
-  const nx = (worldX + mapWidth / 2) / mapWidth;
-  const nz = (worldZ + mapDepth / 2) / mapDepth;
-  const gx = nx * (cols - 1);
-  const gz = nz * (rows - 1);
-  const x0 = Math.floor(gx);
-  const z0 = Math.floor(gz);
-  const x1 = Math.min(x0 + 1, cols - 1);
-  const z1 = Math.min(z0 + 1, rows - 1);
-  const fx = gx - x0;
-  const fz = gz - z0;
-
-  if (x0 < 0 || x0 >= cols || z0 < 0 || z0 >= rows) return 0;
-
-  const h00 = heights[z0 * cols + x0];
-  const h10 = heights[z0 * cols + x1];
-  const h01 = heights[z1 * cols + x0];
-  const h11 = heights[z1 * cols + x1];
-
-  const h0 = h00 + (h10 - h00) * fx;
-  const h1 = h01 + (h11 - h01) * fx;
-  return h0 + (h1 - h0) * fz;
-}
-
 interface GrassChunkData {
   matrices: number[][];
   colors: Color[];
   center: Vector3;
 }
 
+interface GrassChunkMeshProps {
+  geometry: BufferGeometry;
+  material: MeshLambertMaterial;
+  chunk: GrassChunkData;
+  onMeshRegister: (mesh: InstancedMesh | null) => void;
+}
+
+function GrassChunkMesh({ geometry, material, chunk, onMeshRegister }: GrassChunkMeshProps) {
+  const meshRef = useRef<InstancedMesh>(null);
+  const count = chunk.matrices.length;
+
+  useLayoutEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh || count === 0) return;
+
+    const dummy = new Object3D();
+    for (let i = 0; i < count; i++) {
+      dummy.matrix.fromArray(chunk.matrices[i]);
+      mesh.setMatrixAt(i, dummy.matrix);
+      mesh.setColorAt(i, chunk.colors[i]);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    mesh.computeBoundingSphere();
+
+    onMeshRegister(mesh);
+    return () => onMeshRegister(null);
+  }, [chunk, count, onMeshRegister]);
+
+  if (count === 0) return null;
+
+  return (
+    <instancedMesh
+      ref={meshRef}
+      args={[geometry, material, count]}
+      frustumCulled={true}
+    />
+  );
+}
+
 export function GrassField() {
   const { heightmapData, levelData } = useTerrainData();
   const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
-  
-  // We'll store all the uniform references so we can update them every frame
-  const shaderUniformsRef = useRef<{ [key: string]: any }[]>([]);
+
+  const shaderUniformsRef = useRef<Record<string, IUniform>[]>([]);
   const carPosRef = useRef(new Vector3(0, 0, 0));
-  
-  // We'll store references to our instanced meshes to dynamically set count for LOD
+  const frameCountRef = useRef(0);
+  const lastCamPosRef = useRef(new Vector3(9999, 9999, 9999));
+
+  // References to our instanced meshes for LOD culling
   const meshRefs = useRef<(InstancedMesh | null)[]>([]);
-  
+
   const { chunksData, geometry } = useMemo(() => {
     const { heights, trackMasks, rows, cols, minHeight, maxHeight } = heightmapData;
     const mapWidth = levelData.terrainBase.width;
@@ -160,12 +171,12 @@ export function GrassField() {
     const chunks: GrassChunkData[] = Array.from({ length: GRASS_CHUNKS * GRASS_CHUNKS }, () => ({
       matrices: [],
       colors: [],
-      center: new Vector3(), // Added for distance culling
+      center: new Vector3(),
     }));
 
     let placed = 0;
     let attempt = 0;
-    
+
     const targetGrassCount = graphicsQuality === 'low' ? 10000 : graphicsQuality === 'medium' ? 30000 : GRASS_COUNT;
     const maxAttempts = targetGrassCount * 8;
 
@@ -176,7 +187,7 @@ export function GrassField() {
       const x = (seededRandom(seed) - 0.5) * mapWidth * GRASS_EDGE_MARGIN;
       const z = (seededRandom(seed + 1) - 0.5) * mapDepth * GRASS_EDGE_MARGIN;
 
-      const noiseVal = clumpNoise(x * 0.05, z * 0.05); 
+      const noiseVal = clumpNoise(x * 0.05, z * 0.05);
       if (noiseVal < -0.1) continue;
 
       if (Math.abs(x) < GRASS_CLEARING_RADIUS && Math.abs(z) < GRASS_CLEARING_RADIUS) continue;
@@ -195,9 +206,9 @@ export function GrassField() {
       if (normalizedHeight > GRASS_MAX_TERRAIN_HEIGHT) continue;
       if (y < -5) continue;
 
-      const patchScale = mapRange(noiseVal, -0.1, 1.0, 0.4, 1.2); 
+      const patchScale = mapRange(noiseVal, -0.1, 1.0, 0.4, 1.2);
       const scaleY = (GRASS_HEIGHT_MIN + seededRandom(seed + 2) * (GRASS_HEIGHT_MAX - GRASS_HEIGHT_MIN)) * patchScale;
-      const scaleXZ = (0.7 + seededRandom(seed + 3) * 0.6) * patchScale; 
+      const scaleXZ = (0.7 + seededRandom(seed + 3) * 0.6) * patchScale;
       const rotY = seededRandom(seed + 4) * Math.PI * 2;
 
       dummy.position.set(x, y, z);
@@ -213,23 +224,22 @@ export function GrassField() {
       let cz = Math.floor((z + mapDepth / 2) / chunkDepth);
       cx = Math.max(0, Math.min(GRASS_CHUNKS - 1, cx));
       cz = Math.max(0, Math.min(GRASS_CHUNKS - 1, cz));
-      
+
       const chunkIdx = cz * GRASS_CHUNKS + cx;
       chunks[chunkIdx].matrices.push(Array.from(dummy.matrix.elements));
       chunks[chunkIdx].colors.push(tempColor.clone());
 
       placed++;
     }
-    
+
     // Calculate chunk centers for distance-based culling
     chunks.forEach((chunk, idx) => {
       if (chunk.matrices.length === 0) return;
       const cz = Math.floor(idx / GRASS_CHUNKS);
       const cx = idx % GRASS_CHUNKS;
-      // Center of the chunk in world coordinates
       chunk.center.set(
         (cx + 0.5) * chunkWidth - mapWidth / 2,
-        0, // Y doesn't matter much for distance
+        0,
         (cz + 0.5) * chunkDepth - mapDepth / 2
       );
     });
@@ -241,11 +251,13 @@ export function GrassField() {
 
   // Create a shared material using onBeforeCompile
   const material = useMemo(() => {
+    shaderUniformsRef.current = [];
+
     const mat = new MeshLambertMaterial({
       side: DoubleSide,
       transparent: true,
       alphaTest: 0.5,
-      color: 0xffffff, // Acts as multiplier for instanceColor
+      color: 0xffffff,
     });
 
     mat.onBeforeCompile = (shader) => {
@@ -353,54 +365,43 @@ export function GrassField() {
       if (uniforms.u_time) uniforms.u_time.value = time;
       if (uniforms.u_carPosition) uniforms.u_carPosition.value.copy(carPosRef.current);
     }
-    
-    // Distance-based culling (LOD)
-    const camPos = state.camera.position;
-    const MAX_DISTANCE_SQ = 150 * 150; // Max render distance for grass
-    
-    chunksData.forEach((chunk, idx) => {
-      const mesh = meshRefs.current[idx];
-      if (!mesh) return;
-      
-      const distSq = chunk.center.distanceToSquared(camPos);
-      if (distSq > MAX_DISTANCE_SQ) {
-        mesh.count = 0; // Cull entirely by setting instance count to 0
-      } else {
-        mesh.count = chunk.matrices.length; // Render all
+
+    // Throttled distance-based culling (LOD) check every 4 frames and only if camera moved > 1m
+    frameCountRef.current++;
+    if (frameCountRef.current % 4 === 0) {
+      const camPos = state.camera.position;
+      if (camPos.distanceToSquared(lastCamPosRef.current) > 1.0) {
+        lastCamPosRef.current.copy(camPos);
+        const MAX_DISTANCE_SQ = 150 * 150;
+
+        chunksData.forEach((chunk, idx) => {
+          const mesh = meshRefs.current[idx];
+          if (!mesh) return;
+
+          const distSq = chunk.center.distanceToSquared(camPos);
+          if (distSq > MAX_DISTANCE_SQ) {
+            mesh.count = 0;
+          } else {
+            mesh.count = chunk.matrices.length;
+          }
+        });
       }
-    });
+    }
   });
 
   return (
     <group>
-      {chunksData.map((chunk, index) => {
-        const count = chunk.matrices.length;
-        if (count === 0) return null;
-
-        return (
-          <instancedMesh
-            key={index}
-            args={[geometry, material, count]}
-            frustumCulled={true} // Performance boost!
-            ref={(mesh) => {
-              if (mesh) {
-                meshRefs.current[index] = mesh;
-                const dummy = new Object3D();
-                for (let i = 0; i < count; i++) {
-                  dummy.matrix.fromArray(chunk.matrices[i]);
-                  mesh.setMatrixAt(i, dummy.matrix);
-                  mesh.setColorAt(i, chunk.colors[i]);
-                }
-                mesh.instanceMatrix.needsUpdate = true;
-                if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-                
-                // CRITICAL for frustumCulled={true} to work correctly with InstancedMesh!
-                mesh.computeBoundingSphere();
-              }
-            }}
-          />
-        );
-      })}
+      {chunksData.map((chunk, index) => (
+        <GrassChunkMesh
+          key={index}
+          geometry={geometry}
+          material={material}
+          chunk={chunk}
+          onMeshRegister={(mesh) => {
+            meshRefs.current[index] = mesh;
+          }}
+        />
+      ))}
     </group>
   );
 }

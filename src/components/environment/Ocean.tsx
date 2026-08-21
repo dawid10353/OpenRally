@@ -14,6 +14,7 @@ import {
   MeshStandardMaterial,
   Mesh,
   LinearFilter,
+  type IUniform,
 } from 'three';
 import { Water } from 'three/examples/jsm/objects/Water.js';
 import { createNoise2D } from 'simplex-noise';
@@ -424,7 +425,16 @@ export function Ocean() {
   }, [waterNormals, scene.fog, terrainHeightmap, levelData, size, segmentsCount, graphicsQuality]);
 
   useFrame(() => {
-    const mat = water.material as any;
+    const mat = water.material as {
+      uniforms?: Record<string, IUniform>;
+      userData?: {
+        shader?: {
+          uniforms: {
+            time: IUniform<number>;
+          };
+        };
+      };
+    };
     // For High quality (Water.js)
     if (mat.uniforms && mat.uniforms['time']) {
       mat.uniforms['time'].value += WATER_WAVE_SPEED / 60;

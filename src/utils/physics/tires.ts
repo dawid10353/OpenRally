@@ -1,5 +1,48 @@
-import type { VehicleConfig } from '@/types/vehicle';
-import { TIRE_MODELS, BRAKE_SPEED_THRESHOLD, SAND_ELEVATION_THRESHOLD } from '@/config/vehicle';
+import type { VehicleConfig, IRapierVehicleController, SurfaceType } from '@/types/vehicle';
+import type { InputState } from '@/types/game';
+import type { HeightmapData } from '@/types/terrain';
+import type { LevelData } from '@/types/level';
+import { BRAKE_SPEED_THRESHOLD, SAND_ELEVATION_THRESHOLD } from '@/config/vehicle';
+import { getSurfaceDefinition } from '@/config/surfaceRegistry';
+
+export type { SurfaceType };
+
+/**
+ * Determines the surface type under a given world position.
+ */
+export function getSurfaceAtPosition(
+  x: number,
+  y: number,
+  z: number,
+  heightmapData?: HeightmapData,
+  levelData?: LevelData,
+): SurfaceType {
+  // Low elevation near the water level is sand
+  if (y < SAND_ELEVATION_THRESHOLD) {
+    return 'sand';
+  }
+
+  if (heightmapData && levelData) {
+    const { trackMasks, cols, rows } = heightmapData;
+    const mapWidth = levelData.terrainBase.width;
+    const mapDepth = levelData.terrainBase.depth;
+
+    const nx = (x + mapWidth / 2) / mapWidth;
+    const nz = (z + mapDepth / 2) / mapDepth;
+    const col = Math.floor(nx * (cols - 1));
+    const row = Math.floor(nz * (rows - 1));
+
+    if (col >= 0 && col < cols && row >= 0 && row < rows) {
+      const mask = trackMasks[row * cols + col];
+      if (mask > 0.35) {
+        return 'mud';
+      }
+    }
+  }
+
+  // Off the muddy track, driving on grass/dirt
+  return 'grass';
+}
 
 export function getInterpolatedSteeringAngle(speedKmh: number, curve: readonly [number, number][]): number {
   if (!curve || curve.length === 0) return 0;
@@ -15,18 +58,30 @@ export function getInterpolatedSteeringAngle(speedKmh: number, curve: readonly [
   return curve[0][1];
 }
 
+// Preallocated reusable grips array to avoid per-frame GC pressure
+const _gripsBuffer: number[] = [0, 0, 0, 0];
+
 export function applyTireFrictionAndBrakes(
-  controller: any,
+  controller: IRapierVehicleController,
   config: VehicleConfig,
-  input: any,
+  input: Pick<InputState, 'brake' | 'handbrake' | 'steering'>,
   speedKmh: number,
   forwardSpeed: number,
+  posX: number,
   posY: number,
-  slipAngle: number
-): number[] {
-  const isSand = posY < SAND_ELEVATION_THRESHOLD;
-  const tireModel = isSand ? TIRE_MODELS.sand : TIRE_MODELS.tarmac;
-  const grips: number[] = [];
+  posZ: number,
+  slipAngle: number,
+  heightmapData?: HeightmapData,
+  levelData?: LevelData,
+): { grips: number[]; surface: SurfaceType } {
+  const surface = getSurfaceAtPosition(posX, posY, posZ, heightmapData, levelData);
+  const surfaceDef = getSurfaceDefinition(surface);
+  const tireModel = surfaceDef.tireModel;
+
+  // Ensure buffer matches wheel count
+  if (_gripsBuffer.length !== config.wheels.length) {
+    _gripsBuffer.length = config.wheels.length;
+  }
 
   for (let i = 0; i < config.wheels.length; i++) {
     const wheel = config.wheels[i];
@@ -49,8 +104,8 @@ export function applyTireFrictionAndBrakes(
     // Decrease grip if we exceed peak slip angle
     const absSlipAngle = Math.abs(slipAngle);
     if (absSlipAngle > gripCurve.peakSlipAngle) {
-      // Simple linear drop-off to slideGrip (can be replaced with non-linear curve later)
-      const overSlip = Math.min(1.0, (absSlipAngle - gripCurve.peakSlipAngle) / (Math.PI / 4)); // drop over 45 degrees
+      // Linear drop-off to slideGrip over 45 degrees
+      const overSlip = Math.min(1.0, (absSlipAngle - gripCurve.peakSlipAngle) / (Math.PI / 4));
       currentFriction = gripCurve.baseGrip - (gripCurve.baseGrip - gripCurve.slideGrip) * overSlip;
     }
 
@@ -62,7 +117,7 @@ export function applyTireFrictionAndBrakes(
 
     controller.setWheelFrictionSlip(i, currentFriction);
     controller.setWheelBrake(i, brakeForce);
-    grips.push(currentFriction);
+    _gripsBuffer[i] = currentFriction;
 
     // Steering
     if (wheel.steerable) {
@@ -72,5 +127,5 @@ export function applyTireFrictionAndBrakes(
     }
   }
   
-  return grips;
+  return { grips: _gripsBuffer, surface };
 }

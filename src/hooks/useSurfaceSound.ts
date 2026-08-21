@@ -3,6 +3,7 @@ import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useFrame } from '@react-three/fiber';
 import { Object3D } from 'three';
+import { getOrLoadAudioBuffer } from '@/utils/audioCache';
 import {
   SURFACE_MAX_VOLUME,
   SURFACE_SPEED_FOR_MAX_VOL,
@@ -10,7 +11,6 @@ import {
   SURFACE_BASE_PITCH,
   SURFACE_PITCH_PER_KMH,
   AUDIO_RAMP_TIME,
-  GAIN_RAMP_TIME,
 } from '@/config/sound';
 
 /** Augment Window for Safari's prefixed AudioContext */
@@ -24,6 +24,7 @@ interface WebkitWindow extends Window {
  */
 export function useSurfaceSound(wheelsRef: React.RefObject<(Object3D | null)[]>) {
   const [isInitialized, setIsInitialized] = useState(false);
+  const isInitializingRef = useRef(false);
 
   // Audio nodes
   const ctxRef = useRef<AudioContext | null>(null);
@@ -35,22 +36,26 @@ export function useSurfaceSound(wheelsRef: React.RefObject<(Object3D | null)[]>)
 
   // Initialize audio on first 'playing' state
   useEffect(() => {
-    if (gameState === 'playing' && !isInitialized) {
+    if (gameState === 'playing' && !isInitialized && !isInitializingRef.current) {
+      isInitializingRef.current = true;
+
       const initAudio = async () => {
         try {
           const AudioCtx = window.AudioContext || (window as unknown as WebkitWindow).webkitAudioContext;
           if (!AudioCtx) return;
           const ctx = new AudioCtx();
 
+          const currentPlaying = useGameStore.getState().gameState === 'playing';
+
           // Master gain for surface sound
           const masterGain = ctx.createGain();
           masterGain.gain.value = 0; // Starts silent (speed is 0)
-          masterGain.connect(ctx.destination);
+          if (currentPlaying) {
+            masterGain.connect(ctx.destination);
+          }
 
-          // Fetch and decode audio file
-          const response = await fetch('/sounds/sand-loop.mp3');
-          const arrayBuffer = await response.arrayBuffer();
-          const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+          // Fetch and decode audio file (cached)
+          const audioBuffer = await getOrLoadAudioBuffer('/sounds/sand-loop.mp3', ctx);
 
           // Audio buffer source for the surface loop
           const source = ctx.createBufferSource();
@@ -60,6 +65,10 @@ export function useSurfaceSound(wheelsRef: React.RefObject<(Object3D | null)[]>)
           source.connect(masterGain);
           source.start();
 
+          if (!currentPlaying && ctx.state === 'running') {
+            ctx.suspend();
+          }
+
           ctxRef.current = ctx;
           sourceRef.current = source;
           gainRef.current = masterGain;
@@ -67,29 +76,54 @@ export function useSurfaceSound(wheelsRef: React.RefObject<(Object3D | null)[]>)
           setIsInitialized(true);
         } catch (e) {
           console.warn('Surface audio fetch/decode failed', e);
+          isInitializingRef.current = false;
         }
       };
 
       initAudio();
     }
-  }, [gameState, isInitialized]); // We intentionally do not include sfxVolume here to avoid re-init
+  }, [gameState, isInitialized]);
 
   // Mute audio when paused
   useEffect(() => {
     if (ctxRef.current && gainRef.current) {
       if (gameState === 'playing') {
-        if (ctxRef.current.state === 'suspended') ctxRef.current.resume();
-        // The volume itself is updated in useFrame, so we don't set it to max here.
+        try {
+          if (ctxRef.current.state === 'suspended') {
+            ctxRef.current.resume();
+          }
+          gainRef.current.disconnect();
+          gainRef.current.connect(ctxRef.current.destination);
+        } catch {
+          // ignore
+        }
       } else {
-        // Mute when paused/menu
-        gainRef.current.gain.setTargetAtTime(0, ctxRef.current.currentTime, GAIN_RAMP_TIME);
+        // Mute, disconnect, and suspend immediately when paused or in menu
+        gainRef.current.gain.cancelScheduledValues(0);
+        gainRef.current.gain.setValueAtTime(0, ctxRef.current.currentTime);
+        gainRef.current.gain.value = 0;
+        try {
+          gainRef.current.disconnect();
+        } catch {
+          // ignore
+        }
+        if (ctxRef.current.state === 'running') {
+          ctxRef.current.suspend();
+        }
       }
     }
-  }, [gameState, sfxVolume]);
+  }, [gameState, sfxVolume, isInitialized]);
 
   // Update volume based on speed, ground contact, and global sfxVolume
   useFrame(() => {
-    if (!isInitialized || !sourceRef.current || !ctxRef.current || !gainRef.current || gameState !== 'playing') return;
+    if (!isInitialized || !sourceRef.current || !ctxRef.current || !gainRef.current || gameState !== 'playing') {
+      if (gainRef.current && gameState !== 'playing') {
+        gainRef.current.gain.cancelScheduledValues(0);
+        gainRef.current.gain.setValueAtTime(0, 0);
+        gainRef.current.gain.value = 0;
+      }
+      return;
+    }
 
     // Check if at least one wheel is touching the ground (suspension is compressed)
     let isGrounded = false;
@@ -126,7 +160,10 @@ export function useSurfaceSound(wheelsRef: React.RefObject<(Object3D | null)[]>)
   useEffect(() => {
     return () => {
       if (ctxRef.current) {
-        ctxRef.current.close();
+        try {
+          ctxRef.current.close();
+        } catch {}
+        ctxRef.current = null;
       }
     };
   }, []);

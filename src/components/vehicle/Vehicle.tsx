@@ -4,61 +4,70 @@ import type { RapierRigidBody } from '@react-three/rapier';
 import { Group, Object3D } from 'three';
 import { Wheel } from '@/components/vehicle/Wheel';
 import { useVehiclePhysics } from '@/hooks/useVehiclePhysics';
-import { DEFAULT_VEHICLE_CONFIG, RESET_SPAWN_POSITION, RESET_SPAWN_ROTATION_Y } from '@/config/vehicle';
 import { useChaseCamera } from '@/hooks/useChaseCamera';
 import { useBumperCamera } from '@/hooks/useBumperCamera';
 import { FreeCamera } from '@/components/vehicle/FreeCamera';
 import { useEngineSound } from '@/hooks/useEngineSound';
 import { useSurfaceSound } from '@/hooks/useSurfaceSound';
+import { useSkidSound } from '@/hooks/useSkidSound';
 import { DustParticles } from '@/components/vehicle/DustParticles';
 import { TireTracks } from '@/components/vehicle/TireTracks';
 import { WaterSplashes } from '@/components/vehicle/WaterSplashes';
 import { useGLTF, Clone, Detailed } from '@react-three/drei';
 import { VEHICLE_MODEL_PATH } from '@/config/assets';
+import { useGameStore } from '@/store/gameStore';
+import { getVehiclePreset } from '@/config/vehicleRegistry';
+import { useTerrainData } from '@/components/terrain/TerrainContext';
 
 /**
- * Main Vehicle component — procedural car from Three.js primitives.
- * Integrates physics (Rapier raycast vehicle) + camera follow.
- * Stage 1 placeholder: will be swapped for GLB model in Stage 3.
+ * Main Vehicle component — procedural car from Three.js primitives + GLB models.
+ * Integrates physics (Rapier raycast vehicle), camera follow, audio, particles,
+ * and dynamic preset selection from VehicleRegistry.
  */
 export function Vehicle() {
-  const { scene } = useGLTF(VEHICLE_MODEL_PATH);
+  const selectedVehicleId = useGameStore((s) => s.selectedVehicleId);
+  const vehiclePreset = getVehiclePreset(selectedVehicleId);
+  const { levelPreset } = useTerrainData();
+
+  const { scene } = useGLTF(vehiclePreset.modelPath);
   const chassisRef = useRef<RapierRigidBody>(null);
   const visualRef = useRef<Group>(null);
   const wheelObjectsRef = useRef<(Object3D | null)[]>([null, null, null, null]);
 
-  // Renderowanie cieni z głównego modelu zgodnie z życzeniem
+  const config = vehiclePreset.config;
 
   // Attach vehicle physics
-  useVehiclePhysics(chassisRef, wheelObjectsRef, DEFAULT_VEHICLE_CONFIG);
+  useVehiclePhysics(chassisRef, wheelObjectsRef, config);
 
   // Attach cameras to the INTERPOLATED visual mesh, not the physics body
   useChaseCamera(visualRef);
   useBumperCamera(visualRef);
 
-  // Attach engine sound
+  // Attach engine, surface, and skid sounds
   useEngineSound();
-  
-  // Attach surface sound
   useSurfaceSound(wheelObjectsRef);
+  useSkidSound();
 
-  const config = DEFAULT_VEHICLE_CONFIG;
+  const spawnPos = levelPreset.spawnPosition;
+  const spawnRotY = levelPreset.spawnRotationY;
 
   return (
-    <group>
+    <group key={selectedVehicleId}>
       <RigidBody
         ref={chassisRef}
         type="dynamic"
         colliders={false}
         mass={config.chassisMass}
-        position={RESET_SPAWN_POSITION}
-        rotation={[0, RESET_SPAWN_ROTATION_Y, 0]}
-        linearDamping={0.1}
-        angularDamping={0.5}
+        position={spawnPos}
+        rotation={[0, spawnRotY, 0]}
+        linearDamping={0.15}
+        angularDamping={1.5}
         canSleep={false}
+        ccd={true}
       >
-        {/* Chassis collider */}
+        {/* Chassis collider — calibrated to protect underbody from ground penetration */}
         <CuboidCollider
+          position={[0, 0.05, 0]}
           args={[
             config.chassisSize[0] / 2,
             config.chassisSize[1] / 2,
@@ -72,8 +81,8 @@ export function Vehicle() {
             {/* LOD 0: Pełny model GLB pojazdu */}
             <Clone 
               object={scene} 
-              position={[0, 0.2, 0.1]} 
-              scale={[4.5, 4.5, 4.5]} 
+              position={vehiclePreset.modelPositionOffset ?? [0, 0.2, 0.1]} 
+              scale={vehiclePreset.modelScale ?? [4.5, 4.5, 4.5]} 
               rotation={[0, 0, 0]} 
               castShadow
               receiveShadow
@@ -89,7 +98,7 @@ export function Vehicle() {
               />
               <meshStandardMaterial color="#888" roughness={0.6} />
             </mesh>
-            {/* LOD 2: Jeszcze prostsze pudełko (daleki dystans, brak świateł) */}
+            {/* LOD 2: Daleki dystans */}
             <mesh position={[0, 0.8, 0]}>
               <boxGeometry
                 args={[
@@ -101,7 +110,6 @@ export function Vehicle() {
               <meshBasicMaterial color="#555" />
             </mesh>
           </Detailed>
-
         </group>
 
         {/* Wheels — inside RigidBody so their local transform is relative to the chassis */}
