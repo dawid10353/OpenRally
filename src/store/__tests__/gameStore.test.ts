@@ -76,4 +76,24 @@ describe('gameStore', () => {
     useGameStore.getState().setGameMode('timeattack');
     expect(useGameStore.getState().gameMode).toBe('timeattack');
   });
+
+  it('updates gamepad connection state, name, and type', () => {
+    expect(useGameStore.getState().gamepadConnected).toBe(false);
+    expect(useGameStore.getState().gamepadName).toBe('');
+    expect(useGameStore.getState().gamepadType).toBeNull();
+
+    useGameStore.getState().setGamepadConnected(true, 'DualSense Wireless Controller', 'dualsense');
+    expect(useGameStore.getState().gamepadConnected).toBe(true);
+    expect(useGameStore.getState().gamepadName).toBe('DualSense Wireless Controller');
+    expect(useGameStore.getState().gamepadType).toBe('dualsense');
+
+    useGameStore.getState().setGamepadConnected(true, 'Xbox Wireless Controller', 'xbox');
+    expect(useGameStore.getState().gamepadType).toBe('xbox');
+
+    useGameStore.getState().setGamepadConnected(false);
+    expect(useGameStore.getState().gamepadConnected).toBe(false);
+    expect(useGameStore.getState().gamepadType).toBeNull();
+  });
 });
+
+

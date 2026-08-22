@@ -125,10 +125,32 @@ const unsub = onGameEvent('gear_shifted', ({ fromGear, toGear }) => {
 
 ---
 
-## 5. Validating Changes & Integrity
+## 5. Working with Gamepad & Controller Haptics
+
+OpenRally includes standard W3C Gamepad API support tuned specifically for Xbox / XInput controllers:
+```ts
+import { sampleGamepad } from '@/utils/input/gamepad';
+import { playGamepadRumble, rumbleImpact, rumbleSlip, rumbleSurface } from '@/utils/input/gamepadHaptics';
+
+// Reading gamepad input:
+const sample = sampleGamepad(sensitivity);
+// sample.steering: -1.0 (Right) to +1.0 (Left)
+// sample.throttle: 0.0 to 1.0 (RT trigger)
+// sample.brake: 0.0 to 1.0 (LT trigger)
+
+// Triggering haptic vibration:
+rumbleImpact(0.8); // Sudden collision impact
+rumbleSlip(0.5);   // Tire drift / skid vibration
+rumbleSurface(0.4); // Rough off-road terrain vibration
+```
+
+---
+
+## 6. Validating Changes & Integrity
 Before submitting changes, run automated verification:
 ```bash
 npm run check
 ```
 This executes compiler checks, oxlint linter, full-project diagnostics (`diagnostics.test.ts`), and vitest unit tests across all registries, generators, and physics formulas.
+
 

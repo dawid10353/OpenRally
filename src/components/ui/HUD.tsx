@@ -27,6 +27,8 @@ const surfaceColors: Record<string, string> = {
 export function HUD() {
   const gameState = useGameStore((s) => s.gameState);
   const gameMode = useGameStore((s) => s.gameMode);
+  const gamepadConnected = useGameStore((s) => s.gamepadConnected);
+  const gamepadType = useGameStore((s) => s.gamepadType);
   const gameMusicVolume = useSettingsStore((s) => s.gameMusicVolume);
 
   // Stage complete state is low-frequency and only changes upon finishing a lap
@@ -318,10 +320,21 @@ export function HUD() {
       {/* Coordinates / Heading (Bottom Left) */}
       <div id="coordinates" style={styles.coordinates}>
         <div ref={coordsRef} style={styles.coordsText}>X: 0.0 Y: 0.0 Z: 0.0</div>
+        {gamepadConnected && (
+          <div style={{
+            ...styles.gamepadBadge,
+            color: gamepadType === 'dualsense' ? '#0070d1' : '#10b981',
+            borderColor: gamepadType === 'dualsense' ? 'rgba(0, 112, 209, 0.3)' : 'rgba(16, 185, 129, 0.3)',
+          }}>
+            <span style={{ fontSize: '12px' }}>🎮</span>
+            <span>{gamepadType === 'dualsense' ? 'DUALSENSE' : 'XBOX'}</span>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
@@ -543,4 +556,17 @@ const styles: Record<string, React.CSSProperties> = {
     letterSpacing: '1px',
     fontFamily: 'monospace',
   },
+  gamepadBadge: {
+    marginLeft: '12px',
+    paddingLeft: '10px',
+    borderLeft: '1px solid rgba(255,255,255,0.2)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    fontSize: '11px',
+    fontWeight: 800,
+    color: '#10b981',
+    letterSpacing: '1px',
+  },
 };
+

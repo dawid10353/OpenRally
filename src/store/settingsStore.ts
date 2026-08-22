@@ -20,6 +20,10 @@ interface SettingsStore {
   menuMusicVolume: number;
   /** Game music volume (0.0 to 1.0) */
   gameMusicVolume: number;
+  /** Whether controller haptic vibration / rumble is enabled */
+  vibrationEnabled: boolean;
+  /** Controller vibration intensity multiplier (0.0 to 1.0) */
+  vibrationIntensity: number;
 
   // Actions
   setGraphicsQuality: (quality: 'low' | 'medium' | 'high') => void;
@@ -30,6 +34,8 @@ interface SettingsStore {
   setSfxVolume: (vol: number) => void;
   setMenuMusicVolume: (vol: number) => void;
   setGameMusicVolume: (vol: number) => void;
+  toggleVibration: () => void;
+  setVibrationIntensity: (intensity: number) => void;
 }
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
@@ -41,6 +47,8 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   sfxVolume: 1.0,
   menuMusicVolume: 0.5,
   gameMusicVolume: 0.5,
+  vibrationEnabled: true,
+  vibrationIntensity: 1.0,
 
   setGraphicsQuality: (graphicsQuality) => set({ graphicsQuality }),
   toggleShadows: () => set((s) => ({ shadowsEnabled: !s.shadowsEnabled })),
@@ -52,4 +60,9 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   setSfxVolume: (sfxVolume) => set({ sfxVolume }),
   setMenuMusicVolume: (menuMusicVolume) => set({ menuMusicVolume }),
   setGameMusicVolume: (gameMusicVolume) => set({ gameMusicVolume }),
+  toggleVibration: () =>
+    set((s) => ({ vibrationEnabled: !s.vibrationEnabled })),
+  setVibrationIntensity: (vibrationIntensity) =>
+    set({ vibrationIntensity }),
 }));
+

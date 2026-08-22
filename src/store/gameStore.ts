@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CameraMode, GameMode, GameState } from '@/types/game';
+import type { CameraMode, GameMode, GameState, GamepadType } from '@/types/game';
 import type { SurfaceType } from '@/types/vehicle';
 import { DEFAULT_VEHICLE_ID } from '@/config/vehicleRegistry';
 import { DEFAULT_LEVEL_ID } from '@/config/levelRegistry';
@@ -41,6 +41,12 @@ interface GameStore {
   tireGrips: number[];
   /** Current surface under the vehicle */
   surface: SurfaceType;
+  /** Whether a gamepad / Xbox / DualSense controller is currently connected */
+  gamepadConnected: boolean;
+  /** Name / identifier of the connected gamepad */
+  gamepadName: string;
+  /** Detected gamepad hardware type */
+  gamepadType: GamepadType;
 
   // Actions
   setGameState: (state: GameState) => void;
@@ -60,6 +66,7 @@ interface GameStore {
   setTelemetryEnabled: (val: boolean) => void;
   setTireGrips: (val: number[]) => void;
   setSurface: (val: SurfaceType) => void;
+  setGamepadConnected: (connected: boolean, name?: string, type?: GamepadType) => void;
 }
 
 const CAMERA_MODES: CameraMode[] = ['chase_close', 'chase', 'bumper', 'free'];
@@ -81,6 +88,9 @@ export const useGameStore = create<GameStore>((set) => ({
   telemetryEnabled: false,
   tireGrips: [0, 0, 0, 0],
   surface: 'mud',
+  gamepadConnected: false,
+  gamepadName: '',
+  gamepadType: null,
 
   setGameState: (gameState) => set({ gameState }),
   setGameMode: (gameMode) => set({ gameMode }),
@@ -109,4 +119,8 @@ export const useGameStore = create<GameStore>((set) => ({
   setTelemetryEnabled: (val) => set({ telemetryEnabled: val }),
   setTireGrips: (val) => set({ tireGrips: val }),
   setSurface: (val) => set({ surface: val }),
+  setGamepadConnected: (connected, name = '', type = null) =>
+    set({ gamepadConnected: connected, gamepadName: name, gamepadType: type }),
 }));
+
+

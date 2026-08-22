@@ -19,6 +19,11 @@ export type CameraMode = 'chase_close' | 'chase' | 'bumper' | 'free';
 export type GraphicsQuality = 'low' | 'medium' | 'high';
 
 /**
+ * Supported Gamepad hardware families.
+ */
+export type GamepadType = 'xbox' | 'dualsense' | 'generic' | null;
+
+/**
  * Normalized input state from keyboard / gamepad.
  * All values are normalized: steering [-1, 1], throttle/brake [0, 1].
  */

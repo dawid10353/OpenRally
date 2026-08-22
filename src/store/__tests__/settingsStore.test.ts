@@ -48,4 +48,18 @@ describe('settingsStore', () => {
     expect(state.menuMusicVolume).toBe(0.2);
     expect(state.gameMusicVolume).toBe(0.7);
   });
+
+  it('updates vibration and sensitivity controls', () => {
+    const { toggleVibration, setVibrationIntensity, setSensitivity } = useSettingsStore.getState();
+
+    toggleVibration();
+    expect(useSettingsStore.getState().vibrationEnabled).toBe(false);
+
+    setVibrationIntensity(0.75);
+    expect(useSettingsStore.getState().vibrationIntensity).toBe(0.75);
+
+    setSensitivity(1.4);
+    expect(useSettingsStore.getState().sensitivity).toBe(1.4);
+  });
 });
+

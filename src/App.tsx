@@ -6,6 +6,7 @@ import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 import { useGameStore } from '@/store/gameStore';
+import { useGamepadManager } from '@/hooks/useGamepadManager';
 
 /**
  * Root application component.
@@ -13,6 +14,9 @@ import { useGameStore } from '@/store/gameStore';
  */
 function App() {
   const gameState = useGameStore((s) => s.gameState);
+  
+  // Continuously monitor gamepad connections & state at root level
+  useGamepadManager();
   
   // Only render the 3D scene when we are in a gameplay mode (or pause menu).
   // This prevents the map from loading unnecessarily in the main menu.

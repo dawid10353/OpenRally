@@ -16,6 +16,7 @@ import { syncWheelVisuals } from '@/utils/physics/visuals';
 import { applyAntiRollBars } from '@/utils/physics/suspension';
 import { emitGameEvent } from '@/utils/events';
 import { useTerrainData } from '@/components/terrain/TerrainContext';
+import { rumbleImpact, rumbleSlip, rumbleSurface } from '@/utils/input/gamepadHaptics';
 
 // ─── Reusable Three.js objects (avoids per-frame GC pressure) ────────
 const _forward = new Vector3();
@@ -44,6 +45,7 @@ export function useVehiclePhysics(
   const { heightmapData, levelData, levelPreset } = useTerrainData();
   const prevGearRef = useRef<number>(1);
   const prevSurfaceRef = useRef<SurfaceType>('tarmac');
+  const prevSpeedKmhRef = useRef<number>(0);
   const vehicleControllerRef = useRef<InstanceType<
     typeof rapier.DynamicRayCastVehicleController
   > | null>(null);
@@ -168,6 +170,20 @@ export function useVehiclePhysics(
 
     // --- 4. UPDATE RAPIER VEHICLE ---
     controller.updateVehicle(dt);
+
+    // --- 4.5. GAMEPAD HAPTIC RUMBLE FEEDBACK ---
+    const speedDelta = prevSpeedKmhRef.current - speedKmh;
+    if (speedDelta > 25 && prevSpeedKmhRef.current > 30) {
+      // Sudden deceleration / heavy collision impact
+      rumbleImpact(Math.min(1.0, speedDelta / 60));
+    } else if (Math.abs(lateralSpeed) > 3.5 || (input.handbrake && speedKmh > 12)) {
+      // Tire slip / drifting vibration
+      rumbleSlip(Math.min(1.0, Math.abs(lateralSpeed) / 8));
+    } else if (surface !== 'tarmac' && speedKmh > 20) {
+      // Off-road surface roughness
+      rumbleSurface(Math.min(1.0, speedKmh / 90));
+    }
+    prevSpeedKmhRef.current = speedKmh;
 
     // --- 5. APPLY AERODYNAMICS & EXTERNAL FORCES ---
     applyAerodynamics(body, config, forwardSpeed, _velocity, pos.y, dt);

@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import type { PerspectiveCamera } from 'three';
 import { Vector3, Quaternion, MathUtils, Object3D } from 'three';
 import { useGameStore } from '@/store/gameStore';
-import { activeKeys } from '@/hooks/useInput';
+import { isLookBackActive } from '@/hooks/useInput';
 import { lerp } from '@/utils/math';
 import { MIN_FOV, MAX_FOV, MAX_SPEED_FOR_FOV, FOV_SMOOTH_BASE } from '@/config/camera';
 
@@ -35,7 +35,7 @@ export function useBumperCamera(targetRef: React.RefObject<Object3D | null>): vo
     target.getWorldPosition(_bodyPos);
     target.getWorldQuaternion(_worldQuat);
 
-    const lookBack = activeKeys.has('KeyB');
+    const lookBack = isLookBackActive();
 
     if (lookBack) {
       // Move camera to front of car, slightly higher, and look backwards (down local -Z)
