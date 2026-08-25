@@ -35,18 +35,40 @@ export const DRIFT_PARTICLE_LIFETIME = 1.5;
 /** Max lifetime (seconds) of a normal dust particle */
 export const DRIVE_PARTICLE_LIFETIME = 0.6;
 
-// ─── Tire Tracks ─────────────────────────────────────────────────────
+// ─── Tire Tracks Configuration ──────────────────────────────────────
 /** Maximum number of tire track segments */
 export const MAX_TRACKS = 1000;
 
 /** Width of a tire track segment */
-export const TRACK_WIDTH = 0.3;
+export const TRACK_WIDTH = 0.32;
 
 /** Lifetime (seconds) of a tire track before it completely fades */
 export const TRACK_LIFETIME = 15;
 
 /** Minimum distance (meters) between track segments to prevent overlapping */
-export const TRACK_MIN_DISTANCE = 0.3;
+export const TRACK_MIN_DISTANCE = 0.2;
 
 /** Color of the tire tracks (sand/dirt color) */
-export const TRACK_COLOR = new Color('#6b5533');
+export const TRACK_COLOR = new Color('#382618');
+
+/**
+ * Quality-based settings presets for tire ribbon buffers.
+ */
+export const TIRE_TRACK_QUALITY_PRESETS = {
+  low: {
+    maxSegments: 400,
+    lifetime: 8,
+    minDistance: 0.3,
+  },
+  medium: {
+    maxSegments: 800,
+    lifetime: 15,
+    minDistance: 0.2,
+  },
+  high: {
+    maxSegments: 1600,
+    lifetime: 24,
+    minDistance: 0.15,
+  },
+} as const;
+

@@ -147,3 +147,31 @@ The game state is divided into three isolated stores in `src/store/`:
 - **`src/utils/`**: Pure helper functions, math formulas, physics subroutines, validation, builders, and diagnostics.
 - **`docs/`**: Guides and reference documentation for AI development.
 
+---
+
+## 10. Enterprise-Grade Architectural Principles
+
+All contributors (AI and human) must strictly adhere to the following enterprise engineering standards:
+
+1. **High Cohesion, Low Coupling & Dependency Inversion**:
+   - Subsystems communicate exclusively through clearly typed contracts (interfaces) or the decoupled [Game Event Bus](file:///home/dawid/OpenRally/src/utils/events/eventBus.ts).
+   - Direct mutations of foreign state or cross-domain leaks are forbidden.
+
+2. **Garbage Collection (GC) Neutrality in Hot Simulation Loops**:
+   - Animation frames (`useFrame`) and physics subroutines must produce **zero object allocations**. Re-use pre-allocated mutable math instances (`THREE.Vector3`, `THREE.Quaternion`, `THREE.Matrix4`) and primitive scratch buffers.
+
+3. **Deterministic Resource & Memory Lifecycle**:
+   - Every created WebGL geometry, material, texture, render target, or WebAudio context must have a deterministic lifecycle and explicit disposal to prevent memory/GPU resource leaks.
+
+4. **Runtime Contract Validation & Diagnostic Integrity**:
+   - All dynamic or external entities (presets, tracks, surfaces, telemetry payloads) must pass runtime schema assertions before ingestion by the engine.
+   - Project integrity is continuously guarded by `assertGameIntegrity()` and automated diagnostics.
+
+5. **Exhaustive Type Safety & Test Coverage**:
+   - Zero `any` policy with strict discriminated unions.
+   - Comprehensive Vitest unit tests guarding all calculations, reducers, and registries.
+
+6. **AAA-Grade Visual Effects, Shaders & Environment Architecture**:
+   - Visual and environmental effects (water, smoke, dust, vegetation, sky, weather, props) must utilize commercial-grade techniques: custom GLSL shaders (Gerstner waves, Fresnel, soft depth particles), GPU instancing (`InstancedMesh`), typed array ring-buffered particle pools (`Float32Array`), reactive physical simulation, and dynamic scalability according to user graphics settings.
+
+

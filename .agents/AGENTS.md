@@ -103,6 +103,46 @@ docs/
 
 ---
 
+## 🏛️ Enterprise-Grade Engineering Standards (Mandatory)
+
+OpenRally strictly requires **Enterprise-Grade / Production-Ready software engineering**. Temporary hacks, quick-and-dirty patches, monolithic god-components/hooks, unverified shortcuts, and placeholder solutions are **strictly prohibited**. Every implementation must follow industry gold standards:
+
+### 1. Architectural Rigor & Clean Modular Design
+- **Separation of Concerns (SoC)**: Isolate physics simulation (`src/utils/physics`, `src/hooks`), rendering (`src/components`), state management (`src/store`), configuration (`src/config`), and event orchestration (`src/utils/events`).
+- **Enterprise Design Patterns**: Use Registries for entity management, Factories & Builders for procedural generation, Strategy/Polymorphism for variant behaviors, and typed Event Buses for cross-system reactivity.
+- **High Cohesion & Low Coupling**: Every component, hook, and utility must have a single, well-defined responsibility. Subsystems must never directly mutate or reach into foreign internal states.
+
+### 2. Strict Type Safety & Domain Modeling
+- **Zero `any` & Zero Unsafe Casts**: Absolutely zero `any`, zero `as unknown as T`, and no untyped dictionary bags.
+- **Discriminated Unions & Exhaustiveness**: Model game states, vehicle archetypes, and physics events as discriminated unions with exhaustive switch-case validation (`assertNever`).
+- **Runtime Assertion & Fail-Fast Validation**: All user/AI configurations, level presets, surface definitions, and vehicle specs must pass runtime validation schemas (`src/utils/validation/`) before entering the simulation.
+
+### 3. Zero-GC Memory Management & High-Performance Execution
+- **Zero Allocation in Hot Loops**: In `useFrame`, physics simulation steps, raycast calculations, and audio tick loops, **never instantiate objects, arrays, closures, or vectors**.
+- **Scratch Instance Re-Use**: Pre-allocate mutable Three.js primitives (`THREE.Vector3`, `THREE.Quaternion`, `THREE.Matrix4`, `THREE.Euler`) and scratch buffers at module scope or instance level.
+- **Deterministic Lifecycle Management**: Always dispose of WebGL geometries, textures, materials, render targets, WebAudio nodes, and event listeners on component unmount or state transitions. Zero memory/GPU leaks.
+- **Complexity Guardrails**: Hot algorithms must have known, optimal time and space complexity (prefer O(1) hash maps, spatial indexing, clamped delta times).
+
+### 4. Defensive Programming & Numerical Resilience
+- **Numerical Stability**: Guard all physics calculations against `NaN`, `Infinity`, division-by-zero, and extreme deltas. Always sanitize inputs and clamp delta times (`MAX_DELTA`).
+- **Graceful Degradation & Error Boundaries**: WebGL context loss, WebAudio auto-play policy blocks, and missing asset textures must degrade gracefully without crashing the game loop.
+- **Diagnostic Self-Checks**: Register all new subsystems with `src/utils/diagnostics/` to continuously verify game integrity during automated checks.
+
+### 5. Comprehensive Testability & Continuous Verification
+- **High-Coverage Unit Testing**: Every mathematical subroutine, physics helper, state reducer, procedural generator, builder, and registry must have thorough Vitest unit tests in `__tests__/`.
+- **Deterministic Pure Functions**: Core business logic, physics calculations, and procedural algorithms must be written as deterministic pure functions wherever feasible.
+- **Mandatory Quality Gate**: No change is complete without passing `npm run check` (`tsc --noEmit` + `oxlint` + `vitest run`).
+
+### 6. AAA-Grade Visual Effects & Environmental Systems (VFX, Water, Smoke, Terrain & Props)
+When building or extending any visual or environmental game element (e.g., tire smoke, dust plumes, water/ocean simulation, splash effects, vegetation/grass, weather, sky, lighting, or 3D props):
+- **Commercial Game-Grade Visual Fidelity**: Never create simplistic placeholder geometry (e.g. flat blue planes for water, simple spinning billboards for smoke). Use production-ready GLSL vertex/fragment shaders (e.g., Gerstner wave displacement, Fresnel reflectance, soft alpha blending, normal maps, dynamic depth awareness).
+- **Physical Plausibility & Environmental Interactivity**: VFX must dynamically respond to simulation telemetry (wheel slip speed, car velocity, surface material friction, handbrake drifts, contact normals). Water and terrain must feature convincing physical feedback (dynamic splashes, surface spray, drag/buoyancy effects).
+- **GPU Instancing & Draw-Call Optimization**: All repeating environment elements (trees, rocks, barriers, grass blades, foliage) must use `InstancedMesh` with spatial culling and LODs. Never instantiate hundreds of individual Three.js Mesh components.
+- **Zero-GC Particle Systems**: Particle effects (smoke, sparks, water spray, dust) must use fixed-size typed array ring buffers (`Float32Array`) and GPU instancing or points. Never mount/unmount per-particle React components or allocate objects per frame.
+- **Adaptive Graphics Scalability**: Automatically hook into `settingsStore.graphicsQuality` (`'low' | 'medium' | 'high'`) to dynamically scale particle budgets, shader passes, shadow maps, and draw distances without dropping frames on low-end devices.
+
+---
+
 ## Coding Conventions
 
 1. **One hook = one file** in `src/hooks/`
@@ -137,4 +177,8 @@ Multiplayer, map editor, weather, asset generation automation
 
 ## ⚠️ Common Mistakes to Avoid (AI Rules)
 1. **Error in `tsconfig.app.json`**: NEVER add the `"ignoreDeprecations": "6.0"` option in TypeScript configuration files (e.g., `tsconfig.app.json`). The project defaults to not needing this flag at all. Adding it always breaks the configuration and throws an error due to the specifics of the current compiler version.
-2. **Never commit code breaking `npm run check`**: All tests and linter must be clean before finishing tasks.
+2. **No "quick hacks" or "prototypes"**: Always implement enterprise-grade, maintainable, modular, and fully tested solutions.
+3. **No toy/placeholder VFX or environment elements**: Always implement effects (water, smoke, dust, vegetation, props) using enterprise/AAA techniques (custom GLSL shaders, GPU instancing, typed particle pools, physical interaction, graphics scalability).
+4. **Never commit code breaking `npm run check`**: All tests and linter must be clean before finishing tasks.
+
+
