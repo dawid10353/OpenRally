@@ -37,6 +37,14 @@ describe('gameStore', () => {
     expect(useGameStore.getState().cameraMode).toBe('chase_close');
   });
 
+  it('supports title gameState and transitions', () => {
+    useGameStore.getState().setGameState('title');
+    expect(useGameStore.getState().gameState).toBe('title');
+
+    useGameStore.getState().setGameState('menu');
+    expect(useGameStore.getState().gameState).toBe('menu');
+  });
+
   it('toggles pause state when playing or paused', () => {
     useGameStore.getState().setGameState('playing');
     expect(useGameStore.getState().gameState).toBe('playing');

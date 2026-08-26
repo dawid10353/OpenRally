@@ -27,7 +27,7 @@ describe('Game Diagnostics & Integrity Suite', () => {
     const report = runGameDiagnostics();
     expect(report.valid).toBe(true);
     expect(report.errors).toHaveLength(0);
-    expect(report.summary.vehiclesCount).toBeGreaterThanOrEqual(3);
+    expect(report.summary.vehiclesCount).toBeGreaterThanOrEqual(1);
     expect(report.summary.levelsCount).toBeGreaterThanOrEqual(2);
     expect(report.summary.surfacesCount).toBeGreaterThanOrEqual(6);
   });

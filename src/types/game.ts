@@ -1,7 +1,7 @@
 /**
  * Possible game states.
  */
-export type GameState = 'loading' | 'playing' | 'paused' | 'menu';
+export type GameState = 'title' | 'loading' | 'playing' | 'paused' | 'menu';
 
 /**
  * Game modes: Free Roam (open world exploration) or Time Attack (checkpoint racing against the clock).

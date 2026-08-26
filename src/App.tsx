@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { GameCanvas } from '@/components/canvas/GameCanvas';
 import { HUD } from '@/components/ui/HUD';
 import { MenuOverlay } from '@/components/ui/MenuOverlay';
+import { TitleScreen } from '@/components/ui/TitleScreen';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 
@@ -10,7 +11,7 @@ import { useGamepadManager } from '@/hooks/useGamepadManager';
 
 /**
  * Root application component.
- * Renders the 3D game canvas with HUD overlay and loading screen.
+ * Renders the 3D game canvas with HUD overlay, menu, title screen, and loading screen.
  */
 function App() {
   const gameState = useGameStore((s) => s.gameState);
@@ -32,6 +33,7 @@ function App() {
         )}
         <HUD />
         <MenuOverlay />
+        <TitleScreen />
         <LoadingScreen />
       </div>
     </ErrorBoundary>

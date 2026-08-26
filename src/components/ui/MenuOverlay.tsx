@@ -1286,7 +1286,7 @@ export function MenuOverlay() {
   );
 
 
-  if (gameState === 'playing') {
+  if (gameState !== 'menu' && gameState !== 'paused') {
     return null;
   }
 

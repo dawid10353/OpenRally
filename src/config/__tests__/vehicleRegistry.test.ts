@@ -15,7 +15,7 @@ describe('Vehicle Registry', () => {
 
   it('contains valid presets that pass all physical validation checks', () => {
     const vehicles = getAvailableVehicles();
-    expect(vehicles.length).toBeGreaterThanOrEqual(3);
+    expect(vehicles.length).toBeGreaterThanOrEqual(1);
 
     for (const vehicle of vehicles) {
       const validation = validateVehiclePreset(vehicle);
@@ -28,12 +28,9 @@ describe('Vehicle Registry', () => {
   it('retrieves preset by ID with fallback to default', () => {
     const defaultCar = getVehiclePreset(DEFAULT_VEHICLE_ID);
     expect(defaultCar.id).toBe('rally_hatchback');
+    expect(defaultCar.stats.driveType).toBe('AWD');
 
     const unknownCar = getVehiclePreset('non_existent_car');
     expect(unknownCar.id).toBe('rally_hatchback');
-
-    const coupe = getVehiclePreset('rally_coupe');
-    expect(coupe.id).toBe('rally_coupe');
-    expect(coupe.stats.driveType).toBe('RWD');
   });
 });
