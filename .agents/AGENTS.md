@@ -173,12 +173,13 @@ AI models (GLB), replacing blocky models with real 3D vehicle and environment mo
 ### Stage 4+ — Future
 Multiplayer, map editor, weather, asset generation automation
 
----
-
 ## ⚠️ Common Mistakes to Avoid (AI Rules)
 1. **Error in `tsconfig.app.json`**: NEVER add the `"ignoreDeprecations": "6.0"` option in TypeScript configuration files (e.g., `tsconfig.app.json`). The project defaults to not needing this flag at all. Adding it always breaks the configuration and throws an error due to the specifics of the current compiler version.
 2. **No "quick hacks" or "prototypes"**: Always implement enterprise-grade, maintainable, modular, and fully tested solutions.
 3. **No toy/placeholder VFX or environment elements**: Always implement effects (water, smoke, dust, vegetation, props) using enterprise/AAA techniques (custom GLSL shaders, GPU instancing, typed particle pools, physical interaction, graphics scalability).
 4. **Never commit code breaking `npm run check`**: All tests and linter must be clean before finishing tasks.
+5. **Git Branch & Push Policy (Main & Stable Protection)**: All ongoing development, commits, and experiments must remain strictly on the `dev` branch. **NEVER automatically merge or push changes to `main` or `stable` branches.** Syncing, merging, or pushing to `main` and `stable` is ONLY allowed when the user explicitly requests it.
+
+
 
 
