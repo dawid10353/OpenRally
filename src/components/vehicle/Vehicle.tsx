@@ -14,7 +14,7 @@ import { DustParticles } from '@/components/vehicle/DustParticles';
 import { TireTracks } from '@/components/vehicle/TireTracks';
 import { WaterSplashes } from '@/components/vehicle/WaterSplashes';
 import { useGLTF, Clone, Detailed } from '@react-three/drei';
-import { VEHICLE_MODEL_PATH } from '@/config/assets';
+import { VEHICLE_MODEL_PATH, VEHICLE_WRC_MODEL_PATH } from '@/config/assets';
 import { useGameStore } from '@/store/gameStore';
 import { getVehiclePreset } from '@/config/vehicleRegistry';
 import { useTerrainData } from '@/components/terrain/TerrainContext';
@@ -139,3 +139,4 @@ export function Vehicle() {
 }
 
 useGLTF.preload(VEHICLE_MODEL_PATH);
+useGLTF.preload(VEHICLE_WRC_MODEL_PATH);

@@ -30,6 +30,12 @@ describe('Vehicle Registry', () => {
     expect(defaultCar.id).toBe('rally_hatchback');
     expect(defaultCar.stats.driveType).toBe('AWD');
 
+    const wrcCar = getVehiclePreset('rally_wrc');
+    expect(wrcCar.id).toBe('rally_wrc');
+    expect(wrcCar.name).toBe('Vortex WRC Rally1');
+    expect(wrcCar.stats.driveType).toBe('AWD');
+    expect(wrcCar.config.engine.maxSpeed).toBe(265);
+
     const unknownCar = getVehiclePreset('non_existent_car');
     expect(unknownCar.id).toBe('rally_hatchback');
   });

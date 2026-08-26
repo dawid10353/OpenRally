@@ -91,13 +91,12 @@ OpenRally provides seamless support for **Keyboard** and **Gamepads** (PlayStati
 
 ## 🚗 Vehicles & Stages
 
-### Featured Vehicle
+### Playable Vehicles (Garage)
 
 | Vehicle | Class | Drivetrain | Top Speed | Handling | Character |
 |---|---|---|---|---|---|
-| **Apex Rally AWD** | Group A Rally Hatchback | AWD (50/50) | 240 km/h | ★★★★★ | Dedicated high-poly 3D rally legend with forgiving suspension, AWD grip, and agile cornering. |
-
-> Additional vehicle archetypes (RWD Sports Coupes, Trophy Offroad Trucks, and Dune Buggies) can be easily added through the modular [`vehicleRegistry.ts`](src/config/vehicleRegistry.ts) and vehicle builder factories.
+| **Apex Rally AWD** | Classic Group A Rally | AWD (50/50) | 240 km/h | ★★★★★ | Dedicated 3D rally legend with forgiving suspension, balanced AWD grip, and agile cornering. |
+| **Vortex WRC Rally1** | Modern WRC Rally1 | AWD (50/50) | 265 km/h | ★★★★★ | Next-gen modern WRC machine with aggressive aero, explosive turbo acceleration, and razor-sharp downforce handling. |
 
 ### Available Stages & Tracks
 
