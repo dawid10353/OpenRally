@@ -3,7 +3,7 @@
 
   <h1>OpenRally</h1>
 
-  <p><strong>Next-generation open-source 3D arcade-sim rally experience running directly in the browser.</strong></p>
+  <p><strong>Next-generation open-source 3D arcade-sim rally experience running directly in modern web browsers at 60+ FPS.</strong></p>
 
   <p>
     <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-Strict_Zero_Any-3178C6?logo=typescript&logoColor=white" alt="TypeScript Strict" /></a>
@@ -16,11 +16,11 @@
   </p>
 
   <p>
-    <a href="#-gameplay-preview">Gameplay Preview</a> •
+    <a href="#-overview">Overview</a> •
     <a href="#-key-features">Key Features</a> •
-    <a href="#-quick-start">Quick Start</a> •
     <a href="#-controls">Controls</a> •
     <a href="#-vehicles--stages">Vehicles & Stages</a> •
+    <a href="#-quick-start">Quick Start</a> •
     <a href="#-tech-stack--architecture">Architecture</a> •
     <a href="#-testing--verification">Verification</a> •
     <a href="#-roadmap">Roadmap</a>
@@ -35,33 +35,34 @@
 
 ## 🌟 Overview
 
-**OpenRally** is an open-source, production-grade 3D rally game running natively in web browsers at 60+ FPS via WebGL.
+**OpenRally** is an open-source, production-grade 3D rally game running natively in web browsers via WebGL and WebAssembly.
 
-The core philosophy of this project is to build a commercial-grade, authentic racing simulator developed **exclusively by Artificial Intelligence (AI)** — from WASM raycast vehicle dynamics, suspension kinetics, and procedural terrain synthesis to custom GLSL shaders and classic analog rally instrumentation.
+The project combines authentic motorsport simulation principles with accessible arcade-style drift handling. Developed exclusively with enterprise AI software engineering standards, it features independent 4-wheel raycast suspension kinetics, Pacejka-inspired non-linear multi-surface tire friction, procedural Simplex terrain heightfields, custom GLSL Gerstner wave water, and analog rally cockpit instrumentation.
 
 ---
 
 ## 🏎️ Key Features
 
 ### ⚙️ Authentic Rally Physics & Vehicle Dynamics
-- **Raycast Suspension Kinetics:** Independent 4-wheel raycast suspension powered by **Rapier3D (WASM)** with authentic spring rates, compression/relaxation damping, anti-roll bars (ARB), and dynamic weight transfer.
-- **Pacejka-Inspired Multi-Surface Friction:** Non-linear tire grip curves simulating slip angles, traction limits, understeer/oversteer transitions, and responsive handbrake-initiated slides.
+- **Raycast Suspension Kinetics:** Independent 4-wheel raycast suspension powered by **Rapier3D (WASM)** with authentic spring rates, compression/relaxation damping, anti-roll bars (ARB), and dynamic longitudinal/lateral weight transfer.
+- **Pacejka-Inspired Multi-Surface Friction:** Non-linear tire grip curves simulating slip angles, traction limits, understeer/oversteer transitions, and responsive handbrake-initiated power slides.
 - **Powertrain & Automatic Gearbox:** 5-speed automatic transmission with torque curves, engine braking, RPM harmonic calculations, and simulated AWD/RWD differentials.
-- **Arcade-Sim Assists:** Speed-sensitive steering curves, yaw damping, and drift grip multipliers for high accessibility paired with deep driving satisfaction.
+- **Arcade-Sim Driving Assists:** Speed-sensitive steering scaling, yaw damping, and drift grip multipliers for high accessibility paired with deep driving satisfaction.
 
 ### 🧭 Classic Motorsport Instrumentation & HUD
 - **Twin-Gauge Rally Cluster:** Authentic analog cockpit instruments featuring a 240 km/h speedometer, 8,000 RPM tachometer with redline zone, flashing **Shift Light LED**, and retro amber gear display.
-- **Stage Roadbook Minimap:** Real-time 2D track overview with compass cardinal directions (N, S, E, W), start/finish checkpoints, and orientation tracking.
-- **Clean Gameplay Immersion:** Zero clutter in Free Roam; dedicated rally timing board with split times and personal records in Time Attack mode.
+- **Stage Roadbook Minimap:** Real-time 2D track overview with compass cardinal directions (N, S, E, W), start/finish checkpoints, and vehicle orientation tracking.
+- **Clean Immersion & Time Attack:** Clutter-free Free Roam mode, plus a dedicated rally timing board with split times and personal records in Time Attack.
+- **Real-Time Engineering Telemetry:** On-demand telemetry overlay (`T` key) displaying chassis velocities, G-forces, slip angles, suspension travel, and engine state.
 
 ### 🏔️ Procedural Terrains & Dynamic Surface Registry
 - **Multi-Octave Terrain Engine:** Procedural terrain generation using continuous Simplex noise with erosion curves, realistic hills, valleys, and physics heightfield colliders.
 - **Dynamic Surface Physics:** Distinct friction models, rolling resistance, dust color signatures, and acoustics across **Tarmac, Mud, Grass, Sand, and Gravel**.
 
 ### ✨ Commercial-Grade VFX & Environmental Systems
-- **Surface-Aware Particle Systems:** High-performance particle pools generating dynamic dust plumes, gravel kickback, and water spray.
+- **Surface-Aware Particle Systems:** High-performance typed-array particle pools generating dynamic dust plumes, gravel kickback, and water spray.
 - **Zero-GC Tire Skid Ribbons:** Continuous procedural ribbon mesh geometry rendering tire skid marks with fade-out animations.
-- **Procedural Gerstner Wave Water:** Custom GLSL water shaders with wave displacement, foam blending, and Fresnel reflectance.
+- **Procedural Gerstner Wave Water:** Custom GLSL water shaders with multi-wave displacement, foam blending, and Fresnel reflectance.
 - **Cinematic Post-Processing:** Adaptive Bloom, Vignette, Tone Mapping, and speed motion feel.
 
 ### 🔊 Procedural Audio & Dual-Mode Soundtrack
@@ -73,16 +74,16 @@ The core philosophy of this project is to build a commercial-grade, authentic ra
 
 ## 🎮 Controls
 
-OpenRally provides seamless support for **Keyboard** and **Gamepads** (PlayStation DualSense & Xbox Controllers with progressive analog trigger support):
+OpenRally provides seamless support for **Keyboard** and **Gamepads** (PlayStation DualSense, DualShock 4 & Xbox Controllers with progressive analog trigger support and full UI navigation):
 
 | Action | Keyboard | Gamepad (Xbox / PlayStation) | Description |
 |---|---|---|---|
 | **Steer Left / Right** | `A` / `D` or `←` / `→` | **Left Stick** / `D-Pad` | Speed-sensitive steering scaling |
-| **Throttle / Accelerate** | `W` or `↑` | **Right Trigger (`RT` / `R2`)** / `A` | Progressive analog acceleration |
-| **Brake / Reverse** | `S` or `↓` | **Left Trigger (`LT` / `L2`)** / `B` | 4-wheel braking & reverse gear |
+| **Throttle / Accelerate** | `W` or `↑` | **Right Trigger (`RT` / `R2`)** / `A` (`Cross`) | Progressive analog acceleration |
+| **Brake / Reverse** | `S` or `↓` | **Left Trigger (`LT` / `L2`)** / `B` (`Circle`) | 4-wheel braking & reverse gear |
 | **Handbrake** | `Space` | **`X` / `Square`** | Rear-wheel lockup to initiate power slides |
 | **Change Camera** | `C` | **`Y` / `Triangle`** | Switch between Chase, Bumper, and Free Views |
-| **Reset Vehicle** | `R` | **`Back` / `Select`** | Respawn vehicle on track spawn position |
+| **Reset Vehicle** | `R` | **`Back` / `Select` / `Share`** | Respawn vehicle on track spawn position |
 | **Toggle Telemetry** | `T` | — | Real-time engineering telemetry HUD |
 | **Pause / Menu** | `Esc` | **`Start` / `Options`** | Open garage, tracks, settings, or options |
 | **Navigate Menus** | `W` / `S` / `Enter` | **`D-Pad` / `Left Stick` / `A` (`Cross`)** | Full gamepad navigation across all menus |
@@ -92,6 +93,12 @@ OpenRally provides seamless support for **Keyboard** and **Gamepads** (PlayStati
 ## 🚗 Vehicles & Stages
 
 ### Playable Vehicles (Garage)
+
+<div align="center">
+  <img src="public/screenshots/garage.png" alt="OpenRally Garage Showcase" width="100%" style="border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,0.6);" />
+</div>
+
+<br />
 
 | Vehicle | Class | Drivetrain | Top Speed | Handling | Character |
 |---|---|---|---|---|---|
@@ -112,6 +119,7 @@ OpenRally provides seamless support for **Keyboard** and **Gamepads** (PlayStati
 ### Prerequisites
 - **Node.js** (v18.0.0 or higher recommended)
 - **npm** (v9.0.0 or higher)
+- Modern WebGL2-compatible web browser (Chrome, Edge, Firefox, Brave, Safari)
 
 ### Installation & Running Locally
 
@@ -140,23 +148,23 @@ OpenRally provides seamless support for **Keyboard** and **Gamepads** (PlayStati
 
 ```
 OpenRally Architecture
-├── 3D Rendering:     React Three Fiber (R3F) + Three.js
-├── Physics Simulation: @react-three/rapier (Rapier3D WASM Raycast Vehicle)
-├── State Management: Zustand (gameStore, settingsStore, racingStore)
-├── UI & HUD:         React 19 + SVG Instrumentation + Vanilla CSS
-├── Post-Processing:  @react-three/postprocessing (Bloom, Vignette, ToneMapping)
-├── Audio Engine:     WebAudio API (procedural synthesis & sampling)
-├── Testing & QA:     Vitest (131+ automated tests) + Oxlint + Strict TypeScript
-└── Bundler & Dev:    Vite 8
+├── 3D Rendering:       React Three Fiber (R3F) + Three.js
+├── Physics Simulation:   @react-three/rapier (Rapier3D WASM Raycast Vehicle)
+├── State Management:   Zustand (gameStore, settingsStore, racingStore)
+├── UI & HUD:           React 19 + SVG Instrumentation + CSS Modules
+├── Post-Processing:    @react-three/postprocessing (Bloom, Vignette, ToneMapping)
+├── Audio Engine:       WebAudio API (procedural synthesis & sampling)
+├── Testing & QA:       Vitest (131+ automated tests) + Oxlint + Strict TypeScript
+└── Bundler & Dev:      Vite 8
 ```
 
-### Architecture Highlights
-- **Centralized Registry Pattern:** Vehicle configurations, tracks, and surface physics are managed through dedicated registries (`vehicleRegistry.ts`, `levelRegistry.ts`, `surfaceRegistry.ts`).
+### Key Architectural Patterns
+- **Centralized Registry Pattern:** Vehicle configurations, tracks, and surface physics are managed through decoupled, strongly-typed registries (`vehicleRegistry.ts`, `levelRegistry.ts`, `surfaceRegistry.ts`).
 - **Zero-GC Hot Execution Loops:** All matrix transformations, quaternion rotations, and raycast calculations reuse module-level scratch instances (`_vec3`, `_quat`, `_euler`), preventing garbage collection stutters.
-- **Transient HUD DOM Updates:** Speedometer, tachometer needle rotations, and shift light DOM updates subscribe directly to store state without triggering React re-renders.
-- **Fail-Fast Runtime Validation:** Schemas for presets and levels are validated at runtime (`src/utils/validation/`) with automatic self-checks (`src/utils/diagnostics/`).
+- **Transient HUD DOM Subscriptions:** Speedometer, tachometer needle rotations, and shift light DOM updates subscribe directly to store state without triggering React component re-renders.
+- **Fail-Fast Runtime Validation:** Schemas for presets, levels, and surfaces are validated at runtime (`src/utils/validation/`) with automated self-checks (`src/utils/diagnostics/`).
 
-For detailed documentation, consult the `/docs/` directory:
+### In-Depth Documentation
 - 📖 **[System Architecture & Data Flow](docs/ARCHITECTURE.md)**: Coordinates (+Y Up, +Z Forward, +X Right), execution loops, and subsystem design.
 - 🛠️ **[Extension Guides (Cookbook)](docs/EXTENSION_GUIDES.md)**: Step-by-step recipes for adding new 3D vehicles, stages, surfaces, and UI overlays.
 - 🧪 **[Debugging & Testing Guide](docs/DEBUGGING_AND_TESTING.md)**: Physics wireframe inspection, diagnostics, and testing workflows.
@@ -168,7 +176,7 @@ For detailed documentation, consult the `/docs/` directory:
 OpenRally enforces strict quality gates with zero tolerance for regressions:
 
 ```bash
-# Run complete verification suite (Typecheck + Lint + 131 Tests)
+# Run complete verification suite (Typecheck + Lint + Vitest 131 tests)
 npm run check
 
 # Run unit tests only
@@ -190,13 +198,13 @@ npm run typecheck
 
 - [x] **Stage 1 — Foundation (Completed):** Procedural heightmap terrain, Rapier raycast vehicle physics, chase/bumper cameras, HUD, lighting.
 - [x] **Stage 2 — Simulation & Polish (Completed):** Particle systems, synthesized WebAudio, surface friction curves, skid ribbons, checkpoint racing system, Vitest test suite.
-- [x] **Stage 3 — Expansion (Current Focus):**
-  - [x] Dedicated 3D GLB vehicle model (`Apex Rally AWD`) with raycast suspension & tire physics
+- [x] **Stage 3 — Expansion (Current Stage):**
+  - [x] Dedicated 3D GLB vehicle models (`Apex Rally AWD`, `Vortex WRC Rally1`) with raycast suspension & tire physics
   - [x] Authentic analog rally instrumentation (Speedometer, Tachometer, Shift Light, Gear Display)
   - [x] Stage roadbook minimap with compass directions
   - [x] Multi-track stage registry (Island Circuit, Desert Canyon)
-  - [x] Full gamepad navigation & haptic rumble support
-  - [ ] Additional vehicle model imports (RWD Sports, Trophy Truck, Buggy)
+  - [x] Full gamepad navigation & progressive analog control
+  - [ ] Additional vehicle models (RWD Sports Coupe, Desert Trophy Truck)
   - [ ] Hillclimb & rallycross stages
 - [ ] **Stage 4 — Future Visions:**
   - [ ] Real-time multiplayer (WebRTC / WebSockets)

@@ -119,7 +119,6 @@ export function TitleScreen() {
         {/* Clean, minimalist call to action */}
         <div style={styles.prompt}>
           <span style={styles.promptText}>PRESS ANY KEY TO START</span>
-          <span style={styles.subText}>Naciśnij dowolny klawisz lub kliknij myszą</span>
         </div>
       </div>
     </div>
@@ -168,11 +167,5 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     letterSpacing: '4px',
     animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-  },
-  subText: {
-    color: '#6B7280',
-    fontSize: '13px',
-    fontWeight: 500,
-    letterSpacing: '1px',
   },
 };
