@@ -1,11 +1,12 @@
 import { create } from 'zustand';
+import type { GraphicsQuality } from '@/types';
 
 /**
  * Settings store — graphics quality, controls sensitivity, toggles.
  */
 interface SettingsStore {
   /** Graphics quality preset */
-  graphicsQuality: 'low' | 'medium' | 'high';
+  graphicsQuality: GraphicsQuality;
   /** Whether real-time shadows are enabled */
   shadowsEnabled: boolean;
   /** Whether post-processing effects are enabled */
@@ -26,7 +27,7 @@ interface SettingsStore {
   vibrationIntensity: number;
 
   // Actions
-  setGraphicsQuality: (quality: 'low' | 'medium' | 'high') => void;
+  setGraphicsQuality: (quality: GraphicsQuality) => void;
   toggleShadows: () => void;
   togglePostProcessing: () => void;
   setSensitivity: (sensitivity: number) => void;
@@ -39,9 +40,9 @@ interface SettingsStore {
 }
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
-  graphicsQuality: 'medium',
+  graphicsQuality: 'very_high',
   shadowsEnabled: true,
-  postProcessingEnabled: false,
+  postProcessingEnabled: true,
   sensitivity: 1.0,
   debugPhysics: false,
   sfxVolume: 1.0,

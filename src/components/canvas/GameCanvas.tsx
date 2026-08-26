@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
+import { ACESFilmicToneMapping } from 'three';
 import { Terrain } from '@/components/terrain/Terrain';
 import { GrassField } from '@/components/terrain/GrassField';
 import { PropsInstancer } from '@/components/terrain/PropsInstancer';
@@ -33,9 +34,20 @@ export function GameCanvas() {
 
   const levelPreset = getLevelPreset(selectedLevelId);
 
-  const fogColor = levelPreset.environment?.fog?.color ?? FOG_CONFIG.color;
-  const fogNear = levelPreset.environment?.fog?.near ?? FOG_CONFIG.near;
-  const fogFar = levelPreset.environment?.fog?.far ?? FOG_CONFIG.far;
+  const baseFogColor = levelPreset.environment?.fog?.color ?? FOG_CONFIG.color;
+  const baseFogNear = levelPreset.environment?.fog?.near ?? FOG_CONFIG.near;
+  const baseFogFar = levelPreset.environment?.fog?.far ?? FOG_CONFIG.far;
+
+  const fogColor = baseFogColor;
+  const fogNear = graphicsQuality === 'very_high' ? baseFogNear * 1.5 : baseFogNear;
+  const fogFar =
+    graphicsQuality === 'very_high'
+      ? baseFogFar * 2.2
+      : graphicsQuality === 'low'
+      ? baseFogFar * 0.75
+      : baseFogFar;
+
+  const cameraFar = graphicsQuality === 'very_high' ? 4000 : 2000;
 
   const sunPosition = (levelPreset.environment?.sky?.sunPosition ?? SKY_CONFIG.sunPosition) as [number, number, number];
   const inclination = levelPreset.environment?.sky?.inclination ?? SKY_CONFIG.inclination;
@@ -46,16 +58,20 @@ export function GameCanvas() {
       ? [0.5, 0.75]
       : graphicsQuality === 'medium'
       ? [0.75, 1.0]
-      : [1.0, 1.5];
+      : graphicsQuality === 'high'
+      ? [1.0, 1.5]
+      : [1.0, 2.0];
 
   return (
     <Canvas
       dpr={dpr}
       shadows={shadowsEnabled}
-      camera={{ fov: 60, near: 0.1, far: 2000, position: [0, 10, -15] }}
+      camera={{ fov: 60, near: 0.1, far: cameraFar, position: [0, 10, -15] }}
       gl={{
         antialias: false,
         powerPreference: 'high-performance',
+        toneMapping: ACESFilmicToneMapping,
+        toneMappingExposure: 0.95,
       }}
       performance={{ min: 0.5 }}
       style={{ width: '100%', height: '100%' }}

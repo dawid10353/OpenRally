@@ -71,10 +71,10 @@ export const SURFACE_TRACK_PROFILES: Record<SurfaceType, SurfaceTrackProfile> = 
     maxSlipOpacity: 0.92,
   },
   grass: {
-    slipThreshold: 0.0,
-    colorHex: '#283618',
-    baseOpacity: 0.65,
-    maxSlipOpacity: 0.88,
+    slipThreshold: 0.35,
+    colorHex: '#1e3312',
+    baseOpacity: 0.2,
+    maxSlipOpacity: 0.6,
   },
   gravel: {
     slipThreshold: 0.0,

@@ -70,5 +70,10 @@ export const TIRE_TRACK_QUALITY_PRESETS = {
     lifetime: 24,
     minDistance: 0.15,
   },
+  very_high: {
+    maxSegments: 2500,
+    lifetime: 35,
+    minDistance: 0.12,
+  },
 } as const;
 

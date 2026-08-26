@@ -4,9 +4,9 @@ import { useSettingsStore } from '../settingsStore';
 describe('settingsStore', () => {
   beforeEach(() => {
     useSettingsStore.setState({
-      graphicsQuality: 'medium',
+      graphicsQuality: 'very_high',
       shadowsEnabled: true,
-      postProcessingEnabled: false,
+      postProcessingEnabled: true,
       sensitivity: 1.0,
       debugPhysics: false,
       sfxVolume: 1.0,
@@ -15,7 +15,15 @@ describe('settingsStore', () => {
     });
   });
 
+  it('initializes with very_high graphics and post-processing enabled by default', () => {
+    expect(useSettingsStore.getState().graphicsQuality).toBe('very_high');
+    expect(useSettingsStore.getState().postProcessingEnabled).toBe(true);
+  });
+
   it('updates graphics quality preset', () => {
+    useSettingsStore.getState().setGraphicsQuality('very_high');
+    expect(useSettingsStore.getState().graphicsQuality).toBe('very_high');
+
     useSettingsStore.getState().setGraphicsQuality('high');
     expect(useSettingsStore.getState().graphicsQuality).toBe('high');
 
@@ -30,7 +38,7 @@ describe('settingsStore', () => {
     expect(useSettingsStore.getState().shadowsEnabled).toBe(false);
 
     togglePostProcessing();
-    expect(useSettingsStore.getState().postProcessingEnabled).toBe(true);
+    expect(useSettingsStore.getState().postProcessingEnabled).toBe(false);
 
     toggleDebugPhysics();
     expect(useSettingsStore.getState().debugPhysics).toBe(true);

@@ -18,6 +18,8 @@ import { VEHICLE_MODEL_PATH } from '@/config/assets';
 import { useGameStore } from '@/store/gameStore';
 import { getVehiclePreset } from '@/config/vehicleRegistry';
 import { useTerrainData } from '@/components/terrain/TerrainContext';
+import { VeloceSportModel } from '@/components/vehicle/models/VeloceSportModel';
+import { BajaTruckModel } from '@/components/vehicle/models/BajaTruckModel';
 
 /**
  * Main Vehicle component — procedural car from Three.js primitives + GLB models.
@@ -78,15 +80,27 @@ export function Vehicle() {
 
         <group ref={visualRef}>
           <Detailed distances={[0, 50, 150]}>
-            {/* LOD 0: Pełny model GLB pojazdu */}
-            <Clone 
-              object={scene} 
-              position={vehiclePreset.modelPositionOffset ?? [0, 0.2, 0.1]} 
-              scale={vehiclePreset.modelScale ?? [4.5, 4.5, 4.5]} 
-              rotation={[0, 0, 0]} 
-              castShadow
-              receiveShadow
-            />
+            {/* LOD 0: Pełny dedykowany model pojazdu */}
+            {vehiclePreset.id === 'rally_coupe' ? (
+              <VeloceSportModel
+                position={vehiclePreset.modelPositionOffset ?? [0, 0, 0]}
+                scale={vehiclePreset.modelScale ?? [1, 1, 1]}
+              />
+            ) : vehiclePreset.id === 'desert_truck' ? (
+              <BajaTruckModel
+                position={vehiclePreset.modelPositionOffset ?? [0, 0, 0]}
+                scale={vehiclePreset.modelScale ?? [1, 1, 1]}
+              />
+            ) : (
+              <Clone 
+                object={scene} 
+                position={vehiclePreset.modelPositionOffset ?? [0, 0.2, 0.1]} 
+                scale={vehiclePreset.modelScale ?? [4.5, 4.5, 4.5]} 
+                rotation={[0, 0, 0]} 
+                castShadow
+                receiveShadow
+              />
+            )}
             {/* LOD 1: Uproszczone pudełko udające pojazd (średni dystans) */}
             <mesh position={[0, 0.8, 0]}>
               <boxGeometry

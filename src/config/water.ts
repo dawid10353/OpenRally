@@ -3,16 +3,16 @@ import { Color, Vector2 } from 'three';
 // ─── Water / Ocean Config ────────────────────────────────────────────
 
 /** Deep water color */
-export const WATER_COLOR = 0x001e3c;
+export const WATER_COLOR = 0x07283c;
 
 /** Sun color for water specular highlights (matches LIGHTING_CONFIG.directional.color) */
-export const WATER_SUN_COLOR = 0xfff5e6;
+export const WATER_SUN_COLOR = 0xfff4e6;
 
 /** Water transparency (0 = fully transparent, 1 = opaque) */
-export const WATER_ALPHA = 0.85;
+export const WATER_ALPHA = 0.90;
 
 /** Distortion scale for reflection wobble */
-export const WATER_DISTORTION_SCALE = 3.7;
+export const WATER_DISTORTION_SCALE = 3.5;
 
 /** Size of the water plane (world units, square) */
 export const WATER_SIZE = 2000;
@@ -30,7 +30,7 @@ export const WATER_REFLECTION_TEXTURE_SIZE = 512;
 export const WATER_SEGMENTS = 512;
 
 /** Speed multiplier for wave animation (higher = faster waves) */
-export const WATER_WAVE_SPEED = 0.4;
+export const WATER_WAVE_SPEED = 0.35;
 
 // ─── Depth & Foam ───────────────────────────────────────────────────
 
@@ -44,7 +44,7 @@ export const WATER_DEPTH_THRESHOLD = 15.0;
 export const WATER_FOAM_COLOR = new Color(0xffffff);
 
 /** Shallow water color (near shores) */
-export const WATER_SHALLOW_COLOR = new Color(0x27a599);
+export const WATER_SHALLOW_COLOR = new Color(0x197470);
 
 // ─── Gerstner Waves (Calm water for Rally) ──────────────────────────
 

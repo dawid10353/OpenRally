@@ -18,11 +18,8 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { mapRange } from '@/utils/math';
 import { getInterpolatedHeight } from '@/utils/terrainCompiler';
 import {
-  GRASS_COUNT,
   GRASS_HEIGHT_MIN,
   GRASS_HEIGHT_MAX,
-  GRASS_WIDTH,
-  GRASS_TIP_WIDTH,
   WIND_SPEED,
   WIND_STRENGTH,
   GRASS_MAX_TERRAIN_HEIGHT,
@@ -30,46 +27,83 @@ import {
   GRASS_EDGE_MARGIN,
   GRASS_COLOR_LIGHT,
   GRASS_COLOR_DARK,
+  DESERT_GRASS_COLOR_LIGHT,
+  DESERT_GRASS_COLOR_DARK,
   GRASS_CHUNKS,
 } from '@/config/grass';
 
 /**
- * Creates a base grass tuft geometry (without instance attributes).
+ * Creates a base multi-blade procedural grass cluster geometry.
+ * Comprises 6 tapered, curved blade ribbons radiating in an organic fan
+ * with upward-biased normals for soft ambient light distribution.
  */
-function createGrassTuftGeometry(): BufferGeometry {
-  const bw = GRASS_WIDTH * 0.5;
-  const tw = bw * GRASS_TIP_WIDTH;
-  const h = 1.0;
-
+export function createGrassTuftGeometry(): BufferGeometry {
   const verts: number[] = [];
   const tips: number[] = [];
   const uvs: number[] = [];
   const normals: number[] = [];
 
-  const angles = [0, Math.PI / 2];
+  const NUM_BLADES = 6;
+  const BLADE_WIDTH = 0.055;
 
-  for (const angle of angles) {
+  for (let b = 0; b < NUM_BLADES; b++) {
+    const angle = (b / NUM_BLADES) * Math.PI * 2 + ((b * 13) % 7) * 0.15;
     const c = Math.cos(angle);
     const s = Math.sin(angle);
 
-    const blX = -bw * c, blZ = -bw * s;
-    const brX =  bw * c, brZ =  bw * s;
-    const tlX = -tw * c, tlZ = -tw * s;
-    const trX =  tw * c, trZ =  tw * s;
+    // Perpendicular vector for blade width
+    const perpX = -s * BLADE_WIDTH * 0.5;
+    const perpZ = c * BLADE_WIDTH * 0.5;
 
-    const normX = -s, normZ = c;
+    // Outward curvature curve
+    const lean = 0.18 + ((b * 17) % 5) * 0.04;
+    const leanX = c * lean;
+    const leanZ = s * lean;
 
-    // Tri 1: base-left → base-right → tip-right
-    verts.push(blX, 0, blZ,  brX, 0, brZ,  trX, h, trZ);
-    tips.push(0, 0, 1);
-    uvs.push(0, 0,  1, 0,  1, 1);
-    normals.push(normX, 0.2, normZ,  normX, 0.2, normZ,  normX, 0.5, normZ);
+    // Segment 0: Base (Y = 0)
+    const bLX = -perpX, bLZ = -perpZ, bY = 0.0;
+    const bRX = perpX, bRZ = perpZ;
 
-    // Tri 2: base-left → tip-right → tip-left
-    verts.push(blX, 0, blZ,  trX, h, trZ,  tlX, h, tlZ);
-    tips.push(0, 1, 1);
-    uvs.push(0, 0,  1, 1,  0, 1);
-    normals.push(normX, 0.2, normZ,  normX, 0.5, normZ,  normX, 0.5, normZ);
+    // Segment 1: Mid (Y = 0.5)
+    const mScale = 0.8;
+    const mLX = leanX * 0.35 - perpX * mScale, mLZ = leanZ * 0.35 - perpZ * mScale, mY = 0.5;
+    const mRX = leanX * 0.35 + perpX * mScale, mRZ = leanZ * 0.35 + perpZ * mScale;
+
+    // Segment 2: Tip (Y = 1.0)
+    const tScale = 0.25;
+    const tLX = leanX - perpX * tScale, tLZ = leanZ - perpZ * tScale, tY = 1.0;
+    const tRX = leanX + perpX * tScale, tRZ = leanZ + perpZ * tScale;
+
+    // Upward-biased smooth normals
+    const normX = c * 0.3;
+    const normY = 0.85;
+    const normZ = s * 0.3;
+
+    // Quad 1: Base to Mid
+    // Tri 1
+    verts.push(bLX, bY, bLZ,  bRX, bY, bRZ,  mRX, mY, mRZ);
+    tips.push(0.0, 0.0, 0.5);
+    uvs.push(0, 0,  1, 0,  1, 0.5);
+    normals.push(normX, normY, normZ,  normX, normY, normZ,  normX, normY, normZ);
+
+    // Tri 2
+    verts.push(bLX, bY, bLZ,  mRX, mY, mRZ,  mLX, mY, mLZ);
+    tips.push(0.0, 0.5, 0.5);
+    uvs.push(0, 0,  1, 0.5,  0, 0.5);
+    normals.push(normX, normY, normZ,  normX, normY, normZ,  normX, normY, normZ);
+
+    // Quad 2: Mid to Tip
+    // Tri 1
+    verts.push(mLX, mY, mLZ,  mRX, mY, mRZ,  tRX, tY, tRZ);
+    tips.push(0.5, 0.5, 1.0);
+    uvs.push(0, 0.5,  1, 0.5,  1, 1.0);
+    normals.push(normX, normY, normZ,  normX, normY, normZ,  normX, normY, normZ);
+
+    // Tri 2
+    verts.push(mLX, mY, mLZ,  tRX, tY, tRZ,  tLX, tY, tLZ);
+    tips.push(0.5, 1.0, 1.0);
+    uvs.push(0, 0.5,  1, 1.0,  0, 1.0);
+    normals.push(normX, normY, normZ,  normX, normY, normZ,  normX, normY, normZ);
   }
 
   const geo = new BufferGeometry();
@@ -146,12 +180,15 @@ export function GrassField() {
   const { heightmapData, levelData } = useTerrainData();
   const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
 
+  const isDesert = levelData.id.toLowerCase().includes('desert');
+
   const shaderUniformsRef = useRef<Record<string, IUniform>[]>([]);
   const carPosRef = useRef(new Vector3(0, 0, 0));
+
   const frameCountRef = useRef(0);
   const lastCamPosRef = useRef(new Vector3(9999, 9999, 9999));
 
-  // References to our instanced meshes for LOD culling
+  // References to instanced meshes for LOD culling
   const meshRefs = useRef<(InstancedMesh | null)[]>([]);
 
   const { chunksData, geometry } = useMemo(() => {
@@ -167,6 +204,9 @@ export function GrassField() {
     const chunkWidth = mapWidth / GRASS_CHUNKS;
     const chunkDepth = mapDepth / GRASS_CHUNKS;
 
+    const darkColor = isDesert ? DESERT_GRASS_COLOR_DARK : GRASS_COLOR_DARK;
+    const lightColor = isDesert ? DESERT_GRASS_COLOR_LIGHT : GRASS_COLOR_LIGHT;
+
     // Initialize chunks
     const chunks: GrassChunkData[] = Array.from({ length: GRASS_CHUNKS * GRASS_CHUNKS }, () => ({
       matrices: [],
@@ -177,7 +217,14 @@ export function GrassField() {
     let placed = 0;
     let attempt = 0;
 
-    const targetGrassCount = graphicsQuality === 'low' ? 10000 : graphicsQuality === 'medium' ? 30000 : GRASS_COUNT;
+    const targetGrassCount =
+      graphicsQuality === 'low'
+        ? 12000
+        : graphicsQuality === 'medium'
+        ? 32000
+        : graphicsQuality === 'high'
+        ? 60000
+        : 95000;
     const maxAttempts = targetGrassCount * 8;
 
     while (placed < targetGrassCount && attempt < maxAttempts) {
@@ -188,7 +235,7 @@ export function GrassField() {
       const z = (seededRandom(seed + 1) - 0.5) * mapDepth * GRASS_EDGE_MARGIN;
 
       const noiseVal = clumpNoise(x * 0.05, z * 0.05);
-      if (noiseVal < -0.1) continue;
+      if (noiseVal < -0.15) continue;
 
       if (Math.abs(x) < GRASS_CLEARING_RADIUS && Math.abs(z) < GRASS_CLEARING_RADIUS) continue;
 
@@ -206,9 +253,9 @@ export function GrassField() {
       if (normalizedHeight > GRASS_MAX_TERRAIN_HEIGHT) continue;
       if (y < -5) continue;
 
-      const patchScale = mapRange(noiseVal, -0.1, 1.0, 0.4, 1.2);
+      const patchScale = mapRange(noiseVal, -0.15, 1.0, 0.6, 1.35);
       const scaleY = (GRASS_HEIGHT_MIN + seededRandom(seed + 2) * (GRASS_HEIGHT_MAX - GRASS_HEIGHT_MIN)) * patchScale;
-      const scaleXZ = (0.7 + seededRandom(seed + 3) * 0.6) * patchScale;
+      const scaleXZ = (0.75 + seededRandom(seed + 3) * 0.6) * patchScale;
       const rotY = seededRandom(seed + 4) * Math.PI * 2;
 
       dummy.position.set(x, y, z);
@@ -217,7 +264,7 @@ export function GrassField() {
       dummy.updateMatrix();
 
       const colorT = seededRandom(seed + 5);
-      tempColor.lerpColors(GRASS_COLOR_DARK, GRASS_COLOR_LIGHT, colorT);
+      tempColor.lerpColors(darkColor, lightColor, colorT);
 
       // Determine chunk
       let cx = Math.floor((x + mapWidth / 2) / chunkWidth);
@@ -240,23 +287,22 @@ export function GrassField() {
       chunk.center.set(
         (cx + 0.5) * chunkWidth - mapWidth / 2,
         0,
-        (cz + 0.5) * chunkDepth - mapDepth / 2
+        (cz + 0.5) * chunkDepth - mapDepth / 2,
       );
     });
 
     const geo = createGrassTuftGeometry();
 
     return { chunksData: chunks, geometry: geo };
-  }, [heightmapData, levelData, graphicsQuality]);
+  }, [heightmapData, levelData, graphicsQuality, isDesert]);
 
-  // Create a shared material using onBeforeCompile
+  // Create shared custom grass material
   const material = useMemo(() => {
     shaderUniformsRef.current = [];
 
     const mat = new MeshLambertMaterial({
       side: DoubleSide,
       transparent: true,
-      alphaTest: 0.5,
       color: 0xffffff,
     });
 
@@ -282,10 +328,10 @@ export function GrassField() {
         `#include <common>
         varying float vBladeTip;
         varying vec2 vMyUv;
-        `
+        `,
       );
 
-      // Inject custom vertex displacement for wind and bending
+      // Custom vertex displacement for wind waves and vehicle bending
       shader.vertexShader = shader.vertexShader.replace(
         '#include <project_vertex>',
         `
@@ -295,25 +341,29 @@ export function GrassField() {
 
         vec4 worldPos = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
         
-        // Wind: gentle sway on blade tips only
-        if (bladeTip > 0.5) {
-          float phase = worldPos.x * 0.7 + worldPos.z * 1.1;
-          displaced.x += sin(u_time * u_windSpeed + phase) * u_windStrength;
-          displaced.z += cos(u_time * u_windSpeed * 0.6 + phase * 0.8) * u_windStrength * 0.5;
+        // Dynamic multi-frequency wind sway
+        if (bladeTip > 0.3) {
+          float wave1 = sin(u_time * u_windSpeed + worldPos.x * 0.15 + worldPos.z * 0.22);
+          float wave2 = cos(u_time * (u_windSpeed * 0.7) + worldPos.x * 0.08 + worldPos.z * 0.12);
+          float gust = sin(u_time * 0.9 + worldPos.x * 0.03) * 0.5 + 0.5;
+
+          displaced.x += (wave1 + wave2 * 0.5) * u_windStrength * (1.0 + gust) * bladeTip;
+          displaced.z += (wave2 - wave1 * 0.4) * u_windStrength * (1.0 + gust * 0.7) * bladeTip;
         }
 
         vec4 instanceWorldPos = instanceMatrix * vec4(displaced, 1.0);
 
-        // Car Interaction
+        // Responsive vehicle pushdown & deflection
         float distToCar = distance(instanceWorldPos.xyz, u_carPosition);
-        float bendRadius = 2.0;
-        if (distToCar < bendRadius && bladeTip > 0.1) {
+        float bendRadius = 2.4;
+        if (distToCar < bendRadius && bladeTip > 0.05) {
           vec3 pushDir = normalize(instanceWorldPos.xyz - u_carPosition);
           pushDir.y = 0.0;
-          float pushStrength = (1.0 - (distToCar / bendRadius)) * 0.8;
-          displaced.x += pushDir.x * pushStrength * bladeTip;
-          displaced.z += pushDir.z * pushStrength * bladeTip;
-          displaced.y -= pushStrength * 0.5 * bladeTip;
+          float pushStrength = (1.0 - (distToCar / bendRadius));
+          pushStrength = pushStrength * pushStrength; // Quadratic falloff
+          displaced.x += pushDir.x * pushStrength * 0.9 * bladeTip;
+          displaced.z += pushDir.z * pushStrength * 0.9 * bladeTip;
+          displaced.y -= pushStrength * 0.45 * bladeTip;
         }
         
         vec4 mvPosition = vec4( displaced, 1.0 );
@@ -322,7 +372,7 @@ export function GrassField() {
         #endif
         mvPosition = modelViewMatrix * mvPosition;
         gl_Position = projectionMatrix * mvPosition;
-        `
+        `,
       );
 
       shader.fragmentShader = `
@@ -331,30 +381,25 @@ export function GrassField() {
       ` + shader.fragmentShader;
 
       shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <alphatest_fragment>',
-        `
-        float expectedWidth = 1.0 - pow(vMyUv.y, 2.5); 
-        float distFromCenter = abs(vMyUv.x - 0.5) * 2.0;
-        
-        if (distFromCenter > expectedWidth) {
-          discard;
-        }
-        #include <alphatest_fragment>
-        `
-      );
-
-      shader.fragmentShader = shader.fragmentShader.replace(
         '#include <color_fragment>',
         `
         #include <color_fragment>
-        // Subsurface scattering fake
-        diffuseColor.rgb *= mix(0.5, 1.05, vBladeTip);
-        `
+
+        // Natural gradient from moist earth root (blending into terrain) to fresh sunlit tip
+        vec3 rootColor = diffuseColor.rgb * 0.48;
+        vec3 tipColor = diffuseColor.rgb * 1.32;
+        vec3 bladeColor = mix(rootColor, tipColor, smoothstep(0.05, 0.95, vBladeTip));
+
+        // Subsurface scattering fake — tips catch vibrant sunlight
+        float sunTranslucency = mix(0.75, 1.25, vBladeTip);
+        diffuseColor.rgb = bladeColor * sunTranslucency;
+        `,
       );
     };
 
     return mat;
   }, []);
+
 
   useFrame((state) => {
     const time = state.clock.getElapsedTime();
@@ -366,20 +411,27 @@ export function GrassField() {
       if (uniforms.u_carPosition) uniforms.u_carPosition.value.copy(carPosRef.current);
     }
 
-    // Throttled distance-based culling (LOD) check every 4 frames and only if camera moved > 1m
+    // Throttled distance-based culling check every 4 frames
     frameCountRef.current++;
     if (frameCountRef.current % 4 === 0) {
       const camPos = state.camera.position;
       if (camPos.distanceToSquared(lastCamPosRef.current) > 1.0) {
         lastCamPosRef.current.copy(camPos);
-        const MAX_DISTANCE_SQ = 150 * 150;
+        const maxDistSq =
+          graphicsQuality === 'very_high'
+            ? 320 * 320
+            : graphicsQuality === 'high'
+            ? 200 * 200
+            : graphicsQuality === 'medium'
+            ? 150 * 150
+            : 100 * 100;
 
         chunksData.forEach((chunk, idx) => {
           const mesh = meshRefs.current[idx];
           if (!mesh) return;
 
           const distSq = chunk.center.distanceToSquared(camPos);
-          if (distSq > MAX_DISTANCE_SQ) {
+          if (distSq > maxDistSq) {
             mesh.count = 0;
           } else {
             mesh.count = chunk.matrices.length;
@@ -405,3 +457,4 @@ export function GrassField() {
     </group>
   );
 }
+

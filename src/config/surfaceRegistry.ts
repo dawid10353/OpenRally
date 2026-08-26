@@ -53,7 +53,7 @@ export const SURFACE_REGISTRY: Record<SurfaceType, SurfaceDefinition> = {
       rear: { baseGrip: 2.3, peakSlipAngle: Math.PI / 7, slideGrip: 1.8 },
     },
     particles: {
-      color: '#658354',
+      color: '#856a4b',
       scale: 1.0,
       lifetime: 0.5,
       emitRateMultiplier: 0.9,

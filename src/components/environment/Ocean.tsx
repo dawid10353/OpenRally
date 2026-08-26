@@ -99,8 +99,22 @@ export function Ocean() {
   const { heightmapData, levelData } = useTerrainData();
   const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
 
-  const normalMapSize = graphicsQuality === 'low' ? 128 : graphicsQuality === 'medium' ? 256 : WATER_NORMAL_TEXTURE_SIZE;
-  const segmentsCount = graphicsQuality === 'low' ? 128 : graphicsQuality === 'medium' ? 256 : WATER_SEGMENTS;
+  const normalMapSize =
+    graphicsQuality === 'low'
+      ? 128
+      : graphicsQuality === 'medium'
+      ? 256
+      : graphicsQuality === 'high'
+      ? WATER_NORMAL_TEXTURE_SIZE
+      : 512;
+  const segmentsCount =
+    graphicsQuality === 'low'
+      ? 128
+      : graphicsQuality === 'medium'
+      ? 256
+      : graphicsQuality === 'high'
+      ? WATER_SEGMENTS
+      : 512;
 
   const waterNormals = useMemo(
     () => generateWaterNormalTexture(normalMapSize),
@@ -146,7 +160,7 @@ export function Ocean() {
       u_foamThreshold: { value: WATER_FOAM_THRESHOLD },
     };
 
-    if (graphicsQuality === 'high') {
+    if (graphicsQuality === 'high' || graphicsQuality === 'very_high') {
       const waterMesh = new Water(geometry, {
         textureWidth: WATER_REFLECTION_TEXTURE_SIZE,
         textureHeight: WATER_REFLECTION_TEXTURE_SIZE,

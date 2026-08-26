@@ -306,7 +306,7 @@ export function MenuOverlay() {
           if (gp.menuDown) setFocusedIndex((prev) => (prev + 1) % optionsCount);
           if (gp.menuUp) setFocusedIndex((prev) => (prev - 1 + optionsCount) % optionsCount);
 
-          const qualities: GraphicsQuality[] = ['low', 'medium', 'high'];
+          const qualities: GraphicsQuality[] = ['low', 'medium', 'high', 'very_high'];
           if (focusedIndex === 0) {
             // Graphics Quality
             const curIdx = qualities.indexOf(graphicsQuality);
@@ -916,6 +916,7 @@ export function MenuOverlay() {
             <option value="low">Low</option>
             <option value="medium">Medium</option>
             <option value="high">High</option>
+            <option value="very_high">Very High</option>
           </select>
         </div>
 

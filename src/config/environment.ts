@@ -12,31 +12,31 @@ export const SKY_CONFIG = {
 };
 
 export const FOG_CONFIG = {
-  color: '#b8c9d9',
-  near: 100,
-  far: 500,
+  color: '#a4bccc',
+  near: 90,
+  far: 650,
 };
 
 // ─── Lighting ───────────────────────────────────────────────────────
 export const LIGHTING_CONFIG = {
   ambient: {
-    intensity: 0.3,
-    color: '#b0c4de',
+    intensity: 0.22,
+    color: '#a8c0dc',
   },
   directional: {
-    intensity: 1.8,
-    color: '#fff5e6',
+    intensity: 1.25,
+    color: '#fff4e6',
     shadowMapSize: 1024,
     shadowCameraRange: 80,
     shadowCameraNear: 0.5,
     shadowCameraFar: 600,
-    shadowBias: -0.0001, // Zmniejszono bias, by cienie małych obiektów (np. samochodu) nie znikały
-    shadowNormalBias: 0.02, // Zmniejszono normal bias
+    shadowBias: -0.0001,
+    shadowNormalBias: 0.02,
   },
   hemisphere: {
-    skyColor: '#87ceeb',
-    groundColor: '#556b2f',
-    intensity: 0.4,
+    skyColor: '#70a4d8',
+    groundColor: '#25361b',
+    intensity: 0.35,
   },
 };
 

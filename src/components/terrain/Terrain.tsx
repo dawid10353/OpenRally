@@ -4,11 +4,16 @@ import {
   Color,
   Float32BufferAttribute,
   MeshStandardMaterial,
+  RepeatWrapping,
+  SRGBColorSpace,
+  type Texture,
 } from 'three';
+import { useTexture } from '@react-three/drei';
 import { RigidBody, HeightfieldCollider } from '@react-three/rapier';
 import { useTerrainData } from '@/components/terrain/TerrainContext';
 import { useSettingsStore } from '@/store/settingsStore';
 import { mapRange } from '@/utils/math';
+import type { GraphicsQuality } from '@/types';
 import {
   BIOME_COLOR_LOW,
   BIOME_COLOR_MID,
@@ -21,15 +26,26 @@ import {
   SLOPE_DARKENING_STRENGTH,
 } from '@/config/terrainDetail';
 
+interface TerrainMaterialOptions {
+  quality: GraphicsQuality;
+  grassTexture: Texture;
+  trackTexture: Texture;
+  rockTexture: Texture;
+  sandTexture: Texture;
+  isDesert: boolean;
+}
+
 /**
- * Custom MeshStandardMaterial with procedural detail noise overlay
- * and slope-based darkening, applied via onBeforeCompile.
+ * Custom MeshStandardMaterial with photorealistic multi-texture splatting,
+ * triplanar slope projection for cliffs, damp mud track blending, and micro-relief.
  */
-function createDetailedTerrainMaterial(quality: 'low' | 'medium' | 'high'): MeshStandardMaterial {
+export function createDetailedTerrainMaterial(options: TerrainMaterialOptions): MeshStandardMaterial {
+  const { quality, grassTexture, trackTexture, rockTexture, sandTexture, isDesert } = options;
+
   const mat = new MeshStandardMaterial({
     vertexColors: true,
-    roughness: 0.9,
-    metalness: 0.05,
+    roughness: 0.88,
+    metalness: 0.04,
     flatShading: false,
   });
 
@@ -38,14 +54,21 @@ function createDetailedTerrainMaterial(quality: 'low' | 'medium' | 'high'): Mesh
     shader.uniforms.u_detailScale = { value: DETAIL_NOISE_SCALE };
     shader.uniforms.u_detailStrength = { value: DETAIL_NOISE_STRENGTH };
     shader.uniforms.u_slopeDarkening = { value: SLOPE_DARKENING_STRENGTH };
+    shader.uniforms.u_grassTexture = { value: grassTexture };
+    shader.uniforms.u_trackTexture = { value: trackTexture };
+    shader.uniforms.u_rockTexture = { value: rockTexture };
+    shader.uniforms.u_sandTexture = { value: sandTexture };
+    shader.uniforms.u_isDesert = { value: isDesert ? 1.0 : 0.0 };
 
-    // Inject varyings into vertex shader
+    // Inject custom attributes and varyings into vertex shader
     shader.vertexShader = shader.vertexShader.replace(
       '#include <common>',
       /* glsl */ `
         #include <common>
+        attribute float trackMask;
         varying vec3 vWorldPosition;
         varying vec3 vWorldNormal;
+        varying float vTrackMask;
       `,
     );
 
@@ -55,24 +78,30 @@ function createDetailedTerrainMaterial(quality: 'low' | 'medium' | 'high'): Mesh
         #include <worldpos_vertex>
         vWorldPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;
         vWorldNormal = normalize((modelMatrix * vec4(objectNormal, 0.0)).xyz);
+        vTrackMask = trackMask;
       `,
     );
 
-    // Inject detail noise into fragment shader
+    // Inject multi-texture blending into fragment shader
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <common>',
       /* glsl */ `
         #include <common>
         varying vec3 vWorldPosition;
         varying vec3 vWorldNormal;
+        varying float vTrackMask;
 
         uniform float u_detailScale;
         uniform float u_detailStrength;
         uniform float u_slopeDarkening;
+        uniform float u_isDesert;
+
+        uniform sampler2D u_grassTexture;
+        uniform sampler2D u_trackTexture;
+        uniform sampler2D u_rockTexture;
+        uniform sampler2D u_sandTexture;
 
         ${quality !== 'low' ? `
-        // Hash-based procedural noise (no texture needed)
-        // Based on Morgan McGuire @morgan3d https://www.shadertoy.com/view/4dS3Wd
         float hash(vec2 p) {
           vec3 p3 = fract(vec3(p.xyx) * 0.1031);
           p3 += dot(p3, p3.yzx + 33.33);
@@ -82,7 +111,7 @@ function createDetailedTerrainMaterial(quality: 'low' | 'medium' | 'high'): Mesh
         float noise2D(vec2 p) {
           vec2 i = floor(p);
           vec2 f = fract(p);
-          f = f * f * (3.0 - 2.0 * f); // smoothstep
+          f = f * f * (3.0 - 2.0 * f);
 
           float a = hash(i);
           float b = hash(i + vec2(1.0, 0.0));
@@ -106,24 +135,64 @@ function createDetailedTerrainMaterial(quality: 'low' | 'medium' | 'high'): Mesh
       `,
     );
 
-    // Apply noise and slope darkening after diffuse color is computed
+    // Apply texture splatting after diffuse color is computed
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <color_fragment>',
       /* glsl */ `
         #include <color_fragment>
 
+        // Dual-frequency texture coordinates with anti-tiling octave rotation (realistic ~3.5m micro, ~18m macro)
+        vec2 uvMacro = vWorldPosition.xz * 0.055;
+        vec2 uvMicro = mat2(0.866, -0.5, 0.5, 0.866) * (vWorldPosition.xz * 0.28);
+
+        // Base biome ground texture sampling
+        vec3 baseGround;
+        if (u_isDesert > 0.5) {
+          vec3 sandMacro = texture2D(u_sandTexture, uvMacro).rgb;
+          vec3 sandMicro = texture2D(u_sandTexture, uvMicro).rgb;
+          baseGround = mix(sandMacro, sandMicro, 0.5);
+        } else {
+          vec3 grassMacro = texture2D(u_grassTexture, uvMacro).rgb;
+          vec3 grassMicro = texture2D(u_grassTexture, uvMicro).rgb;
+          baseGround = mix(grassMacro, grassMicro, 0.5);
+        }
+
+        // Rally track dirt/mud texture sampling
+        vec2 uvTrackMacro = vWorldPosition.xz * 0.08;
+        vec2 uvTrackMicro = mat2(0.866, -0.5, 0.5, 0.866) * (vWorldPosition.xz * 0.35);
+        vec3 trackMacro = texture2D(u_trackTexture, uvTrackMacro).rgb;
+        vec3 trackMicro = texture2D(u_trackTexture, uvTrackMicro).rgb;
+        vec3 trackTex = mix(trackMacro, trackMicro, 0.5);
+
+        // Blend base ground with track
+        vec3 blendedAlbedo = mix(baseGround, trackTex, clamp(vTrackMask * 1.25, 0.0, 1.0));
+
+        // Triplanar rock mapping on steep slopes / cliffs (prevents vertical texture stretching)
+        vec3 normalWeights = pow(abs(vWorldNormal), vec3(4.0));
+        normalWeights /= max(0.0001, normalWeights.x + normalWeights.y + normalWeights.z);
+
+        vec3 rockTexX = texture2D(u_rockTexture, vWorldPosition.zy * 0.22).rgb;
+        vec3 rockTexY = texture2D(u_rockTexture, vWorldPosition.xz * 0.22).rgb;
+        vec3 rockTexZ = texture2D(u_rockTexture, vWorldPosition.xy * 0.22).rgb;
+        vec3 triplanarRock = rockTexX * normalWeights.x + rockTexY * normalWeights.y + rockTexZ * normalWeights.z;
+
+        // Slope calculation: 0 = flat plane, 1 = vertical cliff
+        float slope = 1.0 - abs(vWorldNormal.y);
+        float rockFactor = smoothstep(0.28, 0.62, slope);
+        blendedAlbedo = mix(blendedAlbedo, triplanarRock, rockFactor);
+
+        // Use natural vibrant texture albedo directly with subtle macro-lighting
+        diffuseColor.rgb = blendedAlbedo;
+
         ${quality !== 'low' ? `
-        // Detail noise overlay — breaks up flat vertex color gradients
-        vec2 noiseCoord = vWorldPosition.xz * u_detailScale * 0.01;
-        float detailNoise = fbm(noiseCoord * 50.0);
-        // Remap from [0,1] to [-1,1] and apply strength
-        float noiseMod = 1.0 + (detailNoise * 2.0 - 1.0) * u_detailStrength;
+        // Micro-relief noise overlay
+        float detailNoise = fbm(uvMicro * 15.0);
+        float noiseMod = 1.0 + (detailNoise * 2.0 - 1.0) * (u_detailStrength * 0.45);
         diffuseColor.rgb *= noiseMod;
         ` : ''}
 
-        // Slope darkening — steep terrain gets darker (micro-shadow illusion)
-        float slope = 1.0 - abs(vWorldNormal.y); // 0 = flat, 1 = vertical
-        float slopeFactor = 1.0 - slope * u_slopeDarkening;
+        // Slope darkening — ambient occlusion on steep crevices
+        float slopeFactor = 1.0 - slope * (u_slopeDarkening * 0.8);
         diffuseColor.rgb *= slopeFactor;
       `,
     );
@@ -133,18 +202,36 @@ function createDetailedTerrainMaterial(quality: 'low' | 'medium' | 'high'): Mesh
 }
 
 /**
- * Procedural terrain with heightmap-based geometry and physics collider.
- * Uses Perlin noise fBM for natural-looking hills and valleys.
- * Vertex-colored gradient: green (low) → brown (mid) → gray (high).
- *
- * Enhanced with procedural detail noise and slope darkening
- * applied via onBeforeCompile on MeshStandardMaterial.
- *
- * Heightmap data is consumed from TerrainContext (shared with PropsInstancer).
+ * 3D visual and physics terrain component.
+ * Displaces a dense plane geometry based on procedural heightmap data,
+ * loads PBR textures for grass, gravel tracks, and mountain cliffs,
+ * and attaches a Rapier HeightfieldCollider for rigid-body physics.
  */
 export function Terrain() {
   const { heightmapData, levelData } = useTerrainData();
   const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
+
+  // Load AI-generated terrain textures
+  const [grassTexture, trackTexture, rockTexture, sandTexture] = useTexture([
+    '/textures/terrain/grass.jpg',
+    '/textures/terrain/dirt_track.jpg',
+    '/textures/terrain/rock_cliff.jpg',
+    '/textures/terrain/desert_sand.jpg',
+  ]);
+
+  // Set repeat wrapping and SRGB color space on all terrain textures
+  useMemo(() => {
+    const anisotropy = graphicsQuality === 'very_high' ? 16 : graphicsQuality === 'high' ? 8 : 4;
+    [grassTexture, trackTexture, rockTexture, sandTexture].forEach((tex) => {
+      tex.wrapS = RepeatWrapping;
+      tex.wrapT = RepeatWrapping;
+      tex.colorSpace = SRGBColorSpace;
+      tex.anisotropy = anisotropy;
+      tex.needsUpdate = true;
+    });
+  }, [grassTexture, trackTexture, rockTexture, sandTexture, graphicsQuality]);
+
+  const isDesert = levelData.id.toLowerCase().includes('desert');
 
   const geometry = useMemo(() => {
     // Create plane geometry matching heightmap dimensions
@@ -161,6 +248,7 @@ export function Terrain() {
     // Displace vertices using heightmap
     const positions = geo.attributes.position;
     const colors: number[] = [];
+    const trackMaskArray: number[] = [];
 
     const tempColor = new Color();
     const MUD_COLOR = new Color('#3b2818');
@@ -169,6 +257,7 @@ export function Terrain() {
       const height = heightmapData.heights[i];
       const trackMask = heightmapData.trackMasks[i];
       positions.setY(i, height);
+      trackMaskArray.push(trackMask);
 
       // Color based on normalized height
       const normalizedHeight = mapRange(
@@ -190,31 +279,39 @@ export function Terrain() {
       }
 
       if (trackMask > 0) {
-        tempColor.lerp(MUD_COLOR, trackMask);
+        tempColor.lerp(MUD_COLOR, trackMask * 0.8);
       }
 
       colors.push(tempColor.r, tempColor.g, tempColor.b);
     }
 
     geo.setAttribute('color', new Float32BufferAttribute(colors, 3));
+    geo.setAttribute('trackMask', new Float32BufferAttribute(trackMaskArray, 1));
     geo.computeVertexNormals();
 
     return geo;
   }, [heightmapData, levelData]);
 
-  // Custom material with detail noise (created once)
-  const material = useMemo(() => createDetailedTerrainMaterial(graphicsQuality), [graphicsQuality]);
+  // Create custom multi-texture material
+  const material = useMemo(
+    () =>
+      createDetailedTerrainMaterial({
+        quality: graphicsQuality,
+        grassTexture,
+        trackTexture,
+        rockTexture,
+        sandTexture,
+        isDesert,
+      }),
+    [graphicsQuality, grassTexture, trackTexture, rockTexture, sandTexture, isDesert],
+  );
 
   // Prepare heights for Rapier HeightfieldCollider
-  // Rapier wants heights in row-major order, but its rows correspond to local X and cols to local Z.
-  // PlaneGeometry has rows along Z and cols along X. Therefore, we must transpose the array.
   const rapierHeights = useMemo(() => {
     const { rows, cols, heights } = heightmapData;
     const transposed = new Float32Array(heights.length);
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
-        // PlaneGeometry: r is Z-axis, c is X-axis
-        // Rapier: r (row) is X-axis, c (col) is Z-axis
         transposed[c * rows + r] = heights[r * cols + c];
       }
     }
@@ -239,3 +336,4 @@ export function Terrain() {
     </RigidBody>
   );
 }
+

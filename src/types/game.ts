@@ -16,7 +16,7 @@ export type CameraMode = 'chase_close' | 'chase' | 'bumper' | 'free';
 /**
  * Graphics quality preset levels.
  */
-export type GraphicsQuality = 'low' | 'medium' | 'high';
+export type GraphicsQuality = 'low' | 'medium' | 'high' | 'very_high';
 
 /**
  * Supported Gamepad hardware families.
