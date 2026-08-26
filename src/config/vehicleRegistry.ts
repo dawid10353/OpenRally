@@ -122,7 +122,7 @@ export const VEHICLE_RALLY_WRC: VehiclePreset = {
   description: 'Next-gen modern WRC rally machine with aggressive aero, explosive turbo acceleration, and razor-sharp high-speed downforce handling.',
   category: 'rally',
   modelPath: VEHICLE_WRC_MODEL_PATH,
-  modelPositionOffset: [0, 0.2, 0.1],
+  modelPositionOffset: [0, 0.10, 0.1],
   modelScale: [4.5, 4.5, 4.5],
   stats: {
     topSpeed: 8.8,
