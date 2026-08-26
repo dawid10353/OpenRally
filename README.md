@@ -83,6 +83,7 @@ OpenRally provides seamless support for **Keyboard** and **Gamepads** (PlayStati
 | **Handbrake** | `Space` | **`X` / `Square`** | Rear-wheel lockup to initiate power slides |
 | **Change Camera** | `C` | **`Y` / `Triangle`** | Switch between Chase, Bumper, and Free Views |
 | **Reset Vehicle** | `R` | **`Back` / `Select`** | Respawn vehicle on track spawn position |
+| **Toggle Telemetry** | `T` | — | Real-time engineering telemetry HUD |
 | **Pause / Menu** | `Esc` | **`Start` / `Options`** | Open garage, tracks, settings, or options |
 | **Navigate Menus** | `W` / `S` / `Enter` | **`D-Pad` / `Left Stick` / `A` (`Cross`)** | Full gamepad navigation across all menus |
 
@@ -90,13 +91,13 @@ OpenRally provides seamless support for **Keyboard** and **Gamepads** (PlayStati
 
 ## 🚗 Vehicles & Stages
 
-### Playable Vehicles (Garage)
+### Featured Vehicle
 
 | Vehicle | Class | Drivetrain | Top Speed | Handling | Character |
 |---|---|---|---|---|---|
-| **Apex Rally AWD** | Group A Rally | AWD (50/50) | 240 km/h | ★★★★★ | Balanced all-terrain rally legend with forgiving suspension and responsive cornering. |
-| **Veloce Sport RWD** | Sports Coupe | RWD (0/100) | 265 km/h | ★★★★☆ | Agile rear-wheel drive machine tuned for high-speed drift angles and asphalt pace. |
-| **Baja Dune Runner** | Trophy Offroad | AWD (50/50) | 210 km/h | ★★★☆☆ | Heavy-duty long-travel suspension engineered for dunes, elevation drops, and rugged rocks. |
+| **Apex Rally AWD** | Group A Rally Hatchback | AWD (50/50) | 240 km/h | ★★★★★ | Dedicated high-poly 3D rally legend with forgiving suspension, AWD grip, and agile cornering. |
+
+> Additional vehicle archetypes (RWD Sports Coupes, Trophy Offroad Trucks, and Dune Buggies) can be easily added through the modular [`vehicleRegistry.ts`](src/config/vehicleRegistry.ts) and vehicle builder factories.
 
 ### Available Stages & Tracks
 
@@ -191,11 +192,12 @@ npm run typecheck
 - [x] **Stage 1 — Foundation (Completed):** Procedural heightmap terrain, Rapier raycast vehicle physics, chase/bumper cameras, HUD, lighting.
 - [x] **Stage 2 — Simulation & Polish (Completed):** Particle systems, synthesized WebAudio, surface friction curves, skid ribbons, checkpoint racing system, Vitest test suite.
 - [x] **Stage 3 — Expansion (Current Focus):**
+  - [x] Dedicated 3D GLB vehicle model (`Apex Rally AWD`) with raycast suspension & tire physics
   - [x] Authentic analog rally instrumentation (Speedometer, Tachometer, Shift Light, Gear Display)
   - [x] Stage roadbook minimap with compass directions
-  - [x] Multi-vehicle garage selector & multi-track stage registry
+  - [x] Multi-track stage registry (Island Circuit, Desert Canyon)
   - [x] Full gamepad navigation & haptic rumble support
-  - [ ] Additional high-fidelity GLB vehicle and environment asset imports
+  - [ ] Additional vehicle model imports (RWD Sports, Trophy Truck, Buggy)
   - [ ] Hillclimb & rallycross stages
 - [ ] **Stage 4 — Future Visions:**
   - [ ] Real-time multiplayer (WebRTC / WebSockets)
