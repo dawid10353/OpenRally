@@ -13,22 +13,14 @@ function formatLapTime(seconds: number): string {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${millis.toString().padStart(2, '0')}`;
 }
 
-const surfaceColors: Record<string, string> = {
-  tarmac: '#00d4ff',
-  mud: '#d4883b',
-  grass: '#38b000',
-  sand: '#e0a96d',
-};
-
 /**
- * HUD overlay — speedometer, rally stage timer, surface indicator, and minimap.
+ * Rally HUD overlay — authentic twin-gauge rally cluster (analog Speedometer & Tachometer),
+ * rally stage roadbook minimap, and rally timing board.
  * Uses high-performance transient DOM updates to achieve 0 React re-renders during gameplay.
  */
 export function HUD() {
   const gameState = useGameStore((s) => s.gameState);
   const gameMode = useGameStore((s) => s.gameMode);
-  const gamepadConnected = useGameStore((s) => s.gamepadConnected);
-  const gamepadType = useGameStore((s) => s.gamepadType);
   const gameMusicVolume = useSettingsStore((s) => s.gameMusicVolume);
 
   // Stage complete state is low-frequency and only changes upon finishing a lap
@@ -38,16 +30,14 @@ export function HUD() {
 
   // Direct DOM Refs (No React re-renders on high-frequency changes)
   const lapTimeRef = useRef<HTMLDivElement>(null);
-  const surfaceBadgeRef = useRef<HTMLSpanElement>(null);
   const cpValueRef = useRef<HTMLSpanElement>(null);
   const bestValueRef = useRef<HTMLSpanElement>(null);
-  const speedRef = useRef<HTMLSpanElement>(null);
-  const rpmRef = useRef<HTMLSpanElement>(null);
-  const gearRef = useRef<HTMLSpanElement>(null);
-  const coordsRef = useRef<HTMLDivElement>(null);
-  const needleRef = useRef<SVGLineElement>(null);
-  const speedArcRef = useRef<SVGCircleElement>(null);
-  const rpmArcRef = useRef<SVGCircleElement>(null);
+  const speedTextRef = useRef<HTMLSpanElement>(null);
+  const rpmTextRef = useRef<HTMLSpanElement>(null);
+  const gearTextRef = useRef<HTMLSpanElement>(null);
+  const speedNeedleRef = useRef<SVGGElement>(null);
+  const rpmNeedleRef = useRef<SVGGElement>(null);
+  const shiftLightRef = useRef<SVGCircleElement>(null);
   const bgmRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
@@ -77,48 +67,44 @@ export function HUD() {
     };
   }, [gameState]);
 
-  // Transient gameStore subscriber (speed, rpm, gear, coords, surface)
+  // Transient gameStore subscriber (speed, rpm, gear)
   useEffect(() => {
     if (gameState !== 'playing') return;
 
     const updateGameHUD = (state: ReturnType<typeof useGameStore.getState>) => {
-      if (speedRef.current) speedRef.current.innerText = state.speed.toString();
-      if (rpmRef.current) rpmRef.current.innerText = state.rpm.toString();
+      if (speedTextRef.current) speedTextRef.current.innerText = state.speed.toString();
+      if (rpmTextRef.current) rpmTextRef.current.innerText = state.rpm.toString();
 
-      if (gearRef.current) {
+      if (gearTextRef.current) {
         let gearText = 'N';
         if (state.gear === -1) gearText = 'R';
         else if (state.gear > 0) gearText = state.gear.toString();
-        gearRef.current.innerText = gearText;
+        gearTextRef.current.innerText = gearText;
       }
 
-      if (coordsRef.current) {
-        const [x, y, z] = state.position;
-        coordsRef.current.innerText = `X: ${x.toFixed(1)} Y: ${y.toFixed(1)} Z: ${z.toFixed(1)}`;
-      }
-
-      if (surfaceBadgeRef.current) {
-        surfaceBadgeRef.current.innerText = state.surface.toUpperCase();
-        surfaceBadgeRef.current.style.backgroundColor = surfaceColors[state.surface] || '#00d4ff';
-      }
-
+      // Speedometer needle angle (-135deg at 0 km/h to +135deg at 240 km/h)
       const maxSpeed = 240;
-      const speedFraction = Math.min(state.speed / maxSpeed, 1);
+      const speedFraction = Math.min(Math.max(0, state.speed / maxSpeed), 1);
+      const speedAngle = -135 + speedFraction * 270;
+      if (speedNeedleRef.current) {
+        speedNeedleRef.current.setAttribute('transform', `rotate(${speedAngle} 85 88)`);
+      }
 
+      // Tachometer needle angle (-135deg at 0 RPM to +135deg at 8000 RPM)
       const maxRpm = 8000;
-      const rpmFraction = Math.max(0, Math.min(1, state.rpm / maxRpm));
-
-      if (needleRef.current) {
-        const needleRotation = -135 + speedFraction * 270;
-        needleRef.current.setAttribute('transform', `rotate(${needleRotation} 100 100)`);
+      const rpmFraction = Math.min(Math.max(0, state.rpm / maxRpm), 1);
+      const rpmAngle = -135 + rpmFraction * 270;
+      if (rpmNeedleRef.current) {
+        rpmNeedleRef.current.setAttribute('transform', `rotate(${rpmAngle} 255 88)`);
       }
 
-      if (speedArcRef.current) {
-        speedArcRef.current.style.strokeDasharray = `${speedFraction * 401} ${534 - speedFraction * 401}`;
-      }
-
-      if (rpmArcRef.current) {
-        rpmArcRef.current.style.strokeDasharray = `${rpmFraction * 306} ${408 - rpmFraction * 306}`;
+      // Rally Shift Light Indicator
+      if (shiftLightRef.current) {
+        const isShiftWarning = state.rpm >= 6500;
+        shiftLightRef.current.style.opacity = isShiftWarning ? '1' : '0.15';
+        shiftLightRef.current.style.filter = isShiftWarning
+          ? 'drop-shadow(0 0 8px #ff1e1e)'
+          : 'none';
       }
     };
 
@@ -162,17 +148,14 @@ export function HUD() {
 
       <TelemetryHUD />
 
-      {/* Minimap radar */}
+      {/* Rally Stage Minimap */}
       <Minimap />
 
-      {/* Mode Header Card (Top Left) */}
-      {gameMode === 'timeattack' ? (
+      {/* Time Attack Rally Stage Timing Card (Rendered ONLY in Time Attack mode) */}
+      {gameMode === 'timeattack' && (
         <div style={styles.timerCard}>
           <div style={styles.timerHeader}>
-            <span style={styles.stageTitle}>TIME ATTACK</span>
-            <span ref={surfaceBadgeRef} style={styles.surfaceBadge}>
-              TARMAC
-            </span>
+            <span style={styles.stageTitle}>RALLY STAGE</span>
           </div>
 
           <div ref={lapTimeRef} style={styles.lapTimeText}>
@@ -188,23 +171,11 @@ export function HUD() {
             </div>
 
             <div style={styles.bestTime}>
-              <span style={styles.cpLabel}>RECORD (PB)</span>
+              <span style={styles.cpLabel}>STAGE RECORD</span>
               <span ref={bestValueRef} style={styles.bestValue}>
                 {bestLapTime ? formatLapTime(bestLapTime) : '--:--.--'}
               </span>
             </div>
-          </div>
-        </div>
-      ) : (
-        <div style={{ ...styles.timerCard, minWidth: '180px' }}>
-          <div style={styles.timerHeader}>
-            <span style={{ ...styles.stageTitle, color: '#10b981' }}>FREE ROAM</span>
-            <span ref={surfaceBadgeRef} style={styles.surfaceBadge}>
-              TARMAC
-            </span>
-          </div>
-          <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', marginTop: '4px', fontWeight: 500 }}>
-            Open World Exploration
           </div>
         </div>
       )}
@@ -222,176 +193,285 @@ export function HUD() {
         </div>
       )}
 
-      {/* Speedometer Gauge (Bottom Right) */}
-      <div id="speedometer" style={styles.speedometer}>
-        <svg viewBox="0 0 200 200" style={styles.gaugeSvg}>
-          {/* Track arc */}
-          <circle
-            cx="100"
-            cy="100"
-            r="85"
-            fill="none"
-            stroke="rgba(255,255,255,0.1)"
-            strokeWidth="6"
-            strokeDasharray="401 133"
-            strokeDashoffset="67"
-            strokeLinecap="round"
-          />
-          {/* Active arc */}
-          <circle
-            ref={speedArcRef}
-            cx="100"
-            cy="100"
-            r="85"
-            fill="none"
-            stroke="url(#speedGradient)"
-            strokeWidth="6"
-            strokeDasharray="0 534"
-            strokeDashoffset="67"
-            strokeLinecap="round"
-            style={{ transition: 'stroke-dasharray 0.1s ease-out' }}
-          />
-          {/* RPM Track arc */}
-          <circle
-            cx="100"
-            cy="100"
-            r="70"
-            fill="none"
-            stroke="rgba(255,255,255,0.05)"
-            strokeWidth="4"
-            strokeDasharray="330 110"
-            strokeDashoffset="55"
-            strokeLinecap="round"
-          />
-          {/* RPM Active arc */}
-          <circle
-            ref={rpmArcRef}
-            cx="100"
-            cy="100"
-            r="70"
-            fill="none"
-            stroke="url(#rpmGradient)"
-            strokeWidth="4"
-            strokeDasharray="0 440"
-            strokeDashoffset="55"
-            strokeLinecap="round"
-            style={{ transition: 'stroke-dasharray 0.05s ease-out' }}
-          />
-          {/* Gradients */}
+      {/* Authentic Rally Twin-Gauge Cluster (Bottom Right) */}
+      <div id="rally-cluster" style={styles.rallyCluster}>
+        <svg viewBox="0 0 340 175" style={styles.clusterSvg}>
           <defs>
-            <linearGradient id="speedGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#00d4ff" />
-              <stop offset="60%" stopColor="#00ff88" />
-              <stop offset="100%" stopColor="#ff4444" />
+            {/* Dark Rally Pod Bezel Gradient */}
+            <linearGradient id="bezelGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#2a303c" />
+              <stop offset="50%" stopColor="#181d26" />
+              <stop offset="100%" stopColor="#0f1218" />
             </linearGradient>
-            <linearGradient id="rpmGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#ffaa00" />
-              <stop offset="70%" stopColor="#ff5500" />
-              <stop offset="100%" stopColor="#ff0000" />
+
+            {/* Inner Dial Face Radial Gradient */}
+            <radialGradient id="dialFace" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#1c222d" />
+              <stop offset="85%" stopColor="#11151c" />
+              <stop offset="100%" stopColor="#0a0d12" />
+            </radialGradient>
+
+            {/* Dial Glass Reflection Highlight */}
+            <linearGradient id="glassGlare" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="rgba(255,255,255,0.12)" />
+              <stop offset="40%" stopColor="rgba(255,255,255,0.02)" />
+              <stop offset="100%" stopColor="rgba(255,255,255,0)" />
             </linearGradient>
           </defs>
-          {/* Needle */}
-          <line
-            ref={needleRef}
-            x1="100"
-            y1="45"
-            x2="100"
-            y2="12"
-            stroke="#ffffff"
-            strokeWidth="3"
-            strokeLinecap="round"
-            transform="rotate(-135 100 100)"
-            style={{ transition: 'transform 0.1s ease-out' }}
+
+          {/* Pod Outer Casing */}
+          <rect
+            x="4"
+            y="4"
+            width="332"
+            height="167"
+            rx="24"
+            fill="url(#bezelGrad)"
+            stroke="#475569"
+            strokeWidth="2.5"
           />
+          {/* Inner Pod Shadow */}
+          <rect
+            x="7"
+            y="7"
+            width="326"
+            height="161"
+            rx="21"
+            fill="none"
+            stroke="#0a0d12"
+            strokeWidth="2"
+          />
+
+          {/* 4 Corner Rally Mounting Bolts */}
+          <circle cx="16" cy="16" r="3.5" fill="#64748b" stroke="#1e293b" strokeWidth="1" />
+          <circle cx="324" cy="16" r="3.5" fill="#64748b" stroke="#1e293b" strokeWidth="1" />
+          <circle cx="16" cy="159" r="3.5" fill="#64748b" stroke="#1e293b" strokeWidth="1" />
+          <circle cx="324" cy="159" r="3.5" fill="#64748b" stroke="#1e293b" strokeWidth="1" />
+
+          {/* ════════════════ LEFT GAUGE: SPEEDOMETER (0 - 240 KM/H) ════════════════ */}
+          {/* Bezel Ring */}
+          <circle cx="85" cy="88" r="68" fill="#1e2430" stroke="#475569" strokeWidth="2" />
+          <circle cx="85" cy="88" r="64" fill="url(#dialFace)" stroke="#0f131a" strokeWidth="1.5" />
+
+          {/* Speedometer Scale Arc (270 degrees) */}
+          <circle
+            cx="85"
+            cy="88"
+            r="56"
+            fill="none"
+            stroke="rgba(255, 255, 255, 0.15)"
+            strokeWidth="1.5"
+            strokeDasharray="264 88"
+            strokeDashoffset="44"
+          />
+
+          {/* Minor Ticks (Every 10 km/h) */}
+          {[
+            135, 146.25, 157.5, 168.75, 180, 191.25, 202.5, 213.75, 225, 236.25, 247.5, 258.75,
+            270, 281.25, 292.5, 303.75, 315, 326.25, 337.5, 348.75, 360, 371.25, 382.5, 393.75, 405
+          ].map((deg, i) => {
+            const rad = (deg * Math.PI) / 180;
+            const isMajor = i % 3 === 0;
+            const rOuter = 56;
+            const rInner = isMajor ? 48 : 52;
+            const x1 = 85 + rOuter * Math.cos(rad);
+            const y1 = 88 + rOuter * Math.sin(rad);
+            const x2 = 85 + rInner * Math.cos(rad);
+            const y2 = 88 + rInner * Math.sin(rad);
+            return (
+              <line
+                key={i}
+                x1={x1}
+                y1={y1}
+                x2={x2}
+                y2={y2}
+                stroke={isMajor ? '#f8fafc' : 'rgba(255,255,255,0.45)'}
+                strokeWidth={isMajor ? 2 : 1}
+              />
+            );
+          })}
+
+          {/* Speedometer Numerals */}
+          <text x="56" y="122" fill="#e2e8f0" fontSize="9" fontWeight="800" textAnchor="middle" fontFamily="'Segoe UI', sans-serif">0</text>
+          <text x="44" y="100" fill="#e2e8f0" fontSize="9" fontWeight="800" textAnchor="middle" fontFamily="'Segoe UI', sans-serif">30</text>
+          <text x="46" y="74" fill="#e2e8f0" fontSize="9" fontWeight="800" textAnchor="middle" fontFamily="'Segoe UI', sans-serif">60</text>
+          <text x="62" y="55" fill="#e2e8f0" fontSize="9" fontWeight="800" textAnchor="middle" fontFamily="'Segoe UI', sans-serif">90</text>
+          <text x="85" y="47" fill="#e2e8f0" fontSize="9" fontWeight="800" textAnchor="middle" fontFamily="'Segoe UI', sans-serif">120</text>
+          <text x="108" y="55" fill="#e2e8f0" fontSize="9" fontWeight="800" textAnchor="middle" fontFamily="'Segoe UI', sans-serif">150</text>
+          <text x="124" y="74" fill="#e2e8f0" fontSize="9" fontWeight="800" textAnchor="middle" fontFamily="'Segoe UI', sans-serif">180</text>
+          <text x="126" y="100" fill="#e2e8f0" fontSize="9" fontWeight="800" textAnchor="middle" fontFamily="'Segoe UI', sans-serif">210</text>
+          <text x="114" y="122" fill="#e2e8f0" fontSize="9" fontWeight="800" textAnchor="middle" fontFamily="'Segoe UI', sans-serif">240</text>
+
+          {/* Speedometer Dial Label */}
+          <text x="85" y="112" fill="#94a3b8" fontSize="8" fontWeight="800" textAnchor="middle" letterSpacing="1px" fontFamily="'Segoe UI', sans-serif">KM/H</text>
+          <text x="85" y="122" fill="#64748b" fontSize="6.5" fontWeight="700" textAnchor="middle" letterSpacing="0.8px" fontFamily="'Segoe UI', sans-serif">SPEED</text>
+
+          {/* Speedometer Analog Needle */}
+          <g ref={speedNeedleRef} transform="rotate(-135 85 88)">
+            <polygon points="83.5,88 85,34 86.5,88 85,98" fill="#e11d48" />
+            <polygon points="84.2,34 85,30 85.8,34" fill="#ffffff" />
+            <circle cx="85" cy="88" r="9" fill="#181d26" stroke="#334155" strokeWidth="2" />
+            <circle cx="85" cy="88" r="3.5" fill="#94a3b8" />
+          </g>
+
+          {/* ════════════════ RIGHT GAUGE: TACHOMETER (0 - 8 x1000 RPM) ════════════════ */}
+          {/* Bezel Ring */}
+          <circle cx="255" cy="88" r="68" fill="#1e2430" stroke="#475569" strokeWidth="2" />
+          <circle cx="255" cy="88" r="64" fill="url(#dialFace)" stroke="#0f131a" strokeWidth="1.5" />
+
+          {/* Tachometer Scale Arc */}
+          <circle
+            cx="255"
+            cy="88"
+            r="56"
+            fill="none"
+            stroke="rgba(255, 255, 255, 0.15)"
+            strokeWidth="1.5"
+            strokeDasharray="264 88"
+            strokeDashoffset="44"
+          />
+
+          {/* Redline Zone Arc (6.5k to 8.0k RPM in racing red) */}
+          <path
+            d="M 307 66 A 56 56 0 0 1 295 128"
+            fill="none"
+            stroke="#ef4444"
+            strokeWidth="4"
+          />
+
+          {/* Ticks (Every 500 RPM) */}
+          {[
+            135, 151.875, 168.75, 185.625, 202.5, 219.375, 236.25, 253.125,
+            270, 286.875, 303.75, 320.625, 337.5, 354.375, 371.25, 388.125, 405
+          ].map((deg, i) => {
+            const rad = (deg * Math.PI) / 180;
+            const isMajor = i % 2 === 0;
+            const isRedline = deg >= 340;
+            const rOuter = 56;
+            const rInner = isMajor ? 47 : 51;
+            const x1 = 255 + rOuter * Math.cos(rad);
+            const y1 = 88 + rOuter * Math.sin(rad);
+            const x2 = 255 + rInner * Math.cos(rad);
+            const y2 = 88 + rInner * Math.sin(rad);
+            return (
+              <line
+                key={i}
+                x1={x1}
+                y1={y1}
+                x2={x2}
+                y2={y2}
+                stroke={isRedline ? '#ef4444' : isMajor ? '#f8fafc' : 'rgba(255,255,255,0.45)'}
+                strokeWidth={isMajor ? 2.2 : 1}
+              />
+            );
+          })}
+
+          {/* Tachometer Numerals */}
+          <text x="226" y="122" fill="#e2e8f0" fontSize="9.5" fontWeight="800" textAnchor="middle" fontFamily="'Segoe UI', sans-serif">0</text>
+          <text x="214" y="100" fill="#e2e8f0" fontSize="9.5" fontWeight="800" textAnchor="middle" fontFamily="'Segoe UI', sans-serif">1</text>
+          <text x="216" y="74" fill="#e2e8f0" fontSize="9.5" fontWeight="800" textAnchor="middle" fontFamily="'Segoe UI', sans-serif">2</text>
+          <text x="232" y="55" fill="#e2e8f0" fontSize="9.5" fontWeight="800" textAnchor="middle" fontFamily="'Segoe UI', sans-serif">3</text>
+          <text x="255" y="47" fill="#e2e8f0" fontSize="9.5" fontWeight="800" textAnchor="middle" fontFamily="'Segoe UI', sans-serif">4</text>
+          <text x="278" y="55" fill="#e2e8f0" fontSize="9.5" fontWeight="800" textAnchor="middle" fontFamily="'Segoe UI', sans-serif">5</text>
+          <text x="294" y="74" fill="#e2e8f0" fontSize="9.5" fontWeight="800" textAnchor="middle" fontFamily="'Segoe UI', sans-serif">6</text>
+          <text x="296" y="100" fill="#ef4444" fontSize="9.5" fontWeight="900" textAnchor="middle" fontFamily="'Segoe UI', sans-serif">7</text>
+          <text x="284" y="122" fill="#ef4444" fontSize="9.5" fontWeight="900" textAnchor="middle" fontFamily="'Segoe UI', sans-serif">8</text>
+
+          {/* Tachometer Dial Label */}
+          <text x="255" y="132" fill="#94a3b8" fontSize="7.5" fontWeight="800" textAnchor="middle" letterSpacing="0.8px" fontFamily="'Segoe UI', sans-serif">RPM x1000</text>
+
+          {/* Shift Light LED Indicator at top */}
+          <circle cx="255" cy="23" r="7" fill="#1e293b" stroke="#475569" strokeWidth="1" />
+          <circle
+            ref={shiftLightRef}
+            cx="255"
+            cy="23"
+            r="5"
+            fill="#ef4444"
+            style={{ opacity: 0.15, transition: 'opacity 0.05s ease-out' }}
+          />
+          <text x="255" y="14" fill="#94a3b8" fontSize="6.5" fontWeight="800" textAnchor="middle" letterSpacing="0.6px" fontFamily="'Segoe UI', sans-serif">SHIFT</text>
+
+          {/* Tachometer Analog Needle */}
+          <g ref={rpmNeedleRef} transform="rotate(-135 255 88)">
+            <polygon points="253.5,88 255,34 256.5,88 255,98" fill="#e11d48" />
+            <polygon points="254.2,34 255,30 255.8,34" fill="#ffffff" />
+            <circle cx="255" cy="88" r="9" fill="#181d26" stroke="#334155" strokeWidth="2" />
+            <circle cx="255" cy="88" r="3.5" fill="#94a3b8" />
+          </g>
+
+          {/* Center Cluster Rally Badge */}
+          <text x="170" y="24" fill="#e2e8f0" fontSize="9" fontWeight="900" textAnchor="middle" letterSpacing="1.8px" fontFamily="'Segoe UI', sans-serif">OPEN RALLY</text>
+          <text x="170" y="34" fill="#64748b" fontSize="6.5" fontWeight="800" textAnchor="middle" letterSpacing="1px" fontFamily="'Segoe UI', sans-serif">CORSE COMPETIZIONE</text>
         </svg>
 
-        {/* Digital readout */}
-        <div style={styles.speedValue}>
-          <span ref={gearRef} style={styles.gearText}>N</span>
-          <span ref={speedRef} style={styles.speedNumber}>0</span>
-          <span style={styles.speedUnit}>km/h</span>
-          <div style={styles.rpmReadout}>
-            <span ref={rpmRef} style={styles.rpmNumber}>1000</span>
-            <span style={styles.rpmUnit}>RPM</span>
-          </div>
+        {/* Rally Digital Speed Readout (Left dial overlay) */}
+        <div style={styles.speedDigitalContainer}>
+          <span ref={speedTextRef} style={styles.speedDigitalNumber}>0</span>
         </div>
-      </div>
 
-      {/* Coordinates / Heading (Bottom Left) */}
-      <div id="coordinates" style={styles.coordinates}>
-        <div ref={coordsRef} style={styles.coordsText}>X: 0.0 Y: 0.0 Z: 0.0</div>
-        {gamepadConnected && (
-          <div style={{
-            ...styles.gamepadBadge,
-            color: gamepadType === 'dualsense' ? '#0070d1' : '#10b981',
-            borderColor: gamepadType === 'dualsense' ? 'rgba(0, 112, 209, 0.3)' : 'rgba(16, 185, 129, 0.3)',
-          }}>
-            <span style={{ fontSize: '12px' }}>🎮</span>
-            <span>{gamepadType === 'dualsense' ? 'DUALSENSE' : 'XBOX'}</span>
+        {/* Vintage Rally Gear Indicator Box (Right dial overlay) */}
+        <div style={styles.gearBoxContainer}>
+          <div style={styles.gearBox}>
+            <span ref={gearTextRef} style={styles.gearBoxText}>N</span>
           </div>
-        )}
+          <span style={styles.gearLabel}>GEAR</span>
+        </div>
+
+        {/* Real-time RPM readout */}
+        <div style={styles.rpmDigitalContainer}>
+          <span ref={rpmTextRef} style={styles.rpmDigitalNumber}>1000</span>
+          <span style={styles.rpmDigitalUnit}>RPM</span>
+        </div>
       </div>
     </div>
   );
 }
-
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
     position: 'absolute',
     inset: 0,
     pointerEvents: 'none',
-    fontFamily: "'Inter', 'Segoe UI', sans-serif",
+    fontFamily: "'Segoe UI', Roboto, sans-serif",
     zIndex: 10,
   },
   timerCard: {
     position: 'absolute',
     top: '20px',
     left: '20px',
-    background: 'rgba(10, 14, 28, 0.85)',
-    backdropFilter: 'blur(16px)',
-    border: '1px solid rgba(255, 255, 255, 0.15)',
+    background: '#121620',
+    border: '2px solid #374151',
     borderRadius: '12px',
-    padding: '14px 20px',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+    padding: '12px 18px',
+    boxShadow: '0 8px 30px rgba(0,0,0,0.8), inset 0 1px 1px rgba(255,255,255,0.1)',
     minWidth: '220px',
   },
   timerHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '6px',
+    marginBottom: '4px',
   },
   stageTitle: {
-    fontSize: '12px',
-    fontWeight: 800,
-    color: '#8b9bb4',
-    letterSpacing: '1.5px',
-  },
-  surfaceBadge: {
-    fontSize: '10px',
+    fontSize: '11px',
     fontWeight: 900,
-    color: '#0a0e1c',
-    padding: '2px 8px',
-    borderRadius: '4px',
-    letterSpacing: '1px',
-    backgroundColor: '#00d4ff',
-    transition: 'background-color 0.2s ease',
+    color: '#94a3b8',
+    letterSpacing: '1.5px',
   },
   lapTimeText: {
     fontSize: '32px',
     fontWeight: 900,
     color: '#ffffff',
     fontFamily: 'monospace',
-    letterSpacing: '1px',
-    textShadow: '0 0 10px rgba(0, 212, 255, 0.4)',
-    margin: '4px 0 8px 0',
+    letterSpacing: '1.5px',
+    margin: '2px 0 6px 0',
   },
   timerFooter: {
     display: 'flex',
     justifyContent: 'space-between',
-    borderTop: '1px solid rgba(255,255,255,0.08)',
-    paddingTop: '8px',
+    borderTop: '1px solid #28303f',
+    paddingTop: '6px',
     gap: '16px',
   },
   checkpointProgress: {
@@ -404,23 +484,23 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'flex-end',
   },
   cpLabel: {
-    fontSize: '10px',
-    color: '#6b7c96',
-    fontWeight: 700,
+    fontSize: '9px',
+    color: '#64748b',
+    fontWeight: 800,
     letterSpacing: '0.5px',
   },
   cpValue: {
-    fontSize: '13px',
-    color: '#00ff88',
+    fontSize: '12px',
+    color: '#22c55e',
     fontWeight: 800,
-    marginTop: '2px',
+    marginTop: '1px',
   },
   bestValue: {
-    fontSize: '13px',
-    color: '#ffb700',
+    fontSize: '12px',
+    color: '#eab308',
     fontWeight: 800,
     fontFamily: 'monospace',
-    marginTop: '2px',
+    marginTop: '1px',
   },
   bannerContainer: {
     position: 'absolute',
@@ -433,14 +513,12 @@ const styles: Record<string, React.CSSProperties> = {
     zIndex: 100,
   },
   stageCompleteBanner: {
-    background: 'linear-gradient(135deg, rgba(20, 35, 60, 0.95), rgba(227, 24, 55, 0.95))',
-    backdropFilter: 'blur(20px)',
+    background: 'linear-gradient(135deg, rgba(18, 24, 38, 0.96), rgba(185, 28, 28, 0.96))',
     border: '2px solid rgba(255,255,255,0.3)',
     borderRadius: '16px',
     padding: '24px 48px',
     textAlign: 'center',
-    boxShadow: '0 12px 48px rgba(0,0,0,0.8), 0 0 30px rgba(227,24,55,0.4)',
-    animation: 'pulse 1s infinite alternate',
+    boxShadow: '0 12px 48px rgba(0,0,0,0.85), 0 0 30px rgba(185,28,28,0.5)',
   },
   bannerTitle: {
     fontSize: '32px',
@@ -452,121 +530,105 @@ const styles: Record<string, React.CSSProperties> = {
   bannerTime: {
     fontSize: '24px',
     fontWeight: 800,
-    color: '#00d4ff',
+    color: '#38bdf8',
     fontFamily: 'monospace',
     marginTop: '6px',
   },
   newRecordBadge: {
     fontSize: '16px',
     fontWeight: 900,
-    color: '#ffdd00',
+    color: '#facc15',
     letterSpacing: '2px',
     marginTop: '8px',
-    textShadow: '0 0 10px rgba(255,221,0,0.8)',
+    textShadow: '0 0 10px rgba(250,204,21,0.8)',
   },
-  speedometer: {
+  rallyCluster: {
     position: 'absolute',
-    bottom: '24px',
-    right: '24px',
-    width: '220px',
-    height: '220px',
-    background: 'radial-gradient(ellipse at center, rgba(10,10,30,0.95) 0%, rgba(10,10,30,0.7) 100%)',
-    borderRadius: '50%',
-    border: '2px solid rgba(255,255,255,0.15)',
-    backdropFilter: 'blur(16px)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1)',
+    bottom: '20px',
+    right: '20px',
+    width: '340px',
+    height: '175px',
+    boxShadow: '0 12px 40px rgba(0,0,0,0.85)',
+    borderRadius: '24px',
+    pointerEvents: 'none',
   },
-  gaugeSvg: {
+  clusterSvg: {
     position: 'absolute',
     width: '100%',
     height: '100%',
   },
-  speedValue: {
+  speedDigitalContainer: {
     position: 'absolute',
-    inset: 0,
+    left: '45px',
+    top: '128px',
+    width: '80px',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  speedDigitalNumber: {
+    fontSize: '18px',
+    fontWeight: 900,
+    color: '#ffffff',
+    fontFamily: 'monospace',
+    letterSpacing: '0.5px',
+    textShadow: '0 1px 3px rgba(0,0,0,0.9)',
+  },
+  gearBoxContainer: {
+    position: 'absolute',
+    left: '150px',
+    top: '48px',
+    width: '40px',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
+  },
+  gearBox: {
+    width: '32px',
+    height: '36px',
+    background: '#090c10',
+    border: '2px solid #ca8a04',
+    borderRadius: '6px',
+    display: 'flex',
+    alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10,
+    boxShadow: 'inset 0 0 8px rgba(202, 138, 4, 0.4)',
   },
-  gearText: {
-    fontSize: '28px',
+  gearBoxText: {
+    fontSize: '22px',
     fontWeight: 900,
-    color: '#00d4ff',
-    marginBottom: '2px',
-    lineHeight: 1,
-    textShadow: '0 0 4px rgba(0,0,0,1), 0 0 8px rgba(0,0,0,1), 0 2px 4px rgba(0,0,0,0.9)',
-  },
-  speedNumber: {
-    fontSize: '56px',
-    fontWeight: 900,
-    color: '#ffffff',
-    lineHeight: 1,
-    textShadow: '0 0 4px rgba(0,0,0,1), 0 0 10px rgba(0,212,255,0.4), 0 2px 4px rgba(0,0,0,0.9)',
-  },
-  speedUnit: {
-    fontSize: '14px',
-    fontWeight: 700,
-    color: 'rgba(255,255,255,0.7)',
-    letterSpacing: '2px',
-    textTransform: 'uppercase' as const,
-    marginTop: '0px',
-    marginBottom: '8px',
-    textShadow: '0 1px 2px rgba(0,0,0,0.8)',
-  },
-  rpmReadout: {
-    display: 'flex',
-    alignItems: 'baseline',
-    gap: '4px',
-  },
-  rpmNumber: {
-    fontSize: '20px',
-    fontWeight: 800,
-    color: '#ffaa00',
-    textShadow: '0 0 4px rgba(0,0,0,1), 0 0 10px rgba(255,170,0,0.4), 0 2px 4px rgba(0,0,0,0.9)',
-  },
-  rpmUnit: {
-    fontSize: '12px',
-    fontWeight: 700,
-    color: 'rgba(255,255,255,0.7)',
-    letterSpacing: '1px',
-    textShadow: '0 1px 2px rgba(0,0,0,0.8)',
-  },
-  coordinates: {
-    position: 'absolute',
-    bottom: '24px',
-    left: '24px',
-    background: 'rgba(10,10,30,0.7)',
-    backdropFilter: 'blur(12px)',
-    border: '1px solid rgba(255,255,255,0.12)',
-    borderRadius: '8px',
-    padding: '8px 16px',
-    display: 'flex',
-    alignItems: 'center',
-    boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
-  },
-  coordsText: {
-    fontSize: '14px',
-    fontWeight: 600,
-    color: '#00d4ff',
-    letterSpacing: '1px',
+    color: '#facc15',
     fontFamily: 'monospace',
+    lineHeight: 1,
+    textShadow: '0 0 8px rgba(250, 204, 21, 0.7)',
   },
-  gamepadBadge: {
-    marginLeft: '12px',
-    paddingLeft: '10px',
-    borderLeft: '1px solid rgba(255,255,255,0.2)',
+  gearLabel: {
+    fontSize: '7px',
+    fontWeight: 900,
+    color: '#94a3b8',
+    letterSpacing: '1px',
+    marginTop: '3px',
+  },
+  rpmDigitalContainer: {
+    position: 'absolute',
+    right: '45px',
+    top: '102px',
+    width: '80px',
     display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
+    justifyContent: 'center',
+    alignItems: 'baseline',
+    gap: '2px',
+  },
+  rpmDigitalNumber: {
     fontSize: '11px',
     fontWeight: 800,
-    color: '#10b981',
-    letterSpacing: '1px',
+    color: '#cbd5e1',
+    fontFamily: 'monospace',
+  },
+  rpmDigitalUnit: {
+    fontSize: '7px',
+    fontWeight: 700,
+    color: '#64748b',
   },
 };
 

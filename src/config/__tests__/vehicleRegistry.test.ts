@@ -33,4 +33,18 @@ describe('Vehicle Registry', () => {
     const unknownCar = getVehiclePreset('non_existent_car');
     expect(unknownCar.id).toBe('rally_hatchback');
   });
+
+  it('guarantees resting wheel clearance below body anchor points', () => {
+    const vehicles = getAvailableVehicles();
+    for (const vehicle of vehicles) {
+      for (const wheel of vehicle.config.wheels) {
+        expect(wheel.suspensionRestLength).toBeGreaterThan(0.2);
+        const restingY = wheel.position[1] - wheel.suspensionRestLength * 0.75;
+        // Wheel center at rest must sit below the anchor mount point
+        expect(restingY).toBeLessThan(wheel.position[1]);
+        // Wheel top must have clearance relative to chassis top
+        expect(restingY + wheel.radius).toBeLessThan(vehicle.modelPositionOffset ? vehicle.modelPositionOffset[1] + 0.4 : 0.6);
+      }
+    }
+  });
 });

@@ -20,7 +20,7 @@ function formatLapTime(seconds: number): string {
 
 function CarModelDisplay({ preset }: { preset: VehiclePreset }) {
   const { scene } = useGLTF(preset.modelPath);
-  const offset = preset.modelPositionOffset ?? [0, 0.45, 0.1];
+  const offset = preset.modelPositionOffset ?? [0, 0.2, 0.1];
   const scale = preset.modelScale ?? [4.5, 4.5, 4.5];
 
   return (
@@ -32,11 +32,19 @@ function CarModelDisplay({ preset }: { preset: VehiclePreset }) {
         castShadow 
         receiveShadow 
       />
-      {preset.config.wheels.map((wheel, index) => (
-        <group key={index} position={wheel.position as [number, number, number]}>
-          <Wheel isRightSide={wheel.position[0] > 0} radius={wheel.radius} />
-        </group>
-      ))}
+      {preset.config.wheels.map((wheel, index) => {
+        // Account for suspension rest length compression under vehicle weight
+        // so wheels sit accurately inside the wheel arches without clipping into the body
+        const restLength = wheel.suspensionRestLength ?? 0.32;
+        const restSuspensionOffset = restLength * 0.75;
+        const wheelY = wheel.position[1] - restSuspensionOffset;
+
+        return (
+          <group key={index} position={[wheel.position[0], wheelY, wheel.position[2]]}>
+            <Wheel isRightSide={wheel.position[0] > 0} radius={wheel.radius} />
+          </group>
+        );
+      })}
     </group>
   );
 }
