@@ -64,7 +64,7 @@ export const WRC_VEHICLE_CONFIG: VehicleConfig = {
   wheels: [
     {
       // Front-left
-      position: [-0.76, -0.2, 1.45],
+      position: [-0.88, -0.2, 1.38],
       radius: 0.35,
       suspensionRestLength: 0.32,
       suspensionTravel: 0.28,
@@ -76,7 +76,7 @@ export const WRC_VEHICLE_CONFIG: VehicleConfig = {
     },
     {
       // Front-right
-      position: [0.76, -0.2, 1.45],
+      position: [0.88, -0.2, 1.38],
       radius: 0.35,
       suspensionRestLength: 0.32,
       suspensionTravel: 0.28,
@@ -88,7 +88,7 @@ export const WRC_VEHICLE_CONFIG: VehicleConfig = {
     },
     {
       // Rear-left
-      position: [-0.76, -0.2, -1.4],
+      position: [-0.89, -0.2, -1.25],
       radius: 0.35,
       suspensionRestLength: 0.32,
       suspensionTravel: 0.28,
@@ -100,7 +100,7 @@ export const WRC_VEHICLE_CONFIG: VehicleConfig = {
     },
     {
       // Rear-right
-      position: [0.76, -0.2, -1.4],
+      position: [0.89, -0.2, -1.25],
       radius: 0.35,
       suspensionRestLength: 0.32,
       suspensionTravel: 0.28,
