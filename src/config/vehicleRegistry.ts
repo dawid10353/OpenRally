@@ -28,7 +28,7 @@ export const VEHICLE_RALLY_HATCHBACK: VehiclePreset = {
  */
 export const WRC_VEHICLE_CONFIG: VehicleConfig = {
   chassisMass: 135,
-  chassisSize: [1.9, 0.6, 4.1],
+  chassisSize: [2.0, 0.6, 4.0],
   engine: {
     maxForce: 520, // Explosive turbo boost
     maxSpeed: 265,
@@ -64,7 +64,7 @@ export const WRC_VEHICLE_CONFIG: VehicleConfig = {
   wheels: [
     {
       // Front-left
-      position: [-0.78, -0.2, 1.22],
+      position: [-0.76, -0.2, 1.45],
       radius: 0.35,
       suspensionRestLength: 0.32,
       suspensionTravel: 0.28,
@@ -76,7 +76,7 @@ export const WRC_VEHICLE_CONFIG: VehicleConfig = {
     },
     {
       // Front-right
-      position: [0.78, -0.2, 1.22],
+      position: [0.76, -0.2, 1.45],
       radius: 0.35,
       suspensionRestLength: 0.32,
       suspensionTravel: 0.28,
@@ -88,7 +88,7 @@ export const WRC_VEHICLE_CONFIG: VehicleConfig = {
     },
     {
       // Rear-left
-      position: [-0.78, -0.2, -1.15],
+      position: [-0.76, -0.2, -1.4],
       radius: 0.35,
       suspensionRestLength: 0.32,
       suspensionTravel: 0.28,
@@ -100,7 +100,7 @@ export const WRC_VEHICLE_CONFIG: VehicleConfig = {
     },
     {
       // Rear-right
-      position: [0.78, -0.2, -1.15],
+      position: [0.76, -0.2, -1.4],
       radius: 0.35,
       suspensionRestLength: 0.32,
       suspensionTravel: 0.28,
@@ -122,8 +122,8 @@ export const VEHICLE_RALLY_WRC: VehiclePreset = {
   description: 'Next-gen modern WRC rally machine with aggressive aero, explosive turbo acceleration, and razor-sharp high-speed downforce handling.',
   category: 'rally',
   modelPath: VEHICLE_WRC_MODEL_PATH,
-  modelPositionOffset: [0, 0.22, 0.0],
-  modelScale: [2.3, 2.3, 2.3],
+  modelPositionOffset: [0, 0.2, 0.1],
+  modelScale: [4.5, 4.5, 4.5],
   stats: {
     topSpeed: 8.8,
     acceleration: 9.2,
