@@ -36,6 +36,11 @@
     <img src="public/screenshots/stage_scenic.png" alt="OpenRally Summit Stage Overview & Cockpit HUD" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
     <img src="public/screenshots/downhill_rush.png" alt="OpenRally Forest Descent & Dynamic Dust" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
   </p>
+
+  <p align="center">
+    <img src="public/screenshots/stage_desert.png" alt="OpenRally Desert Canyon Stage & Rally Timing" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
+    <img src="public/screenshots/checkpoint_gate.png" alt="OpenRally Modular Checkpoint Gate & Sector Timing" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
+  </p>
 </div>
 
 ---
