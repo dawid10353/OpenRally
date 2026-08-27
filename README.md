@@ -10,7 +10,7 @@
     <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" /></a>
     <a href="https://threejs.org/"><img src="https://img.shields.io/badge/Three.js-R3F-black?logo=three.js" alt="Three.js & R3F" /></a>
     <a href="https://rapier.rs/"><img src="https://img.shields.io/badge/Physics-Rapier3D_WASM-E95420" alt="Rapier3D WASM" /></a>
-    <a href="https://vitest.dev/"><img src="https://img.shields.io/badge/Tests-131_Passing-22c55e?logo=vitest&logoColor=white" alt="Vitest Tests" /></a>
+    <a href="https://vitest.dev/"><img src="https://img.shields.io/badge/Tests-148_Passing-22c55e?logo=vitest&logoColor=white" alt="Vitest Tests" /></a>
     <a href="https://oxc.rs/"><img src="https://img.shields.io/badge/Linter-Oxlint_Clean-10b981" alt="Oxlint" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License" /></a>
   </p>
@@ -44,22 +44,28 @@
 
 **OpenRally** is an open-source, production-grade 3D rally game running natively in web browsers via WebGL and WebAssembly.
 
-The project combines authentic motorsport simulation principles with accessible arcade-style drift handling. Developed exclusively with enterprise AI software engineering standards, it features independent 4-wheel raycast suspension kinetics, Pacejka-inspired non-linear multi-surface tire friction, procedural Simplex terrain heightfields, custom GLSL Gerstner wave water, and analog rally cockpit instrumentation.
+The project combines authentic motorsport simulation principles with accessible arcade-style drift handling. Developed exclusively with enterprise AI software engineering standards, it features independent 4-wheel raycast suspension kinetics, dynamic physics-based engine RPM simulation, Pacejka-inspired non-linear multi-surface tire friction, procedural Simplex terrain heightfields, custom GLSL Gerstner wave water, modular 3D race gantries, and analog rally cockpit instrumentation.
 
 ---
 
 ## 🏎️ Key Features
 
 ### ⚙️ Authentic Rally Physics & Vehicle Dynamics
-- **Raycast Suspension Kinetics:** Independent 4-wheel raycast suspension powered by **Rapier3D (WASM)** with authentic spring rates, compression/relaxation damping, anti-roll bars (ARB), and dynamic longitudinal/lateral weight transfer.
+- **Raycast Suspension Kinetics:** Independent 4-wheel raycast suspension powered by **Rapier3D (WASM)** with authentic spring rates, compression/relaxation damping, anti-roll bars (ARB), wheel bottoming-out detection, and dynamic longitudinal/lateral weight transfer.
+- **Physics-Based Engine & RPM Simulation:** Real-time RPM calculations driven by wheel rotation speeds, clutch slippage, throttle inertia, idle bounce, and redline limiter bounce.
+- **Powertrain & Automatic Gearbox:** 5-speed automatic transmission with tuned gear ratios, torque curves, engine braking, and automatic upshift/downshift hysteresis.
 - **Pacejka-Inspired Multi-Surface Friction:** Non-linear tire grip curves simulating slip angles, traction limits, understeer/oversteer transitions, and responsive handbrake-initiated power slides.
-- **Powertrain & Automatic Gearbox:** 5-speed automatic transmission with torque curves, engine braking, RPM harmonic calculations, and simulated AWD/RWD differentials.
 - **Arcade-Sim Driving Assists:** Speed-sensitive steering scaling, yaw damping, and drift grip multipliers for high accessibility paired with deep driving satisfaction.
+
+### 🏁 Time Attack & Race Management
+- **3-2-1-GO Start Sequence:** Dynamic start countdown with synthesized WebAudio countdown beeps, input locking during the countdown, and instant launch on GO.
+- **Split Times & Live Deltas:** Real-time sector timing with delta indicators (green/red) comparing current pace against the personal best lap.
+- **Stage Progression & Lap Tracking:** Start/finish gantries, intermediate sector checkpoints, lap time recording, and instant stage reset.
 
 ### 🧭 Classic Motorsport Instrumentation & HUD
 - **Twin-Gauge Rally Cluster:** Authentic analog cockpit instruments featuring a 240 km/h speedometer, 8,000 RPM tachometer with redline zone, flashing **Shift Light LED**, and retro amber gear display.
-- **Stage Roadbook Minimap:** Real-time 2D track overview with compass cardinal directions (N, S, E, W), start/finish checkpoints, and vehicle orientation tracking.
-- **Clean Immersion & Time Attack:** Clutter-free Free Roam mode, plus a dedicated rally timing board with split times and personal records in Time Attack.
+- **Stage Roadbook Minimap:** Real-time 2D track overview with compass cardinal directions (N, S, E, W), start/finish checkpoints, vehicle orientation tracking, and elevation markers.
+- **Interactive Pause & Garage Menu:** Full-featured tabbed menu overlay to switch vehicles, change stages, adjust graphics/audio/controls settings, or toggle telemetry on the fly.
 - **Real-Time Engineering Telemetry:** On-demand telemetry overlay (`T` key) displaying chassis velocities, G-forces, slip angles, suspension travel, and engine state.
 
 ### 🏔️ Procedural Terrains & Dynamic Surface Registry
@@ -67,21 +73,22 @@ The project combines authentic motorsport simulation principles with accessible 
 - **Dynamic Surface Physics:** Distinct friction models, rolling resistance, dust color signatures, and acoustics across **Tarmac, Mud, Grass, Sand, and Gravel**.
 
 ### ✨ Commercial-Grade VFX & Environmental Systems
+- **Modular 3D Race Architecture:** Checkpoint gates and start/finish gantries with truss frames, sponsor banners, spotlights, digital LED timers, and carbon-fiber textures.
+- **Procedural Gerstner Wave Water:** Custom GLSL water shaders with multi-wave displacement, foam edge blending, sun specular highlights, and Fresnel reflectance.
 - **Surface-Aware Particle Systems:** High-performance typed-array particle pools generating dynamic dust plumes, gravel kickback, and water spray.
 - **Zero-GC Tire Skid Ribbons:** Continuous procedural ribbon mesh geometry rendering tire skid marks with fade-out animations.
-- **Procedural Gerstner Wave Water:** Custom GLSL water shaders with multi-wave displacement, foam blending, and Fresnel reflectance.
 - **Cinematic Post-Processing:** Adaptive Bloom, Vignette, Tone Mapping, and speed motion feel.
 
 ### 🔊 Procedural Audio & Dual-Mode Soundtrack
 - Synthesized WebAudio engine sound simulating engine load, pitch shifts, and RPM harmonics in real-time.
-- Procedural tire squeal, surface rumble, and water splash acoustics.
+- Procedural countdown start tones, tire squeal, surface rumble, and water splash acoustics.
 - Dynamic in-game background music for both menu navigation and rally stages.
 
 ---
 
 ## 🎮 Controls
 
-OpenRally provides seamless support for **Keyboard** and **Gamepads** (PlayStation DualSense, DualShock 4 & Xbox Controllers with progressive analog trigger support and full UI navigation):
+OpenRally provides seamless support for **Keyboard** and **Gamepads** (PlayStation DualSense, DualShock 4 & Xbox Controllers with progressive analog trigger support, vibration haptics, and full UI navigation):
 
 | Action | Keyboard | Gamepad (Xbox / PlayStation) | Description |
 |---|---|---|---|
@@ -161,7 +168,7 @@ OpenRally Architecture
 ├── UI & HUD:           React 19 + SVG Instrumentation + CSS Modules
 ├── Post-Processing:    @react-three/postprocessing (Bloom, Vignette, ToneMapping)
 ├── Audio Engine:       WebAudio API (procedural synthesis & sampling)
-├── Testing & QA:       Vitest (131+ automated tests) + Oxlint + Strict TypeScript
+├── Testing & QA:       Vitest (148+ automated tests) + Oxlint + Strict TypeScript
 └── Bundler & Dev:      Vite 8
 ```
 
@@ -183,7 +190,7 @@ OpenRally Architecture
 OpenRally enforces strict quality gates with zero tolerance for regressions:
 
 ```bash
-# Run complete verification suite (Typecheck + Lint + Vitest 131 tests)
+# Run complete verification suite (Typecheck + Lint + Vitest 148 tests)
 npm run check
 
 # Run unit tests only
@@ -208,9 +215,12 @@ npm run typecheck
 - [x] **Stage 3 — Expansion (Current Stage):**
   - [x] Dedicated 3D GLB vehicle models (`Apex Rally AWD`, `Vortex WRC Rally1`) with raycast suspension & tire physics
   - [x] Authentic analog rally instrumentation (Speedometer, Tachometer, Shift Light, Gear Display)
-  - [x] Stage roadbook minimap with compass directions
+  - [x] Stage roadbook minimap with compass directions and elevation awareness
   - [x] Multi-track stage registry (Island Circuit, Desert Canyon)
-  - [x] Full gamepad navigation & progressive analog control
+  - [x] Modular 3D race architecture (start/finish gantries, sector gates, race textures)
+  - [x] Time Attack 3-2-1-GO countdown sequence with audio beeps & split time delta tracking
+  - [x] Physics-based dynamic engine RPM simulation with inertia & limiter bounce
+  - [x] Full gamepad navigation, customizable deadzones, and progressive analog control
   - [ ] Additional vehicle models (RWD Sports Coupe, Desert Trophy Truck)
   - [ ] Hillclimb & rallycross stages
 - [ ] **Stage 4 — Future Visions:**
