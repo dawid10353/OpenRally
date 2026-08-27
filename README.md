@@ -29,12 +29,12 @@
   <br />
 
   <p align="center">
-    <img src="public/screenshots/drift_action.png" alt="OpenRally Drift Action & VFX" width="100%" style="border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,0.6);" />
+    <img src="public/screenshots/drift_action.png" alt="OpenRally Vortex WRC Drift Action & Skid Marks" width="100%" style="border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,0.6);" />
   </p>
 
   <p align="center">
-    <img src="public/screenshots/gameplay.png" alt="OpenRally Island Circuit Gameplay" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
-    <img src="public/screenshots/stage_desert.jpg" alt="OpenRally Desert Canyon Stage" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
+    <img src="public/screenshots/stage_scenic.png" alt="OpenRally Summit Stage Overview & Cockpit HUD" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
+    <img src="public/screenshots/downhill_rush.png" alt="OpenRally Forest Descent & Dynamic Dust" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
   </p>
 </div>
 
@@ -109,7 +109,8 @@ OpenRally provides seamless support for **Keyboard** and **Gamepads** (PlayStati
 ### Playable Vehicles (Garage)
 
 <div align="center">
-  <img src="public/screenshots/garage.png" alt="OpenRally Garage Showcase" width="100%" style="border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,0.6);" />
+  <img src="public/screenshots/garage_vortex.png" alt="OpenRally Garage - Vortex WRC Rally1" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
+  <img src="public/screenshots/garage_apex.png" alt="OpenRally Garage - Apex Rally AWD" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
 </div>
 
 <br />
