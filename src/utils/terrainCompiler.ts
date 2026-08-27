@@ -46,32 +46,65 @@ export function compileTerrain(level: LevelData): HeightmapData {
 
   for (let z = 0; z < size; z++) {
     for (let x = 0; x < size; x++) {
-      // Normalize coordinates to [0, 1] range, then scale by frequency
-      const nx = (x / subdivisions) * width * frequency;
-      const nz = (z / subdivisions) * depth * frequency;
-
-      // Base: Fractal Brownian Motion
-      let value = 0;
-      let amp = 1;
-      let freq = 1;
-      let maxAmp = 0;
-
-      for (let o = 0; o < octaves; o++) {
-        value += amp * noise2D(nx * freq, nz * freq);
-        maxAmp += amp;
-        amp *= persistence;
-        freq *= lacunarity;
-      }
-
-      // Normalize to [-1, 1] then scale by amplitude
-      value = (value / maxAmp) * amplitude;
-
       const cx = x / subdivisions - 0.5;
       const cz = z / subdivisions - 0.5;
       const worldX = cx * width;
       const worldZ = cz * depth;
 
-      // --- Apply Explicit Data-Driven Modifiers (Brushes) ---
+      // Base Fractal Brownian Motion
+      const nx = (x / subdivisions) * width * frequency;
+      const nz = (z / subdivisions) * depth * frequency;
+
+      let fbm = 0;
+      let amp = 1;
+      let freq = 1;
+      let maxAmp = 0;
+
+      for (let o = 0; o < octaves; o++) {
+        fbm += amp * noise2D(nx * freq, nz * freq);
+        maxAmp += amp;
+        amp *= persistence;
+        freq *= lacunarity;
+      }
+      fbm = fbm / maxAmp; // Normalized to [-1, 1]
+
+      // --- 1. Organic Coastal Landmass Profile ---
+      const distFromCenter = Math.sqrt(worldX * worldX + worldZ * worldZ);
+      const theta = Math.atan2(worldZ, worldX);
+
+      // Multi-frequency organic coastline distortion (proportional to map dimensions)
+      const coastScale = width / 2000.0;
+      const coastNoise1 = noise2D(Math.cos(theta) * 2.2 + 12.3, Math.sin(theta) * 2.2 + 8.7) * (110.0 * coastScale);
+      const coastNoise2 = noise2D(Math.cos(theta * 2.0) * 3.5 + 4.1, Math.sin(theta * 2.0) * 3.5 + 1.9) * (45.0 * coastScale);
+      const effectiveRadius = distFromCenter + coastNoise1 + coastNoise2;
+
+      const islandRadius = width * 0.28; // ~560m main island landmass
+      const deepRadius = width * 0.38;   // ~760m deep ocean seabed transition
+
+      let baseElevation = -65.0;
+      let noiseScale = 0.0;
+
+      if (effectiveRadius < islandRadius) {
+        // Inside the main landmass
+        const islandT = 1.0 - effectiveRadius / islandRadius;
+        const islandProfile = Math.pow(islandT, 0.7); // Gentle interior plateau
+        baseElevation = 4.0 + 8.0 * islandProfile;
+        noiseScale = 1.0;
+      } else if (effectiveRadius < deepRadius) {
+        // Coastal beach & underwater shelf descent
+        const coastalT = (effectiveRadius - islandRadius) / (deepRadius - islandRadius);
+        const smoothCoast = coastalT * coastalT * (3.0 - 2.0 * coastalT);
+        baseElevation = 4.0 + (-65.0 - 4.0) * smoothCoast;
+        noiseScale = 1.0 - smoothCoast;
+      } else {
+        // Deep open ocean seabed
+        baseElevation = -65.0;
+        noiseScale = 0.0;
+      }
+
+      let value = baseElevation + fbm * (amplitude * noiseScale);
+
+      // --- 3. Apply Explicit Data-Driven Modifiers (Brushes) ---
       if (heightModifiers) {
         for (const mod of heightModifiers) {
           const dist = Math.sqrt((worldX - mod.x) ** 2 + (worldZ - mod.z) ** 2);
@@ -80,11 +113,11 @@ export function compileTerrain(level: LevelData): HeightmapData {
             
             if (mod.shape === 'sphere') {
               // Smooth spherical falloff
-              const profile = t * t * (3 - 2 * t); // Smoothstep
+              const profile = t * t * (3.0 - 2.0 * t); // Smoothstep
               if (mod.heightDelta !== undefined) {
                 value += profile * mod.heightDelta;
               } else if (mod.absoluteHeight !== undefined) {
-                value = value * (1 - profile) + mod.absoluteHeight * profile;
+                value = value * (1.0 - profile) + mod.absoluteHeight * profile;
               }
             } else if (mod.shape === 'flat') {
               // Hard flat transition
@@ -101,7 +134,7 @@ export function compileTerrain(level: LevelData): HeightmapData {
         }
       }
 
-      // --- Track generation via Spline ---
+      // --- 4. Track generation via Spline ---
       let minDistanceSq = Infinity;
       
       for (let i = 0; i < trackSamples.length - 1; i++) {
@@ -133,29 +166,7 @@ export function compileTerrain(level: LevelData): HeightmapData {
         trackMask = 1.0;
       } else if (distToTrack < track.width + track.falloff) {
         const t = 1.0 - (distToTrack - track.width) / track.falloff;
-        trackMask = t * t * (3 - 2 * t);
-      }
-
-      if (trackMask > 0) {
-        const carveStrength = trackMask * 0.9;
-        value = value * (1 - carveStrength) + track.targetHeight * carveStrength;
-      }
-
-      // Map edges fade to underwater
-      const distToEdgeX = (0.5 - Math.abs(cx)) * width;
-      const distToEdgeZ = (0.5 - Math.abs(cz)) * depth;
-      const minEdgeDist = Math.min(distToEdgeX, distToEdgeZ);
-      const edgeFalloff = 50;
-
-      if (minEdgeDist < edgeFalloff) {
-        const edgeFactor = Math.max(0, minEdgeDist / edgeFalloff);
-        let smoothEdge = edgeFactor * edgeFactor * (3 - 2 * edgeFactor); 
-        
-        // Protect track from going underwater at the edge
-        smoothEdge = Math.min(1.0, smoothEdge + trackMask);
-        
-        const underwaterDepth = -15;
-        value = underwaterDepth + (value - underwaterDepth) * smoothEdge;
+        trackMask = t * t * (3.0 - 2.0 * t);
       }
 
       heights[z * size + x] = value;

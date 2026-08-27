@@ -27,23 +27,23 @@ export const VEHICLE_RALLY_HATCHBACK: VehiclePreset = {
  * Modern WRC Rally Car — Aggressive downforce, wide track, explosive turbo acceleration.
  */
 export const WRC_VEHICLE_CONFIG: VehicleConfig = {
-  chassisMass: 135,
+  chassisMass: 150,
   chassisSize: [2.0, 0.6, 4.0],
   engine: {
-    maxForce: 520, // Explosive turbo boost
+    maxForce: 420, // Explosive WRC turbo boost with planted pitch stability
     maxSpeed: 265,
   },
   drivetrain: {
     frontBias: 0.5, // 50/50 AWD
   },
   brakes: {
-    maxForce: 28,
-    handbrakeForce: 75,
-    frontBias: 0.55,
+    maxForce: 18,
+    handbrakeForce: 70,
+    frontBias: 0.50, // Balanced 50/50 4-wheel brake distribution (no nose-dive / stoppies)
   },
   suspension: {
-    frontAntiRollBarStiffness: 18.0,
-    rearAntiRollBarStiffness: 14.0,
+    frontAntiRollBarStiffness: 22.0,
+    rearAntiRollBarStiffness: 18.0,
   },
   handling: {
     steeringCurve: [
@@ -54,8 +54,8 @@ export const WRC_VEHICLE_CONFIG: VehicleConfig = {
     ],
     steeringSpeed: 8.0, // Razor-sharp modern rally steering response
     assists: {
-      yawDamping: 0.09,
-      driftGripMultiplier: 0.22,
+      yawDamping: 0.10,
+      driftGripMultiplier: 0.20,
     },
   },
   aerodynamics: {
@@ -67,9 +67,9 @@ export const WRC_VEHICLE_CONFIG: VehicleConfig = {
       position: [-0.88, -0.2, 1.38],
       radius: 0.35,
       suspensionRestLength: 0.32,
-      suspensionTravel: 0.28,
+      suspensionTravel: 0.24,
       suspensionStiffness: 38,
-      suspensionDamping: 4.2,
+      suspensionDamping: 5.0,
       maxSuspensionForce: 10000,
       steerable: true,
       powered: true,
@@ -79,9 +79,9 @@ export const WRC_VEHICLE_CONFIG: VehicleConfig = {
       position: [0.88, -0.2, 1.38],
       radius: 0.35,
       suspensionRestLength: 0.32,
-      suspensionTravel: 0.28,
+      suspensionTravel: 0.24,
       suspensionStiffness: 38,
-      suspensionDamping: 4.2,
+      suspensionDamping: 5.0,
       maxSuspensionForce: 10000,
       steerable: true,
       powered: true,
@@ -91,9 +91,9 @@ export const WRC_VEHICLE_CONFIG: VehicleConfig = {
       position: [-0.89, -0.2, -1.25],
       radius: 0.35,
       suspensionRestLength: 0.32,
-      suspensionTravel: 0.28,
+      suspensionTravel: 0.24,
       suspensionStiffness: 40,
-      suspensionDamping: 4.5,
+      suspensionDamping: 5.0,
       maxSuspensionForce: 10000,
       steerable: false,
       powered: true,
@@ -103,9 +103,9 @@ export const WRC_VEHICLE_CONFIG: VehicleConfig = {
       position: [0.89, -0.2, -1.25],
       radius: 0.35,
       suspensionRestLength: 0.32,
-      suspensionTravel: 0.28,
+      suspensionTravel: 0.24,
       suspensionStiffness: 40,
-      suspensionDamping: 4.5,
+      suspensionDamping: 5.0,
       maxSuspensionForce: 10000,
       steerable: false,
       powered: true,

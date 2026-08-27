@@ -200,12 +200,41 @@ const prevButtonStates: Record<string, boolean> = {
   menuBack: false,
 };
 
+// Delayed Auto Shift (DAS) repeat timings for menu directional navigation
+export const UI_DAS_INITIAL_DELAY_MS = 320;
+export const UI_DAS_REPEAT_INTERVAL_MS = 120;
+
+const menuNavHoldStart: Record<'up' | 'down' | 'left' | 'right', number> = {
+  up: 0,
+  down: 0,
+  left: 0,
+  right: 0,
+};
+
+const menuNavLastRepeat: Record<'up' | 'down' | 'left' | 'right', number> = {
+  up: 0,
+  down: 0,
+  left: 0,
+  right: 0,
+};
+
 /**
  * Resets edge trigger trackers and snapshots currently held buttons
  * to prevent accidental double-clicks upon switching views or game states.
+ *
+ * @param customGamepad - Optional gamepad instance to snapshot (for testing/mocking)
  */
-export function resetGamepadEdgeState(): void {
-  const gp = getActiveGamepad();
+export function resetGamepadEdgeState(customGamepad?: Gamepad | null): void {
+  menuNavHoldStart.up = 0;
+  menuNavHoldStart.down = 0;
+  menuNavHoldStart.left = 0;
+  menuNavHoldStart.right = 0;
+  menuNavLastRepeat.up = 0;
+  menuNavLastRepeat.down = 0;
+  menuNavLastRepeat.left = 0;
+  menuNavLastRepeat.right = 0;
+
+  const gp = customGamepad !== undefined ? customGamepad : getActiveGamepad();
   if (gp && gp.buttons) {
     const buttons = gp.buttons;
     const axes = gp.axes || [];
@@ -220,16 +249,35 @@ export function resetGamepadEdgeState(): void {
     const dpadRight = isButtonPressed(buttons[15]);
     const rawStickX = axes[0] ?? 0;
     const rawStickY = axes[1] ?? 0;
+    const stickMag = Math.hypot(rawStickX, rawStickY);
+
+    let stickUp = false;
+    let stickDown = false;
+    let stickLeft = false;
+    let stickRight = false;
+
+    if (stickMag >= 0.35) {
+      const absX = Math.abs(rawStickX);
+      const absY = Math.abs(rawStickY);
+      if (absY >= absX * 0.5) {
+        if (rawStickY < -0.35) stickUp = true;
+        if (rawStickY > 0.35) stickDown = true;
+      }
+      if (absX >= absY * 0.5) {
+        if (rawStickX < -0.35) stickLeft = true;
+        if (rawStickX > 0.35) stickRight = true;
+      }
+    }
 
     prevButtonStates.menuConfirm = btnA;
     prevButtonStates.menuBack = btnB;
     prevButtonStates.pause = btnMenu;
     prevButtonStates.camera = btnY;
     prevButtonStates.reset = btnX;
-    prevButtonStates.menuUp = dpadUp || rawStickY < -0.55;
-    prevButtonStates.menuDown = dpadDown || rawStickY > 0.55;
-    prevButtonStates.menuLeft = dpadLeft || rawStickX < -0.55;
-    prevButtonStates.menuRight = dpadRight || rawStickX > 0.55;
+    prevButtonStates.menuUp = dpadUp || stickUp;
+    prevButtonStates.menuDown = dpadDown || stickDown;
+    prevButtonStates.menuLeft = dpadLeft || stickLeft;
+    prevButtonStates.menuRight = dpadRight || stickRight;
   } else {
     for (const key of Object.keys(prevButtonStates)) {
       prevButtonStates[key] = false;
@@ -374,22 +422,67 @@ export function sampleGamepad(sensitivity = 1.0, customGamepad?: Gamepad | null)
   const telemetryToggle = telemetryPressedNow && !prevButtonStates.telemetry;
   prevButtonStates.telemetry = telemetryPressedNow;
 
-  // 11. UI Navigation Signals (for Menu overlay)
+  // 11. UI Navigation Signals (for Menu overlay) with Delayed Auto Shift (DAS)
   const rawStickY = axes[XBOX_AXES.LEFT_STICK_Y] ?? 0;
-  const stickUp = rawStickY < -0.55;
-  const stickDown = rawStickY > 0.55;
-  const stickLeft = rawStickX < -0.55;
-  const stickRight = rawStickX > 0.55;
+  const stickMag = Math.hypot(rawStickX, rawStickY);
+
+  let stickUp = false;
+  let stickDown = false;
+  let stickLeft = false;
+  let stickRight = false;
+
+  if (stickMag >= 0.35) {
+    const absX = Math.abs(rawStickX);
+    const absY = Math.abs(rawStickY);
+    if (absY >= absX * 0.5) {
+      if (rawStickY < -0.35) stickUp = true;
+      if (rawStickY > 0.35) stickDown = true;
+    }
+    if (absX >= absY * 0.5) {
+      if (rawStickX < -0.35) stickLeft = true;
+      if (rawStickX > 0.35) stickRight = true;
+    }
+  }
 
   const upPressed = dpadUp || stickUp;
   const downPressed = dpadDown || stickDown;
   const leftPressed = dpadLeft || stickLeft;
   const rightPressed = dpadRight || stickRight;
 
-  const menuUp = upPressed && !prevButtonStates.menuUp;
-  const menuDown = downPressed && !prevButtonStates.menuDown;
-  const menuLeft = leftPressed && !prevButtonStates.menuLeft;
-  const menuRight = rightPressed && !prevButtonStates.menuRight;
+  const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+
+  const processMenuDir = (
+    dir: 'up' | 'down' | 'left' | 'right',
+    isPressed: boolean,
+    prevPressed: boolean,
+  ): boolean => {
+    if (!isPressed) {
+      menuNavHoldStart[dir] = 0;
+      menuNavLastRepeat[dir] = 0;
+      return false;
+    }
+    if (!prevPressed) {
+      // First edge press
+      menuNavHoldStart[dir] = now;
+      menuNavLastRepeat[dir] = now;
+      return true;
+    }
+    // Held down: check DAS timings
+    const holdDuration = now - menuNavHoldStart[dir];
+    if (holdDuration >= UI_DAS_INITIAL_DELAY_MS) {
+      if (now - menuNavLastRepeat[dir] >= UI_DAS_REPEAT_INTERVAL_MS) {
+        menuNavLastRepeat[dir] = now;
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const menuUp = processMenuDir('up', upPressed, prevButtonStates.menuUp);
+  const menuDown = processMenuDir('down', downPressed, prevButtonStates.menuDown);
+  const menuLeft = processMenuDir('left', leftPressed, prevButtonStates.menuLeft);
+  const menuRight = processMenuDir('right', rightPressed, prevButtonStates.menuRight);
+
   const menuConfirm = btnA && !prevButtonStates.menuConfirm;
   const menuBack = btnB && !prevButtonStates.menuBack;
 

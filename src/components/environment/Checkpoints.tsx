@@ -15,10 +15,12 @@ const _gatePos = new Vector3();
 /**
  * Checkpoints manager component.
  * Samples track spline tangents for coherent gate orientations aligned with the driving line,
- * renders the realistic Start/Finish gantry for Sector 0, and manages race checkpoint proximity triggers.
+ * renders the realistic Start/Finish gantry for Sector 0, manages countdown and race checkpoint proximity triggers.
  */
 export function Checkpoints() {
+  const gameState = useGameStore((s) => s.gameState);
   const gameMode = useGameStore((s) => s.gameMode);
+  const isSceneReady = useGameStore((s) => s.isSceneReady);
   const { heightmapData, levelData } = useTerrainData();
   const currentCheckpoint = useRacingStore((s) => s.currentCheckpoint);
   const passCheckpoint = useRacingStore((s) => s.passCheckpoint);
@@ -51,7 +53,7 @@ export function Checkpoints() {
         id: i,
         position: [p.x, groundY, p.z],
         rotationY: rotY,
-        width: levelData.track.width * 1.05,
+        width: levelData.track.width + 5.5,
         isStart: i === 0,
         isFinish: i === 0,
       });
@@ -67,25 +69,45 @@ export function Checkpoints() {
     }
   }, [checkpoints.length, gameMode]);
 
-  // Frame loop for race timer & proximity trigger detection
+  // Start 3-2-1-START countdown once scene is ready and loaded in Time Attack mode
+  useEffect(() => {
+    if (gameMode === 'timeattack' && isSceneReady && gameState === 'playing') {
+      const status = useRacingStore.getState().raceStatus;
+      if (status === 'idle') {
+        useRacingStore.getState().startCountdown();
+      }
+    }
+  }, [gameMode, isSceneReady, gameState, levelData.id]);
+
+  // Frame loop for race countdown, timer & proximity trigger detection
   useFrame((_, delta) => {
+    if (useGameStore.getState().gameState !== 'playing') return;
     if (gameMode !== 'timeattack') return;
 
-    updateTimer(delta);
+    const { raceStatus, countdown } = useRacingStore.getState();
 
-    const pos = useGameStore.getState().position;
-    _carPos.set(pos[0], pos[1], pos[2]);
+    // Keep ticking countdown until it finishes and fades out
+    if (countdown !== null) {
+      useRacingStore.getState().tickCountdown(delta);
+    }
 
-    const targetCp = checkpoints[currentCheckpoint];
-    if (!targetCp) return;
+    if (raceStatus === 'racing') {
+      updateTimer(delta);
 
-    _gatePos.set(targetCp.position[0], targetCp.position[1], targetCp.position[2]);
-    const dist = _carPos.distanceTo(_gatePos);
+      const pos = useGameStore.getState().position;
+      _carPos.set(pos[0], pos[1], pos[2]);
 
-    // Gate capture radius (generous to account for track width & high speed)
-    const triggerRadius = targetCp.width * 0.85;
-    if (dist < triggerRadius) {
-      passCheckpoint(currentCheckpoint);
+      const targetCp = checkpoints[currentCheckpoint];
+      if (!targetCp) return;
+
+      _gatePos.set(targetCp.position[0], targetCp.position[1], targetCp.position[2]);
+      const dist = _carPos.distanceTo(_gatePos);
+
+      // Gate capture radius (generous to account for track width & high speed)
+      const triggerRadius = targetCp.width * 0.85;
+      if (dist < triggerRadius) {
+        passCheckpoint(currentCheckpoint);
+      }
     }
   });
 

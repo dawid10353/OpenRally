@@ -61,13 +61,13 @@ export function Vehicle() {
         position={spawnPos}
         rotation={[0, spawnRotY, 0]}
         linearDamping={0.15}
-        angularDamping={1.5}
+        angularDamping={2.2}
         canSleep={false}
         ccd={true}
       >
-        {/* Chassis collider — calibrated to protect underbody from ground penetration */}
+        {/* Chassis collider — low center of mass at wheel hub height to eliminate wheelies & pitch instability */}
         <CuboidCollider
-          position={[0, 0.05, 0]}
+          position={[0, -0.12, 0]}
           args={[
             config.chassisSize[0] / 2,
             config.chassisSize[1] / 2,

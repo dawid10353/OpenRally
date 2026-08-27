@@ -95,4 +95,20 @@ describe('terrainCompiler', () => {
     // Out of bounds safely returns 0
     expect(getInterpolatedHeight(-200, 0, data.heights, data.rows, data.cols, 100, 100)).toBe(0);
   });
+
+  it('smoothly submerges map perimeter edges deep underwater to prevent shoreline cutoffs', () => {
+    const data = compileTerrain(mockLevel);
+    const size = mockLevel.terrainBase.subdivisions + 1;
+
+    // Corners (0,0), (size-1, 0), (0, size-1), (size-1, size-1) should be submerged to -65m
+    const cornerTopLeft = data.heights[0];
+    const cornerTopRight = data.heights[size - 1];
+    const cornerBottomLeft = data.heights[(size - 1) * size];
+    const cornerBottomRight = data.heights[(size - 1) * size + (size - 1)];
+
+    expect(cornerTopLeft).toBeCloseTo(-65.0, 1);
+    expect(cornerTopRight).toBeCloseTo(-65.0, 1);
+    expect(cornerBottomLeft).toBeCloseTo(-65.0, 1);
+    expect(cornerBottomRight).toBeCloseTo(-65.0, 1);
+  });
 });

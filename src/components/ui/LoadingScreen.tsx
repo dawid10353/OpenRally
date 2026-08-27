@@ -3,62 +3,44 @@ import { useProgress } from '@react-three/drei';
 import { useGameStore } from '@/store/gameStore';
 
 /**
- * Loading screen overlay — shown while physics/scene initializes.
- * Fades out once ready.
+ * Loading screen overlay — shown while physics/scene initializes when entering gameplay.
+ * Fades out once ready. Never displays during Pause Menu or Main Menu.
  */
 export function LoadingScreen() {
   const { active, progress } = useProgress();
   const gameState = useGameStore((s) => s.gameState);
-  
-  // We only care about loading when the game is supposed to be active
-  const showGame = gameState === 'playing' || gameState === 'paused';
-  
+  const isSceneReady = useGameStore((s) => s.isSceneReady);
+
+  const isPlaying = gameState === 'playing';
   const [visible, setVisible] = useState(false);
   const [fadeOut, setFadeOut] = useState(false);
-  const [hasStartedLoading, setHasStartedLoading] = useState(false);
 
   useEffect(() => {
-    if (!showGame) {
+    if (!isPlaying) {
       setVisible(false);
-      setHasStartedLoading(false);
       setFadeOut(false);
       return;
     }
 
-    if (active) {
+    // While entering active gameplay:
+    if (!isSceneReady || active || progress < 100) {
       setVisible(true);
       setFadeOut(false);
-      setHasStartedLoading(true);
-    } else if (hasStartedLoading) {
-      // It's not active anymore, so it finished loading
+    } else {
+      // Scene is fully ready (models downloaded, physics settled, shaders compiled)
       setFadeOut(true);
       const timer = setTimeout(() => {
         setVisible(false);
-      }, 800);
+      }, 700);
       return () => clearTimeout(timer);
-    } else {
-      // Game started, but Drei hasn't reported active yet.
-      // Set a failsafe timeout in case everything was cached and loads instantly.
-      const failsafeTimer = setTimeout(() => {
-        setVisible(true);
-        setHasStartedLoading(true);
-        setFadeOut(true);
-        setTimeout(() => {
-          setVisible(false);
-        }, 800);
-      }, 500); // Wait 500ms for loading to actually start
-
-      return () => clearTimeout(failsafeTimer);
     }
-  }, [active, showGame, hasStartedLoading]);
+  }, [isPlaying, isSceneReady, active, progress]);
 
-  // Force it to be visible initially when showGame becomes true but Drei hasn't reported active yet
-  const isReallyVisible = (showGame && !hasStartedLoading) || visible;
-
-  if (!isReallyVisible) return null;
+  // Loading screen is strictly for loading into gameplay; never render if not in 'playing' state
+  if (!isPlaying || (!visible && isSceneReady)) return null;
 
   // Format progress for display
-  const displayProgress = Math.round(progress) || 0;
+  const displayProgress = Math.round(progress) || (isSceneReady ? 100 : 0);
 
   return (
     <div
@@ -66,7 +48,8 @@ export function LoadingScreen() {
       style={{
         ...styles.overlay,
         opacity: fadeOut ? 0 : 1,
-        transition: 'opacity 0.8s ease-out',
+        transition: 'opacity 0.6s ease-out',
+        pointerEvents: fadeOut ? 'none' : 'all',
       }}
     >
       <div style={styles.content}>
@@ -77,13 +60,13 @@ export function LoadingScreen() {
 
         {/* Loading bar */}
         <div style={styles.loadingBar}>
-          <div style={{ ...styles.loadingFill, width: `${hasStartedLoading ? displayProgress : 0}%` }}>
+          <div style={{ ...styles.loadingFill, width: `${Math.max(8, displayProgress)}%` }}>
             <div style={styles.loadingGlow} />
           </div>
         </div>
 
         <p style={styles.subtitle}>
-          {hasStartedLoading ? `Loading map... ${displayProgress}%` : 'Preparing scene...'}
+          {displayProgress < 100 ? `Loading assets... ${displayProgress}%` : 'Starting engine...'}
         </p>
       </div>
     </div>

@@ -193,6 +193,7 @@ export interface IRapierVehicleController {
   wheelSuspensionLength(wheelIndex: number): number | null | undefined;
   wheelChassisConnectionPointCs(wheelIndex: number): { x: number; y: number; z: number } | null | undefined;
   wheelSteering(wheelIndex: number): number | null | undefined;
+  wheelIsInContact?(wheelIndex: number): boolean | null | undefined;
 }
 
 

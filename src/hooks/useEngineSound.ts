@@ -145,10 +145,12 @@ export function useEngineSound() {
     const targetPitch = 0.6 + (rpm / 8000) * 1.6;
     sourceRef.current.playbackRate.setTargetAtTime(targetPitch, ctxRef.current.currentTime, AUDIO_RAMP_TIME);
 
-    // Filter opens up at higher speeds
+    // Filter opens up dynamically with both RPM and vehicle speed for crisp, roaring high-rev acoustics
     if (filterRef.current) {
+      const rpmFraction = Math.max(0, (rpm - 1000) / 7000);
+      const targetCutoff = IDLE_FILTER_CUTOFF + rpmFraction * 3200 + absSpeed * FILTER_CUTOFF_PER_KMH;
       filterRef.current.frequency.setTargetAtTime(
-        IDLE_FILTER_CUTOFF + absSpeed * FILTER_CUTOFF_PER_KMH,
+        targetCutoff,
         ctxRef.current.currentTime,
         AUDIO_RAMP_TIME,
       );

@@ -3,6 +3,7 @@ import type { CameraMode, GameMode, GameState, GamepadType } from '@/types/game'
 import type { SurfaceType } from '@/types/vehicle';
 import { DEFAULT_VEHICLE_ID } from '@/config/vehicleRegistry';
 import { DEFAULT_LEVEL_ID } from '@/config/levelRegistry';
+import { resetGamepadEdgeState } from '@/utils/input/gamepad';
 
 /**
  * Core game state store — vehicle telemetry, game phase, camera mode,
@@ -47,12 +48,15 @@ interface GameStore {
   gamepadName: string;
   /** Detected gamepad hardware type */
   gamepadType: GamepadType;
+  /** Whether 3D assets, physics, shaders, and terrain are fully ready and settled */
+  isSceneReady: boolean;
 
   // Actions
   setGameState: (state: GameState) => void;
   setGameMode: (mode: GameMode) => void;
   setSelectedVehicleId: (id: string) => void;
   setSelectedLevelId: (id: string) => void;
+  setSceneReady: (ready: boolean) => void;
   setSpeed: (speed: number) => void;
   setLateralSpeed: (lateralSpeed: number) => void;
   setSlipAngle: (slipAngle: number) => void;
@@ -91,11 +95,22 @@ export const useGameStore = create<GameStore>((set) => ({
   gamepadConnected: false,
   gamepadName: '',
   gamepadType: null,
+  isSceneReady: false,
 
-  setGameState: (gameState) => set({ gameState }),
+  setGameState: (gameState) => {
+    resetGamepadEdgeState();
+    set((state) => ({
+      gameState,
+      isSceneReady:
+        gameState === 'title' || gameState === 'menu'
+          ? false
+          : state.isSceneReady,
+    }));
+  },
   setGameMode: (gameMode) => set({ gameMode }),
-  setSelectedVehicleId: (selectedVehicleId) => set({ selectedVehicleId }),
-  setSelectedLevelId: (selectedLevelId) => set({ selectedLevelId }),
+  setSelectedVehicleId: (selectedVehicleId) => set({ selectedVehicleId, isSceneReady: false }),
+  setSelectedLevelId: (selectedLevelId) => set({ selectedLevelId, isSceneReady: false }),
+  setSceneReady: (isSceneReady) => set({ isSceneReady }),
   setSpeed: (speed) => set({ speed }),
   setLateralSpeed: (lateralSpeed) => set({ lateralSpeed }),
   setSlipAngle: (slipAngle) => set({ slipAngle }),
@@ -111,10 +126,12 @@ export const useGameStore = create<GameStore>((set) => ({
       return { cameraMode: next };
     }),
 
-  togglePause: () =>
+  togglePause: () => {
+    resetGamepadEdgeState();
     set((state) => ({
       gameState: state.gameState === 'playing' ? 'paused' : 'playing',
-    })),
+    }));
+  },
   triggerReset: (val) => set({ pendingReset: val }),
   setTelemetryEnabled: (val) => set({ telemetryEnabled: val }),
   setTireGrips: (val) => set({ tireGrips: val }),

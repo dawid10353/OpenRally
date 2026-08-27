@@ -195,6 +195,109 @@ describe('gamepad input utilities', () => {
       expect(deadSample.cameraLookX).toBe(0);
       expect(deadSample.cameraLookY).toBe(0);
     });
+    it('samples menu navigation buttons and enforces rising edge for confirm/back', () => {
+      // Frame 1: A (Cross) pressed in menu -> menuConfirm should be true
+      const mockConfirm = createMockGamepad({
+        [XBOX_BUTTONS.A]: { pressed: true, value: 1.0 },
+      });
+      const sample1 = sampleGamepad(1.0, mockConfirm);
+      expect(sample1.menuConfirm).toBe(true);
+
+      // Frame 2: A held -> menuConfirm should be false (single trigger)
+      const sample2 = sampleGamepad(1.0, mockConfirm);
+      expect(sample2.menuConfirm).toBe(false);
+
+      // Frame 3: B (Circle) pressed -> menuBack should be true
+      const mockBack = createMockGamepad({
+        [XBOX_BUTTONS.B]: { pressed: true, value: 1.0 },
+      });
+      const sample3 = sampleGamepad(1.0, mockBack);
+      expect(sample3.menuBack).toBe(true);
+    });
+
+    it('supports Delayed Auto Shift (DAS) for directional menu navigation when held', () => {
+      const mockDown = createMockGamepad({
+        [XBOX_BUTTONS.DPAD_DOWN]: { pressed: true, value: 1.0 },
+      });
+
+      // 1. Initial press triggers immediately
+      const sampleInitial = sampleGamepad(1.0, mockDown);
+      expect(sampleInitial.menuDown).toBe(true);
+
+      // 2. 100ms later (within 320ms initial delay) -> should not trigger
+      const originalNow = performance.now;
+      let mockTime = 1000;
+      performance.now = () => mockTime;
+
+      // Reset and trigger initial at t=1000
+      resetGamepadEdgeState();
+      sampleGamepad(1.0, mockDown);
+
+      // t = 1150ms (< 1320ms) -> should be false
+      mockTime = 1150;
+      const sampleDelay = sampleGamepad(1.0, mockDown);
+      expect(sampleDelay.menuDown).toBe(false);
+
+      // t = 1330ms (> 1000 + 320ms initial delay) -> should trigger first repeat
+      mockTime = 1330;
+      const sampleRepeat1 = sampleGamepad(1.0, mockDown);
+      expect(sampleRepeat1.menuDown).toBe(true);
+
+      // t = 1380ms (< 1330 + 120ms repeat interval) -> should be false
+      mockTime = 1380;
+      const sampleBetween = sampleGamepad(1.0, mockDown);
+      expect(sampleBetween.menuDown).toBe(false);
+
+      // t = 1460ms (> 1330 + 120ms repeat interval) -> should trigger second repeat
+      mockTime = 1460;
+      const sampleRepeat2 = sampleGamepad(1.0, mockDown);
+      expect(sampleRepeat2.menuDown).toBe(true);
+
+      // Cleanup
+      performance.now = originalNow;
+    });
+
+    it('resetGamepadEdgeState synchronizes current physical button state to prevent false edges', () => {
+      const mockHeld = createMockGamepad({
+        [XBOX_BUTTONS.A]: { pressed: true, value: 1.0 },
+      });
+
+      // Sample while held
+      sampleGamepad(1.0, mockHeld);
+
+      // Reset edge state with current gamepad
+      resetGamepadEdgeState(mockHeld);
+
+      // Next sample while still held should NOT re-trigger edge
+      const sampleAfterReset = sampleGamepad(1.0, mockHeld);
+      expect(sampleAfterReset.menuConfirm).toBe(false);
+    });
+
+    it('samples menu confirm independently even when left stick is deflected (steered)', () => {
+      // Left stick held hard left (steering: axes[0] = -0.8) while pressing A (Confirm)
+      const mockSteerAndConfirm = createMockGamepad(
+        { [XBOX_BUTTONS.A]: { pressed: true, value: 1.0 } },
+        [-0.8, 0, 0, 0],
+      );
+
+      const sample = sampleGamepad(1.0, mockSteerAndConfirm);
+      expect(sample.menuConfirm).toBe(true);
+      expect(sample.menuLeft).toBe(true);
+      expect(sample.steering).toBeGreaterThan(0);
+    });
+
+    it('resolves dominant stick direction based on magnitude and angle', () => {
+      // 1. Stick gently tilted below threshold (0.2) -> no menu direction
+      const mockSlight = createMockGamepad({}, [0.2, -0.15, 0, 0]);
+      const sampleSlight = sampleGamepad(1.0, mockSlight);
+      expect(sampleSlight.menuRight).toBe(false);
+      expect(sampleSlight.menuUp).toBe(false);
+
+      // 2. Stick pushed strongly Down-Right (X = 0.4, Y = 0.75) -> dominant is Down
+      const mockDownRight = createMockGamepad({}, [0.4, 0.75, 0, 0]);
+      const sampleDownRight = sampleGamepad(1.0, mockDownRight);
+      expect(sampleDownRight.menuDown).toBe(true);
+    });
   });
 
   describe('detectGamepadType', () => {

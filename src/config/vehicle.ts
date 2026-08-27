@@ -65,13 +65,13 @@ export const DEFAULT_VEHICLE_CONFIG: VehicleConfig = {
     frontBias: 0.5, // 50/50 AWD
   },
   brakes: {
-    maxForce: 20, // Firm and responsive braking with realistic weight transfer
+    maxForce: 18, // Firm and responsive braking with balanced weight transfer
     handbrakeForce: 65,
     frontBias: 0.50, // 50/50 even 4-wheel brake distribution
   },
   suspension: {
-    frontAntiRollBarStiffness: 14.0, // Active ARB prevents rollovers on aggressive turns
-    rearAntiRollBarStiffness: 10.0,
+    frontAntiRollBarStiffness: 18.0, // Active ARB prevents rollovers on aggressive turns
+    rearAntiRollBarStiffness: 14.0,
   },
   handling: {
     steeringCurve: [
@@ -95,9 +95,9 @@ export const DEFAULT_VEHICLE_CONFIG: VehicleConfig = {
       position: [-0.76, -0.2, 1.45],
       radius: 0.35,
       suspensionRestLength: 0.32,
-      suspensionTravel: 0.30,
-      suspensionStiffness: 32,
-      suspensionDamping: 3.5,
+      suspensionTravel: 0.26,
+      suspensionStiffness: 34,
+      suspensionDamping: 4.2,
       maxSuspensionForce: 8000,
       steerable: true,
       powered: true,

@@ -8,6 +8,11 @@ const _impulse = new Vector3();
 const _bodyPos = new Vector3();
 const _bodyQuat = new Quaternion();
 
+const _angvel = new Vector3();
+const _localAngvel = new Vector3();
+const _pitchTorque = new Vector3();
+const _invQuat = new Quaternion();
+
 export function applyAntiRollBars(
   body: RapierRigidBody,
   controller: IRapierVehicleController,
@@ -30,6 +35,56 @@ export function applyAntiRollBars(
   if (config.suspension.rearAntiRollBarStiffness > 0) {
     applyAxleARB(body, controller, config, 2, 3, config.suspension.rearAntiRollBarStiffness, dt);
   }
+
+  // Active longitudinal pitch stabilization (Anti-Squat & Anti-Dive)
+  applyPitchStabilization(body, controller, config, dt);
+}
+
+/**
+ * Applies longitudinal pitch stabilization:
+ * - Anti-Squat under acceleration (prevents tail dragging / front lifting)
+ * - Anti-Dive under hard braking (prevents front flipping / rear lifting)
+ * - Pitch oscillation damping
+ */
+export function applyPitchStabilization(
+  body: RapierRigidBody,
+  controller: IRapierVehicleController,
+  config: VehicleConfig,
+  dt: number,
+): void {
+  if (config.wheels.length < 4) return;
+
+  // Front vs rear average suspension compression
+  const flLength = controller.wheelSuspensionLength(0) ?? config.wheels[0].suspensionRestLength;
+  const frLength = controller.wheelSuspensionLength(1) ?? config.wheels[1].suspensionRestLength;
+  const rlLength = controller.wheelSuspensionLength(2) ?? config.wheels[2].suspensionRestLength;
+  const rrLength = controller.wheelSuspensionLength(3) ?? config.wheels[3].suspensionRestLength;
+
+  const frontAvgRest = (config.wheels[0].suspensionRestLength + config.wheels[1].suspensionRestLength) * 0.5;
+  const rearAvgRest = (config.wheels[2].suspensionRestLength + config.wheels[3].suspensionRestLength) * 0.5;
+
+  const frontAvgLen = (flLength + frLength) * 0.5;
+  const rearAvgLen = (rlLength + rrLength) * 0.5;
+
+  const frontCompression = frontAvgRest - frontAvgLen;
+  const rearCompression = rearAvgRest - rearAvgLen;
+
+  // Compression delta: > 0 means nose is dipping (dive), < 0 means tail is squatting (squat)
+  const pitchCompressionDelta = frontCompression - rearCompression;
+  const pitchStiffness = 38.0;
+  const pitchRestoringTorque = -pitchCompressionDelta * pitchStiffness;
+
+  // Angular pitch rate damping (around chassis local X axis)
+  const angvel = body.linvel ? body.angvel() : { x: 0, y: 0, z: 0 };
+  _angvel.set(angvel.x, angvel.y, angvel.z);
+  _invQuat.copy(_bodyQuat).invert();
+  _localAngvel.copy(_angvel).applyQuaternion(_invQuat);
+  const pitchDamping = -_localAngvel.x * 22.0;
+
+  // Apply restoring pitch torque in world space
+  const totalPitchTorque = (pitchRestoringTorque + pitchDamping) * dt;
+  _pitchTorque.set(totalPitchTorque, 0, 0).applyQuaternion(_bodyQuat);
+  body.applyTorqueImpulse(_pitchTorque, true);
 }
 
 function applyAxleARB(

@@ -7,7 +7,7 @@ export interface CheckpointData {
   isFinish: boolean;
 }
 
-export type RaceStatus = 'idle' | 'racing' | 'completed';
+export type RaceStatus = 'idle' | 'countdown' | 'racing' | 'completed';
 
 export interface RacingStore {
   raceStatus: RaceStatus;
@@ -21,8 +21,14 @@ export interface RacingStore {
   splitDelta: number | null; // delta to best lap in seconds (negative is faster)
   lapCount: number;
   showStageComplete: boolean;
+  /** Active countdown digit (3, 2, 1, 0 for START, or null when inactive) */
+  countdown: number | null;
+  /** Elapsed time of the countdown sequence */
+  countdownTimer: number;
 
   // Actions
+  startCountdown: () => void;
+  tickCountdown: (dt: number) => void;
   startRace: () => void;
   updateTimer: (dt: number) => void;
   passCheckpoint: (index: number) => void;

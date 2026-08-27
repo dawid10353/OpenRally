@@ -10,7 +10,6 @@ import {
   CHASE_CLOSE_OFFSET,
   LOOK_AHEAD_OFFSET,
   MIN_FOV,
-  MAX_FOV,
   MAX_SPEED_FOR_FOV,
   POSITION_SMOOTH_RATE,
   LOOK_SMOOTH_RATE,
@@ -121,8 +120,11 @@ export function useChaseCamera(
     _idealLook.copy(_bodyPos).add(_lookOffset);
 
     // Smooth follow with framerate-independent lerp
-    // Increase follow rate when actively orbiting for snappy responsive camera control
-    const dynamicPosRate = stickMagnitude > 0.05 ? POSITION_SMOOTH_RATE * 2.0 : POSITION_SMOOTH_RATE;
+    // Dynamically tightens follow rate with speed to reduce high-speed lag distance by half
+    // while keeping standstill (0 km/h) camera distance and framing 100% identical.
+    const speedFactor = Math.min(speed / 180, 1.0);
+    const basePosRate = POSITION_SMOOTH_RATE + speedFactor * 6.0;
+    const dynamicPosRate = stickMagnitude > 0.05 ? basePosRate * 1.8 : basePosRate;
     const posSmoothFactor = 1 - Math.exp(-dynamicPosRate * delta);
     const lookSmoothFactor = 1 - Math.exp(-LOOK_SMOOTH_RATE * delta);
 
@@ -141,9 +143,8 @@ export function useChaseCamera(
     camera.position.copy(idealPosRef.current);
     camera.lookAt(idealLookRef.current);
 
-    // Dynamic FOV based on speed
-    // The close camera should not zoom out (increase FOV) as much as the far camera
-    const maxFovForMode = cameraMode === 'chase_close' ? MIN_FOV + 2 : MAX_FOV;
+    // Dynamic FOV based on speed — subtle speed sensation without pushing the car far away
+    const maxFovForMode = cameraMode === 'chase_close' ? MIN_FOV + 2 : MIN_FOV + 6;
 
     const targetFov = lerp(
       MIN_FOV,

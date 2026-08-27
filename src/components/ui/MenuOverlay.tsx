@@ -84,10 +84,55 @@ export function MenuOverlay() {
   const getBestLapForLevel = useRacingStore((s) => s.getBestLapForLevel);
   const syncBestLapForLevel = useRacingStore((s) => s.syncBestLapForLevel);
 
-  const [view, setView] = useState<'main' | 'start_mode' | 'options' | 'controls' | 'garage' | 'tracks'>('main');
-  const [previewVehicleId, setPreviewVehicleId] = useState(selectedVehicleId);
-  const [controlsTab, setControlsTab] = useState<'dualsense' | 'xbox' | 'keyboard'>('dualsense');
-  const [focusedIndex, setFocusedIndex] = useState(0);
+  const [view, setViewInternal] = useState<'main' | 'start_mode' | 'options' | 'controls' | 'garage' | 'tracks'>('main');
+  const [previewVehicleId, setPreviewVehicleIdInternal] = useState(selectedVehicleId);
+  const [controlsTab, setControlsTabInternal] = useState<'dualsense' | 'xbox' | 'keyboard'>('dualsense');
+  const [focusedIndex, setFocusedIndexInternal] = useState(0);
+
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const focusedIndexRef = useRef(focusedIndex);
+  focusedIndexRef.current = focusedIndex;
+  const controlsTabRef = useRef(controlsTab);
+  controlsTabRef.current = controlsTab;
+  const previewVehicleIdRef = useRef(previewVehicleId);
+  previewVehicleIdRef.current = previewVehicleId;
+
+  const lastPointerPosRef = useRef<{ x: number; y: number }>({ x: -1, y: -1 });
+
+  const setView = useCallback((nextView: 'main' | 'start_mode' | 'options' | 'controls' | 'garage' | 'tracks') => {
+    resetGamepadEdgeState();
+    viewRef.current = nextView;
+    focusedIndexRef.current = 0;
+    setViewInternal(nextView);
+    setFocusedIndexInternal(0);
+  }, []);
+
+  const setFocusedIndex = useCallback((index: number) => {
+    focusedIndexRef.current = index;
+    setFocusedIndexInternal(index);
+  }, []);
+
+  const setPreviewVehicleId = useCallback((id: string) => {
+    previewVehicleIdRef.current = id;
+    setPreviewVehicleIdInternal(id);
+  }, []);
+
+  const setControlsTab = useCallback((tab: 'dualsense' | 'xbox' | 'keyboard') => {
+    controlsTabRef.current = tab;
+    setControlsTabInternal(tab);
+  }, []);
+
+  // Filter out synthetic pointer events caused by CSS transform animations
+  const handlePointerMoveItem = useCallback((index: number, e: React.PointerEvent) => {
+    const dx = Math.abs(e.clientX - lastPointerPosRef.current.x);
+    const dy = Math.abs(e.clientY - lastPointerPosRef.current.y);
+    if (lastPointerPosRef.current.x !== -1 && dx < 3 && dy < 3) {
+      return;
+    }
+    lastPointerPosRef.current = { x: e.clientX, y: e.clientY };
+    setFocusedIndex(index);
+  }, [setFocusedIndex]);
 
   // Auto-switch to connected gamepad tab
   useEffect(() => {
@@ -96,12 +141,7 @@ export function MenuOverlay() {
     } else if (gamepadType === 'xbox') {
       setControlsTab('xbox');
     }
-  }, [gamepadType]);
-
-  // Reset focus when view or gameState changes
-  useEffect(() => {
-    setFocusedIndex(0);
-  }, [view, gameState]);
+  }, [gamepadType, setControlsTab]);
 
   const { 
     graphicsQuality, setGraphicsQuality, 
@@ -153,8 +193,11 @@ export function MenuOverlay() {
   // Always reset view & focus to 'main' whenever entering pause menu or main menu
   useEffect(() => {
     if (gameState === 'paused' || gameState === 'menu') {
-      setView('main');
-      setFocusedIndex(0);
+      resetGamepadEdgeState();
+      viewRef.current = 'main';
+      focusedIndexRef.current = 0;
+      setViewInternal('main');
+      setFocusedIndexInternal(0);
     }
   }, [gameState]);
 
@@ -170,18 +213,24 @@ export function MenuOverlay() {
     useGameStore.getState().triggerReset(true);
     useRacingStore.getState().resetRace();
     syncBestLapForLevel(selectedLevelId);
+    if (mode === 'timeattack') {
+      useRacingStore.getState().startCountdown();
+    }
     setView('main');
     setGameState('playing');
-  }, [selectedLevelId, setGameMode, setGameState, syncBestLapForLevel]);
+  }, [selectedLevelId, setGameMode, setGameState, setView, syncBestLapForLevel]);
 
   const handleReset = useCallback(() => {
     resetGamepadEdgeState();
     useGameStore.getState().triggerReset(true);
     useRacingStore.getState().resetRace();
     syncBestLapForLevel(selectedLevelId);
+    if (gameMode === 'timeattack') {
+      useRacingStore.getState().startCountdown();
+    }
     setView('main');
     setGameState('playing');
-  }, [selectedLevelId, setGameState, syncBestLapForLevel]);
+  }, [gameMode, selectedLevelId, setGameState, setView, syncBestLapForLevel]);
 
   const handleSelectTrack = useCallback((levelId: string) => {
     setSelectedLevelId(levelId);
@@ -192,7 +241,8 @@ export function MenuOverlay() {
 
   const handleReturnToMainMenu = useCallback(() => {
     resetGamepadEdgeState();
-    setFocusedIndex(0);
+    focusedIndexRef.current = 0;
+    setFocusedIndexInternal(0);
     const spawnPos = currentLevelPreset.spawnPosition;
     useGameStore.setState({
       speed: 0,
@@ -208,7 +258,244 @@ export function MenuOverlay() {
     syncBestLapForLevel(selectedLevelId);
     setView('main');
     setGameState('menu');
-  }, [currentLevelPreset, selectedLevelId, setGameState, syncBestLapForLevel]);
+  }, [currentLevelPreset, selectedLevelId, setGameState, setView, syncBestLapForLevel]);
+
+  const getItemCount = useCallback((): number => {
+    const curView = viewRef.current;
+    if (curView === 'main') return 5;
+    if (curView === 'start_mode') return 3;
+    if (curView === 'garage') return 2;
+    if (curView === 'tracks') return availableLevels.length + 1;
+    if (curView === 'options') {
+      const isVib = useSettingsStore.getState().vibrationEnabled;
+      return isVib ? 10 : 9;
+    }
+    if (curView === 'controls') return 1;
+    return 1;
+  }, [availableLevels.length]);
+
+  const handleNavUp = useCallback(() => {
+    const count = getItemCount();
+    const next = (focusedIndexRef.current - 1 + count) % count;
+    setFocusedIndex(next);
+  }, [getItemCount, setFocusedIndex]);
+
+  const handleNavDown = useCallback(() => {
+    const count = getItemCount();
+    const next = (focusedIndexRef.current + 1) % count;
+    setFocusedIndex(next);
+  }, [getItemCount, setFocusedIndex]);
+
+  const handleNavLeft = useCallback(() => {
+    const curView = viewRef.current;
+    const curIdx = focusedIndexRef.current;
+
+    if (curView === 'start_mode') {
+      setFocusedIndex(0);
+    } else if (curView === 'garage') {
+      const currentIndex = availableVehicles.findIndex((v) => v.id === previewVehicleIdRef.current);
+      const nextIdx = (currentIndex - 1 + availableVehicles.length) % availableVehicles.length;
+      setPreviewVehicleId(availableVehicles[nextIdx].id);
+    } else if (curView === 'controls') {
+      const tabs: ('dualsense' | 'xbox' | 'keyboard')[] = ['dualsense', 'xbox', 'keyboard'];
+      const tabIdx = tabs.indexOf(controlsTabRef.current);
+      setControlsTab(tabs[(tabIdx - 1 + tabs.length) % tabs.length]);
+    } else if (curView === 'options') {
+      const settings = useSettingsStore.getState();
+      const qualities: GraphicsQuality[] = ['low', 'medium', 'high', 'very_high'];
+      if (curIdx === 0) {
+        const qIdx = qualities.indexOf(settings.graphicsQuality);
+        if (qIdx > 0) settings.setGraphicsQuality(qualities[qIdx - 1]);
+      } else if (curIdx === 1) {
+        settings.toggleShadows();
+      } else if (curIdx === 2) {
+        settings.togglePostProcessing();
+      } else if (curIdx === 3) {
+        settings.setSensitivity(Math.max(0.5, Math.min(2.0, settings.sensitivity - 0.1)));
+      } else if (curIdx === 4) {
+        settings.toggleVibration();
+      } else if (settings.vibrationEnabled && curIdx === 5) {
+        settings.setVibrationIntensity(Math.max(0.1, Math.min(1.0, settings.vibrationIntensity - 0.05)));
+      } else {
+        const musicOffset = settings.vibrationEnabled ? 6 : 5;
+        if (curIdx === musicOffset) {
+          settings.setMenuMusicVolume(Math.max(0, Math.min(1, settings.menuMusicVolume - 0.05)));
+        } else if (curIdx === musicOffset + 1) {
+          settings.setGameMusicVolume(Math.max(0, Math.min(1, settings.gameMusicVolume - 0.05)));
+        } else if (curIdx === musicOffset + 2) {
+          settings.setSfxVolume(Math.max(0, Math.min(1, settings.sfxVolume - 0.05)));
+        }
+      }
+    }
+  }, [availableVehicles, setControlsTab, setFocusedIndex, setPreviewVehicleId]);
+
+  const handleNavRight = useCallback(() => {
+    const curView = viewRef.current;
+    const curIdx = focusedIndexRef.current;
+
+    if (curView === 'start_mode') {
+      setFocusedIndex(1);
+    } else if (curView === 'garage') {
+      const currentIndex = availableVehicles.findIndex((v) => v.id === previewVehicleIdRef.current);
+      const nextIdx = (currentIndex + 1) % availableVehicles.length;
+      setPreviewVehicleId(availableVehicles[nextIdx].id);
+    } else if (curView === 'controls') {
+      const tabs: ('dualsense' | 'xbox' | 'keyboard')[] = ['dualsense', 'xbox', 'keyboard'];
+      const tabIdx = tabs.indexOf(controlsTabRef.current);
+      setControlsTab(tabs[(tabIdx + 1) % tabs.length]);
+    } else if (curView === 'options') {
+      const settings = useSettingsStore.getState();
+      const qualities: GraphicsQuality[] = ['low', 'medium', 'high', 'very_high'];
+      if (curIdx === 0) {
+        const qIdx = qualities.indexOf(settings.graphicsQuality);
+        if (qIdx < qualities.length - 1) settings.setGraphicsQuality(qualities[qIdx + 1]);
+      } else if (curIdx === 1) {
+        settings.toggleShadows();
+      } else if (curIdx === 2) {
+        settings.togglePostProcessing();
+      } else if (curIdx === 3) {
+        settings.setSensitivity(Math.max(0.5, Math.min(2.0, settings.sensitivity + 0.1)));
+      } else if (curIdx === 4) {
+        settings.toggleVibration();
+      } else if (settings.vibrationEnabled && curIdx === 5) {
+        settings.setVibrationIntensity(Math.max(0.1, Math.min(1.0, settings.vibrationIntensity + 0.05)));
+      } else {
+        const musicOffset = settings.vibrationEnabled ? 6 : 5;
+        if (curIdx === musicOffset) {
+          settings.setMenuMusicVolume(Math.max(0, Math.min(1, settings.menuMusicVolume + 0.05)));
+        } else if (curIdx === musicOffset + 1) {
+          settings.setGameMusicVolume(Math.max(0, Math.min(1, settings.gameMusicVolume + 0.05)));
+        } else if (curIdx === musicOffset + 2) {
+          settings.setSfxVolume(Math.max(0, Math.min(1, settings.sfxVolume + 0.05)));
+        }
+      }
+    }
+  }, [availableVehicles, setControlsTab, setFocusedIndex, setPreviewVehicleId]);
+
+  const handleConfirm = useCallback(() => {
+    const curView = viewRef.current;
+    const curIdx = focusedIndexRef.current;
+    const isPaused = useGameStore.getState().gameState === 'paused';
+
+    if (curView === 'main') {
+      if (isPaused) {
+        if (curIdx === 0) setGameState('playing');
+        else if (curIdx === 1) handleReset();
+        else if (curIdx === 2) setView('options');
+        else if (curIdx === 3) setView('controls');
+        else if (curIdx === 4) handleReturnToMainMenu();
+      } else {
+        if (curIdx === 0) setView('start_mode');
+        else if (curIdx === 1) {
+          setPreviewVehicleId(selectedVehicleId);
+          setView('garage');
+        } else if (curIdx === 2) setView('tracks');
+        else if (curIdx === 3) setView('options');
+        else if (curIdx === 4) setView('controls');
+      }
+    } else if (curView === 'start_mode') {
+      if (curIdx === 0) handleLaunchMode('freeroam');
+      else if (curIdx === 1) handleLaunchMode('timeattack');
+      else if (curIdx === 2) setView('main');
+    } else if (curView === 'garage') {
+      if (curIdx === 0) {
+        setSelectedVehicleId(previewVehicleIdRef.current);
+        useGameStore.getState().triggerReset(true);
+      } else if (curIdx === 1) {
+        setView('main');
+      }
+    } else if (curView === 'tracks') {
+      if (curIdx < availableLevels.length) {
+        handleSelectTrack(availableLevels[curIdx].id);
+      } else {
+        setView('main');
+      }
+    } else if (curView === 'options') {
+      const isVib = useSettingsStore.getState().vibrationEnabled;
+      const optionsCount = isVib ? 10 : 9;
+      if (curIdx === 1) {
+        useSettingsStore.getState().toggleShadows();
+      } else if (curIdx === 2) {
+        useSettingsStore.getState().togglePostProcessing();
+      } else if (curIdx === 4) {
+        useSettingsStore.getState().toggleVibration();
+      } else if (curIdx === optionsCount - 1) {
+        setView('main');
+      }
+    } else if (curView === 'controls') {
+      setView('main');
+    }
+  }, [
+    availableLevels,
+    handleLaunchMode,
+    handleReset,
+    handleReturnToMainMenu,
+    handleSelectTrack,
+    selectedVehicleId,
+    setGameState,
+    setSelectedVehicleId,
+    setPreviewVehicleId,
+    setView,
+  ]);
+
+  const handleBack = useCallback(() => {
+    const curView = viewRef.current;
+    const isPaused = useGameStore.getState().gameState === 'paused';
+
+    if (curView !== 'main') {
+      setView('main');
+    } else if (isPaused) {
+      setGameState('playing');
+    }
+  }, [setGameState, setView]);
+
+  // Keep actions ref updated for the persistent RAF and keyboard listeners
+  const actionsRef = useRef({
+    handleNavUp,
+    handleNavDown,
+    handleNavLeft,
+    handleNavRight,
+    handleConfirm,
+    handleBack,
+  });
+  actionsRef.current = {
+    handleNavUp,
+    handleNavDown,
+    handleNavLeft,
+    handleNavRight,
+    handleConfirm,
+    handleBack,
+  };
+
+  // Keyboard navigation listener across all menus
+  useEffect(() => {
+    if (gameState === 'playing') return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'ArrowUp' || e.code === 'KeyW') {
+        e.preventDefault();
+        actionsRef.current.handleNavUp();
+      } else if (e.code === 'ArrowDown' || e.code === 'KeyS') {
+        e.preventDefault();
+        actionsRef.current.handleNavDown();
+      } else if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+        e.preventDefault();
+        actionsRef.current.handleNavLeft();
+      } else if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+        e.preventDefault();
+        actionsRef.current.handleNavRight();
+      } else if (e.code === 'Enter' || e.code === 'Space') {
+        e.preventDefault();
+        actionsRef.current.handleConfirm();
+      } else if (e.code === 'Escape' || e.code === 'Backspace') {
+        e.preventDefault();
+        actionsRef.current.handleBack();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [gameState]);
 
   // Gamepad navigation controller across all menus
   useEffect(() => {
@@ -218,157 +505,27 @@ export function MenuOverlay() {
     const pollMenuGamepad = () => {
       const gp = sampleGamepad();
       if (gp.connected) {
-        // Universal Back button (Circle / B)
-        if (gp.menuBack) {
-          if (view !== 'main') {
-            setView('main');
-          } else if (gameState === 'paused') {
-            setGameState('playing');
-          }
+        // 1. Primary Action Buttons (Confirm / Back / Pause Toggle)
+        if (gp.menuConfirm) {
+          actionsRef.current.handleConfirm();
+        } else if (gp.menuBack) {
+          actionsRef.current.handleBack();
+        } else if (gp.pauseToggle && useGameStore.getState().gameState === 'paused') {
+          actionsRef.current.handleBack();
         }
 
-        // Universal Options/Start button: resume if paused
-        if (gp.pauseToggle && gameState === 'paused') {
-          setGameState('playing');
+        // 2. Vertical Navigation (Up / Down) - independent of Confirm/Back
+        if (gp.menuUp) {
+          actionsRef.current.handleNavUp();
+        } else if (gp.menuDown) {
+          actionsRef.current.handleNavDown();
         }
 
-        // 1. MAIN MENU & PAUSE MENU
-        if (view === 'main') {
-          const itemCount = 5;
-          if (gp.menuDown) setFocusedIndex((prev) => (prev + 1) % itemCount);
-          if (gp.menuUp) setFocusedIndex((prev) => (prev - 1 + itemCount) % itemCount);
-
-          if (gp.menuConfirm) {
-            if (isPause) {
-              if (focusedIndex === 0) setGameState('playing');
-              else if (focusedIndex === 1) handleReset();
-              else if (focusedIndex === 2) setView('options');
-              else if (focusedIndex === 3) setView('controls');
-              else if (focusedIndex === 4) handleReturnToMainMenu();
-            } else {
-              if (focusedIndex === 0) setView('start_mode');
-              else if (focusedIndex === 1) {
-                setPreviewVehicleId(selectedVehicleId);
-                setView('garage');
-              } else if (focusedIndex === 2) setView('tracks');
-              else if (focusedIndex === 3) setView('options');
-              else if (focusedIndex === 4) setView('controls');
-            }
-          }
-        }
-        // 2. START MODE SELECTOR
-        else if (view === 'start_mode') {
-          const itemCount = 3;
-          if (gp.menuDown) setFocusedIndex((prev) => (prev + 1) % itemCount);
-          if (gp.menuUp) setFocusedIndex((prev) => (prev - 1 + itemCount) % itemCount);
-          if (gp.menuLeft) setFocusedIndex(0);
-          if (gp.menuRight) setFocusedIndex(1);
-
-          if (gp.menuConfirm) {
-            if (focusedIndex === 0) handleLaunchMode('freeroam');
-            else if (focusedIndex === 1) handleLaunchMode('timeattack');
-            else if (focusedIndex === 2) setView('main');
-          }
-        }
-        // 3. GARAGE (VEHICLE SELECTOR)
-        else if (view === 'garage') {
-          const currentIndex = availableVehicles.findIndex((v) => v.id === previewVehicleId);
-          if (gp.menuLeft) {
-            const nextIdx = (currentIndex - 1 + availableVehicles.length) % availableVehicles.length;
-            setPreviewVehicleId(availableVehicles[nextIdx].id);
-          } else if (gp.menuRight) {
-            const nextIdx = (currentIndex + 1) % availableVehicles.length;
-            setPreviewVehicleId(availableVehicles[nextIdx].id);
-          }
-
-          const itemCount = 2; // 0: Equip, 1: Back
-          if (gp.menuDown) setFocusedIndex((prev) => (prev + 1) % itemCount);
-          if (gp.menuUp) setFocusedIndex((prev) => (prev - 1 + itemCount) % itemCount);
-
-          if (gp.menuConfirm) {
-            if (focusedIndex === 0) {
-              setSelectedVehicleId(previewVehicleId);
-              useGameStore.getState().triggerReset(true);
-            } else if (focusedIndex === 1) {
-              setView('main');
-            }
-          }
-        }
-        // 4. TRACKS SELECTOR
-        else if (view === 'tracks') {
-          const itemCount = availableLevels.length + 1; // All tracks + Back
-          if (gp.menuDown) setFocusedIndex((prev) => (prev + 1) % itemCount);
-          if (gp.menuUp) setFocusedIndex((prev) => (prev - 1 + itemCount) % itemCount);
-
-          if (gp.menuConfirm) {
-            if (focusedIndex < availableLevels.length) {
-              handleSelectTrack(availableLevels[focusedIndex].id);
-            } else {
-              setView('main');
-            }
-          }
-        }
-        // 5. OPTIONS VIEW
-        else if (view === 'options') {
-          const optionsCount = vibrationEnabled ? 10 : 9;
-          if (gp.menuDown) setFocusedIndex((prev) => (prev + 1) % optionsCount);
-          if (gp.menuUp) setFocusedIndex((prev) => (prev - 1 + optionsCount) % optionsCount);
-
-          const qualities: GraphicsQuality[] = ['low', 'medium', 'high', 'very_high'];
-          if (focusedIndex === 0) {
-            // Graphics Quality
-            const curIdx = qualities.indexOf(graphicsQuality);
-            if (gp.menuLeft && curIdx > 0) setGraphicsQuality(qualities[curIdx - 1]);
-            if (gp.menuRight && curIdx < qualities.length - 1) setGraphicsQuality(qualities[curIdx + 1]);
-          } else if (focusedIndex === 1) {
-            // Shadows
-            if (gp.menuConfirm || gp.menuLeft || gp.menuRight) toggleShadows();
-          } else if (focusedIndex === 2) {
-            // Post Processing
-            if (gp.menuConfirm || gp.menuLeft || gp.menuRight) togglePostProcessing();
-          } else if (focusedIndex === 3) {
-            // Sensitivity
-            if (gp.menuLeft) setSensitivity(Math.max(0.5, Math.min(2.0, sensitivity - 0.1)));
-            if (gp.menuRight) setSensitivity(Math.max(0.5, Math.min(2.0, sensitivity + 0.1)));
-          } else if (focusedIndex === 4) {
-            // Vibration
-            if (gp.menuConfirm || gp.menuLeft || gp.menuRight) toggleVibration();
-          } else if (vibrationEnabled && focusedIndex === 5) {
-            // Vibration Intensity
-            if (gp.menuLeft) setVibrationIntensity(Math.max(0.1, Math.min(1.0, vibrationIntensity - 0.05)));
-            if (gp.menuRight) setVibrationIntensity(Math.max(0.1, Math.min(1.0, vibrationIntensity + 0.05)));
-          } else {
-            const musicOffset = vibrationEnabled ? 6 : 5;
-            if (focusedIndex === musicOffset) {
-              // Menu Music
-              if (gp.menuLeft) setMenuMusicVolume(Math.max(0, Math.min(1, menuMusicVolume - 0.05)));
-              if (gp.menuRight) setMenuMusicVolume(Math.max(0, Math.min(1, menuMusicVolume + 0.05)));
-            } else if (focusedIndex === musicOffset + 1) {
-              // Game Music
-              if (gp.menuLeft) setGameMusicVolume(Math.max(0, Math.min(1, gameMusicVolume - 0.05)));
-              if (gp.menuRight) setGameMusicVolume(Math.max(0, Math.min(1, gameMusicVolume + 0.05)));
-            } else if (focusedIndex === musicOffset + 2) {
-              // SFX Volume
-              if (gp.menuLeft) setSfxVolume(Math.max(0, Math.min(1, sfxVolume - 0.05)));
-              if (gp.menuRight) setSfxVolume(Math.max(0, Math.min(1, sfxVolume + 0.05)));
-            } else if (focusedIndex === optionsCount - 1 && gp.menuConfirm) {
-              setView('main');
-            }
-          }
-        }
-        // 6. CONTROLS VIEW
-        else if (view === 'controls') {
-          const tabs: ('dualsense' | 'xbox' | 'keyboard')[] = ['dualsense', 'xbox', 'keyboard'];
-          const curTabIdx = tabs.indexOf(controlsTab);
-          if (gp.menuLeft) {
-            setControlsTab(tabs[(curTabIdx - 1 + tabs.length) % tabs.length]);
-          } else if (gp.menuRight) {
-            setControlsTab(tabs[(curTabIdx + 1) % tabs.length]);
-          }
-
-          if (gp.menuConfirm) {
-            setView('main');
-          }
+        // 3. Horizontal Navigation (Left / Right) - independent of Vertical & Actions
+        if (gp.menuLeft) {
+          actionsRef.current.handleNavLeft();
+        } else if (gp.menuRight) {
+          actionsRef.current.handleNavRight();
         }
       }
       animId = requestAnimationFrame(pollMenuGamepad);
@@ -376,42 +533,7 @@ export function MenuOverlay() {
 
     animId = requestAnimationFrame(pollMenuGamepad);
     return () => cancelAnimationFrame(animId);
-  }, [
-    gameState,
-    view,
-    isPause,
-    focusedIndex,
-    controlsTab,
-    selectedVehicleId,
-    previewVehicleId,
-    availableVehicles,
-    availableLevels,
-    selectedLevelId,
-    graphicsQuality,
-    shadowsEnabled,
-    postProcessingEnabled,
-    sensitivity,
-    vibrationEnabled,
-    vibrationIntensity,
-    menuMusicVolume,
-    gameMusicVolume,
-    sfxVolume,
-    setGameState,
-    setSelectedVehicleId,
-    setGraphicsQuality,
-    toggleShadows,
-    togglePostProcessing,
-    setSensitivity,
-    toggleVibration,
-    setVibrationIntensity,
-    setMenuMusicVolume,
-    setGameMusicVolume,
-    setSfxVolume,
-    handleLaunchMode,
-    handleReset,
-    handleSelectTrack,
-    handleReturnToMainMenu,
-  ]);
+  }, [gameState]);
 
   const currentOverlayStyle = styles.overlayMenu;
   const currentCardStyle = styles.cardMenu;
@@ -435,7 +557,7 @@ export function MenuOverlay() {
         <>
           <button 
             style={{ ...styles.button, ...getFocusStyle(focusedIndex === 0) }} 
-            onPointerEnter={() => setFocusedIndex(0)}
+            onPointerMove={(e) => handlePointerMoveItem(0, e)}
             onClick={() => setGameState('playing')}
           >
             Resume (ESC)
@@ -449,7 +571,7 @@ export function MenuOverlay() {
               borderColor: 'rgba(0, 0, 0, 0.2)',
               ...getFocusStyle(focusedIndex === 1),
             }} 
-            onPointerEnter={() => setFocusedIndex(1)}
+            onPointerMove={(e) => handlePointerMoveItem(1, e)}
             onClick={handleReset}
           >
             Restart / Reset Vehicle
@@ -463,7 +585,7 @@ export function MenuOverlay() {
               borderColor: 'rgba(0, 0, 0, 0.2)',
               ...getFocusStyle(focusedIndex === 2),
             }} 
-            onPointerEnter={() => setFocusedIndex(2)}
+            onPointerMove={(e) => handlePointerMoveItem(2, e)}
             onClick={() => setView('options')}
           >
             Options
@@ -477,7 +599,7 @@ export function MenuOverlay() {
               borderColor: 'rgba(0, 0, 0, 0.2)',
               ...getFocusStyle(focusedIndex === 3),
             }} 
-            onPointerEnter={() => setFocusedIndex(3)}
+            onPointerMove={(e) => handlePointerMoveItem(3, e)}
             onClick={() => setView('controls')}
           >
             Controls
@@ -491,7 +613,7 @@ export function MenuOverlay() {
               borderColor: 'rgba(220, 38, 38, 0.3)',
               ...getFocusStyle(focusedIndex === 4),
             }} 
-            onPointerEnter={() => setFocusedIndex(4)}
+            onPointerMove={(e) => handlePointerMoveItem(4, e)}
             onClick={handleReturnToMainMenu}
           >
             Return to Main Menu
@@ -508,7 +630,7 @@ export function MenuOverlay() {
               letterSpacing: '1px',
               ...getFocusStyle(focusedIndex === 0),
             }} 
-            onPointerEnter={() => setFocusedIndex(0)}
+            onPointerMove={(e) => handlePointerMoveItem(0, e)}
             onClick={() => setView('start_mode')}
           >
             ▶ START GAME
@@ -522,7 +644,7 @@ export function MenuOverlay() {
               borderColor: 'rgba(0, 0, 0, 0.2)',
               ...getFocusStyle(focusedIndex === 1),
             }} 
-            onPointerEnter={() => setFocusedIndex(1)}
+            onPointerMove={(e) => handlePointerMoveItem(1, e)}
             onClick={() => {
               setPreviewVehicleId(selectedVehicleId);
               setView('garage');
@@ -539,7 +661,7 @@ export function MenuOverlay() {
               borderColor: 'rgba(0, 0, 0, 0.2)',
               ...getFocusStyle(focusedIndex === 2),
             }} 
-            onPointerEnter={() => setFocusedIndex(2)}
+            onPointerMove={(e) => handlePointerMoveItem(2, e)}
             onClick={() => setView('tracks')}
           >
             Tracks & Stages
@@ -553,7 +675,7 @@ export function MenuOverlay() {
               borderColor: 'rgba(0, 0, 0, 0.2)',
               ...getFocusStyle(focusedIndex === 3),
             }} 
-            onPointerEnter={() => setFocusedIndex(3)}
+            onPointerMove={(e) => handlePointerMoveItem(3, e)}
             onClick={() => setView('options')}
           >
             Options
@@ -567,7 +689,7 @@ export function MenuOverlay() {
               borderColor: 'rgba(0, 0, 0, 0.2)',
               ...getFocusStyle(focusedIndex === 4),
             }} 
-            onPointerEnter={() => setFocusedIndex(4)}
+            onPointerMove={(e) => handlePointerMoveItem(4, e)}
             onClick={() => setView('controls')}
           >
             Controls
@@ -603,9 +725,7 @@ export function MenuOverlay() {
           >
             (Change Track)
           </button>
-        </div>
-
-        {/* Mode Cards Grid */}
+        </div>        {/* Mode Cards Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', width: '100%' }}>
           {/* 1. Free Roam Card */}
           <div 
@@ -616,7 +736,7 @@ export function MenuOverlay() {
               cursor: 'pointer',
               ...getFocusStyle(focusedIndex === 0),
             }}
-            onPointerEnter={() => setFocusedIndex(0)}
+            onPointerMove={(e) => handlePointerMoveItem(0, e)}
             onClick={() => handleLaunchMode('freeroam')}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -654,7 +774,7 @@ export function MenuOverlay() {
               cursor: 'pointer',
               ...getFocusStyle(focusedIndex === 1),
             }}
-            onPointerEnter={() => setFocusedIndex(1)}
+            onPointerMove={(e) => handlePointerMoveItem(1, e)}
             onClick={() => handleLaunchMode('timeattack')}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -712,8 +832,8 @@ export function MenuOverlay() {
             width: '100%', 
             marginTop: '16px',
             ...getFocusStyle(focusedIndex === 2),
-          }}
-          onPointerEnter={() => setFocusedIndex(2)}
+          }} 
+          onPointerMove={(e) => handlePointerMoveItem(2, e)}
           onClick={() => setView('main')}
         >
           Back
@@ -786,7 +906,7 @@ export function MenuOverlay() {
               background: isEquipped ? '#10b981' : 'linear-gradient(90deg, #1B365D, #E31837)',
               ...getFocusStyle(focusedIndex === 0),
             }}
-            onPointerEnter={() => setFocusedIndex(0)}
+            onPointerMove={(e) => handlePointerMoveItem(0, e)}
             onClick={() => {
               setSelectedVehicleId(previewVehicleId);
               useGameStore.getState().triggerReset(true);
@@ -802,8 +922,8 @@ export function MenuOverlay() {
               borderColor: 'rgba(0,0,0,0.2)', 
               width: '100px',
               ...getFocusStyle(focusedIndex === 1),
-            }}
-            onPointerEnter={() => setFocusedIndex(1)}
+            }} 
+            onPointerMove={(e) => handlePointerMoveItem(1, e)}
             onClick={() => setView('main')}
           >
             Back
@@ -834,7 +954,7 @@ export function MenuOverlay() {
                 background: isSelected ? 'rgba(227, 24, 55, 0.05)' : 'rgba(0,0,0,0.02)',
                 ...getFocusStyle(focusedIndex === index),
               }}
-              onPointerEnter={() => setFocusedIndex(index)}
+              onPointerMove={(e) => handlePointerMoveItem(index, e)}
               onClick={() => handleSelectTrack(lvl.id)}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -886,7 +1006,7 @@ export function MenuOverlay() {
           width: '100%',
           ...getFocusStyle(focusedIndex === availableLevels.length),
         }} 
-        onPointerEnter={() => setFocusedIndex(availableLevels.length)}
+        onPointerMove={(e) => handlePointerMoveItem(availableLevels.length, e)}
         onClick={() => setView('main')}
       >
         Back
@@ -913,7 +1033,7 @@ export function MenuOverlay() {
         
         <div 
           style={{ ...styles.optionRow, ...getFocusStyle(focusedIndex === gqIdx) }}
-          onPointerEnter={() => setFocusedIndex(gqIdx)}
+          onPointerMove={(e) => handlePointerMoveItem(gqIdx, e)}
         >
           <span>Graphics Quality</span>
           <select 
@@ -930,7 +1050,7 @@ export function MenuOverlay() {
 
         <div 
           style={{ ...styles.optionRow, ...getFocusStyle(focusedIndex === shIdx) }}
-          onPointerEnter={() => setFocusedIndex(shIdx)}
+          onPointerMove={(e) => handlePointerMoveItem(shIdx, e)}
         >
           <span>Real-time Shadows</span>
           <input 
@@ -943,7 +1063,7 @@ export function MenuOverlay() {
 
         <div 
           style={{ ...styles.optionRow, ...getFocusStyle(focusedIndex === ppIdx) }}
-          onPointerEnter={() => setFocusedIndex(ppIdx)}
+          onPointerMove={(e) => handlePointerMoveItem(ppIdx, e)}
         >
           <span>Post Processing</span>
           <input 
@@ -956,7 +1076,7 @@ export function MenuOverlay() {
 
         <div 
           style={{ ...styles.optionRow, ...getFocusStyle(focusedIndex === sensIdx) }}
-          onPointerEnter={() => setFocusedIndex(sensIdx)}
+          onPointerMove={(e) => handlePointerMoveItem(sensIdx, e)}
         >
           <span>Steering Sensitivity ({sensitivity.toFixed(1)}x)</span>
           <input 
@@ -972,7 +1092,7 @@ export function MenuOverlay() {
 
         <div 
           style={{ ...styles.optionRow, ...getFocusStyle(focusedIndex === vibIdx) }}
-          onPointerEnter={() => setFocusedIndex(vibIdx)}
+          onPointerMove={(e) => handlePointerMoveItem(vibIdx, e)}
         >
           <span>Controller Vibration (Rumble)</span>
           <input 
@@ -986,7 +1106,7 @@ export function MenuOverlay() {
         {vibrationEnabled && (
           <div 
             style={{ ...styles.optionRow, ...getFocusStyle(focusedIndex === vibIntIdx) }}
-            onPointerEnter={() => setFocusedIndex(vibIntIdx)}
+            onPointerMove={(e) => handlePointerMoveItem(vibIntIdx, e)}
           >
             <span>Vibration Intensity ({Math.round(vibrationIntensity * 100)}%)</span>
             <input 
@@ -1003,7 +1123,7 @@ export function MenuOverlay() {
 
         <div 
           style={{ ...styles.optionRow, ...getFocusStyle(focusedIndex === mmIdx) }}
-          onPointerEnter={() => setFocusedIndex(mmIdx)}
+          onPointerMove={(e) => handlePointerMoveItem(mmIdx, e)}
         >
           <span>Menu Music</span>
           <input 
@@ -1019,7 +1139,7 @@ export function MenuOverlay() {
 
         <div 
           style={{ ...styles.optionRow, ...getFocusStyle(focusedIndex === gmIdx) }}
-          onPointerEnter={() => setFocusedIndex(gmIdx)}
+          onPointerMove={(e) => handlePointerMoveItem(gmIdx, e)}
         >
           <span>Game Music</span>
           <input 
@@ -1035,7 +1155,7 @@ export function MenuOverlay() {
 
         <div 
           style={{ ...styles.optionRow, ...getFocusStyle(focusedIndex === sfxIdx) }}
-          onPointerEnter={() => setFocusedIndex(sfxIdx)}
+          onPointerMove={(e) => handlePointerMoveItem(sfxIdx, e)}
         >
           <span>SFX Volume</span>
           <input 
@@ -1056,7 +1176,7 @@ export function MenuOverlay() {
             width: '100%',
             ...getFocusStyle(focusedIndex === backIdx),
           }} 
-          onPointerEnter={() => setFocusedIndex(backIdx)}
+          onPointerMove={(e) => handlePointerMoveItem(backIdx, e)}
           onClick={() => setView('main')}
         >
           Back
@@ -1285,7 +1405,7 @@ export function MenuOverlay() {
           width: '100%',
           ...getFocusStyle(focusedIndex === 0),
         }} 
-        onPointerEnter={() => setFocusedIndex(0)}
+        onPointerMove={(e) => handlePointerMoveItem(0, e)}
         onClick={() => setView('main')}
       >
         Back

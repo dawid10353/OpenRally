@@ -6,6 +6,7 @@ import {
   getAvailableLevels,
 } from '@/config/levelRegistry';
 import { validateLevelPreset } from '@/utils/validation/levelValidator';
+import { compileTerrain, getInterpolatedHeight } from '@/utils/terrainCompiler';
 
 describe('Level Registry', () => {
   it('has valid default level ID', () => {
@@ -36,5 +37,23 @@ describe('Level Registry', () => {
     const desert = getLevelPreset('level2_desert');
     expect(desert.id).toBe('level2_desert');
     expect(desert.surfaceDescription).toContain('Sand');
+  });
+
+  it('ensures spawn position Y is above the terrain ground height for all levels', () => {
+    const levels = getAvailableLevels();
+    for (const level of levels) {
+      const data = compileTerrain(level.data);
+      const groundY = getInterpolatedHeight(
+        level.spawnPosition[0],
+        level.spawnPosition[2],
+        data.heights,
+        data.rows,
+        data.cols,
+        level.data.terrainBase.width,
+        level.data.terrainBase.depth,
+      );
+      console.log(`[Spawn Test] Level ${level.id}: groundY = ${groundY.toFixed(2)}, spawnY = ${level.spawnPosition[1]}`);
+      expect(level.spawnPosition[1]).toBeGreaterThanOrEqual(groundY + 0.5);
+    }
   });
 });

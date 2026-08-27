@@ -8,14 +8,14 @@ export const WATER_COLOR = 0x07283c;
 /** Sun color for water specular highlights (matches LIGHTING_CONFIG.directional.color) */
 export const WATER_SUN_COLOR = 0xfff4e6;
 
-/** Water transparency (0 = fully transparent, 1 = opaque) */
-export const WATER_ALPHA = 0.90;
+/** Water transparency (1.0 = fully opaque ocean with shader depth extinction) */
+export const WATER_ALPHA = 1.0;
 
 /** Distortion scale for reflection wobble */
 export const WATER_DISTORTION_SCALE = 3.5;
 
 /** Size of the water plane (world units, square) */
-export const WATER_SIZE = 2000;
+export const WATER_SIZE = 8000;
 
 /** Y position of the water plane (should match existing ocean placement) */
 export const WATER_POSITION_Y = -8;
@@ -35,10 +35,10 @@ export const WATER_WAVE_SPEED = 0.35;
 // ─── Depth & Foam ───────────────────────────────────────────────────
 
 /** Threshold for foam rendering (distance from geometry intersection in world units) */
-export const WATER_FOAM_THRESHOLD = 0.8;
+export const WATER_FOAM_THRESHOLD = 1.0;
 
 /** Threshold for depth color (distance in world units to transition to deep water color) */
-export const WATER_DEPTH_THRESHOLD = 15.0;
+export const WATER_DEPTH_THRESHOLD = 18.0;
 
 /** Color of the foam at intersections */
 export const WATER_FOAM_COLOR = new Color(0xffffff);

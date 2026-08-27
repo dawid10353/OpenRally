@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { updateGearbox, calculateRPM } from '../powertrain';
+import { updateGearbox, calculateRPM, IDLE_RPM, MAX_RPM } from '../powertrain';
 
 describe('powertrain physics', () => {
   const baseInput = {
@@ -55,6 +55,12 @@ describe('powertrain physics', () => {
       gear = updateGearbox(110, 30.5, baseInput, gear);
       expect(gear).toBe(3);
     });
+
+    it('locks gear when airborne regardless of speed changes', () => {
+      // Car in 3rd gear jumping at high or low speed should maintain 3rd gear
+      expect(updateGearbox(200, 55, { ...baseInput, throttle: 1 }, 3, true)).toBe(3);
+      expect(updateGearbox(20, 5, baseInput, 3, true)).toBe(3);
+    });
   });
 
   describe('calculateRPM', () => {
@@ -71,7 +77,7 @@ describe('powertrain physics', () => {
 
     it('clamps RPM within realistic limits (800 - 8000 RPM)', () => {
       const highRpm = calculateRPM(300, 5, { ...baseInput, throttle: 1 });
-      expect(highRpm).toBeLessThanOrEqual(8000);
+      expect(highRpm).toBeLessThanOrEqual(MAX_RPM);
 
       const lowRpm = calculateRPM(0, 1, baseInput);
       expect(lowRpm).toBeGreaterThanOrEqual(800);
@@ -80,7 +86,74 @@ describe('powertrain physics', () => {
     it('calculates RPM for reverse gear appropriately', () => {
       const reverseRpm = calculateRPM(20, -1, { ...baseInput, brake: 1 });
       expect(reverseRpm).toBeGreaterThan(1500);
-      expect(reverseRpm).toBeLessThanOrEqual(8000);
+      expect(reverseRpm).toBeLessThanOrEqual(MAX_RPM);
+    });
+
+    describe('airborne dynamics', () => {
+      it('revs up to redline when airborne with throttle pressed', () => {
+        // Airborne in 2nd gear at 40 km/h with 100% throttle
+        const airborneRpm = calculateRPM(40, 2, { ...baseInput, throttle: 1 }, { isAirborne: true });
+        expect(airborneRpm).toBeGreaterThanOrEqual(7500);
+        expect(airborneRpm).toBeLessThanOrEqual(MAX_RPM);
+      });
+
+      it('drops to idle RPM when airborne with no throttle', () => {
+        // Airborne with 0 throttle should decay towards idle
+        const airborneIdleRpm = calculateRPM(100, 4, baseInput, { isAirborne: true });
+        expect(airborneIdleRpm).toBeGreaterThanOrEqual(800);
+        expect(airborneIdleRpm).toBeLessThanOrEqual(1200);
+      });
+
+      it('integrates RPM over time smoothly during a jump', () => {
+        let currentRpm = IDLE_RPM;
+        const dt = 0.016; // ~60fps step
+
+        // Accelerate in air for 15 frames (~0.25s) with full throttle
+        for (let i = 0; i < 15; i++) {
+          currentRpm = calculateRPM(60, 3, { ...baseInput, throttle: 1 }, {
+            currentRpm,
+            dt,
+            isAirborne: true,
+          });
+        }
+
+        // RPM should have climbed significantly above grounded gear RPM (60kmh in 3rd gear is ~2000-3000 RPM)
+        expect(currentRpm).toBeGreaterThan(4000);
+
+        // Continue holding throttle in air for another 20 frames -> reaches redline
+        for (let i = 0; i < 20; i++) {
+          currentRpm = calculateRPM(60, 3, { ...baseInput, throttle: 1 }, {
+            currentRpm,
+            dt,
+            isAirborne: true,
+          });
+        }
+        expect(currentRpm).toBeGreaterThanOrEqual(7500);
+      });
+
+      it('revs up in reverse when airborne with brake applied', () => {
+        const reverseAirRpm = calculateRPM(10, -1, { ...baseInput, brake: 1 }, { isAirborne: true });
+        expect(reverseAirRpm).toBeGreaterThanOrEqual(7500);
+      });
+
+      it('smoothly pulls down to grounded gear speed upon touchdown', () => {
+        let currentRpm = 7900; // was revving at redline in air
+        const dt = 0.016;
+
+        // Vehicle touches down at 50 km/h in 3rd gear (normal grounded RPM is ~2500)
+        for (let i = 0; i < 30; i++) {
+          currentRpm = calculateRPM(50, 3, baseInput, {
+            currentRpm,
+            dt,
+            isAirborne: false,
+            groundedRatio: 1.0,
+          });
+        }
+
+        // RPM should have settled back down to transmission speed (~2500 RPM)
+        expect(currentRpm).toBeLessThan(3500);
+        expect(currentRpm).toBeGreaterThanOrEqual(800);
+      });
     });
   });
 });

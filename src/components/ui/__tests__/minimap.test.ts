@@ -4,27 +4,29 @@ describe('Minimap Coordinate & Heading Alignment', () => {
   const CANVAS_SIZE = 180;
   const MARGIN = 14;
   const INNER_SIZE = CANVAS_SIZE - MARGIN * 2;
-  const mapWidth = 800;
-  const mapDepth = 800;
+  const trackBounds = {
+    centerX: 0,
+    centerZ: 0,
+    maxSpan: 1000,
+  };
 
   const toCanvasCoords = (wx: number, wz: number): [number, number] => {
-    const cx = MARGIN + ((wx + mapWidth / 2) / mapWidth) * INNER_SIZE;
-    const cy = MARGIN + ((wz + mapDepth / 2) / mapDepth) * INNER_SIZE;
+    const cx = CANVAS_SIZE / 2 + ((wx - trackBounds.centerX) / trackBounds.maxSpan) * INNER_SIZE;
+    const cy = CANVAS_SIZE / 2 + ((wz - trackBounds.centerZ) / trackBounds.maxSpan) * INNER_SIZE;
     return [cx, cy];
   };
 
-  it('maps center of world (0, 0) to center of canvas', () => {
+  it('maps center of track (0, 0) to center of canvas', () => {
     const [cx, cy] = toCanvasCoords(0, 0);
     expect(cx).toBeCloseTo(CANVAS_SIZE / 2, 3);
     expect(cy).toBeCloseTo(CANVAS_SIZE / 2, 3);
   });
 
-  it('maps world bounds to within canvas margin bounds', () => {
-    const [minX, minZ] = toCanvasCoords(-mapWidth / 2, -mapDepth / 2);
+  it('maps track extents symmetrically around canvas center', () => {
+    const [minX, minZ] = toCanvasCoords(-500, -500);
+    const [maxX, maxZ] = toCanvasCoords(500, 500);
     expect(minX).toBeCloseTo(MARGIN, 3);
     expect(minZ).toBeCloseTo(MARGIN, 3);
-
-    const [maxX, maxZ] = toCanvasCoords(mapWidth / 2, mapDepth / 2);
     expect(maxX).toBeCloseTo(CANVAS_SIZE - MARGIN, 3);
     expect(maxZ).toBeCloseTo(CANVAS_SIZE - MARGIN, 3);
   });

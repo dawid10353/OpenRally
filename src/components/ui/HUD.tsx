@@ -21,12 +21,11 @@ function formatLapTime(seconds: number): string {
 export function HUD() {
   const gameState = useGameStore((s) => s.gameState);
   const gameMode = useGameStore((s) => s.gameMode);
+  const isSceneReady = useGameStore((s) => s.isSceneReady);
   const gameMusicVolume = useSettingsStore((s) => s.gameMusicVolume);
 
-  // Stage complete state is low-frequency and only changes upon finishing a lap
-  const showStageComplete = useRacingStore((s) => s.showStageComplete);
-  const lastLapTime = useRacingStore((s) => s.lastLapTime);
   const bestLapTime = useRacingStore((s) => s.bestLapTime);
+  const countdown = useRacingStore((s) => s.countdown);
 
   // Direct DOM Refs (No React re-renders on high-frequency changes)
   const lapTimeRef = useRef<HTMLDivElement>(null);
@@ -44,11 +43,11 @@ export function HUD() {
     if (bgmRef.current) {
       bgmRef.current.volume = gameMusicVolume;
     }
-  }, [gameMusicVolume, gameState]);
+  }, [gameMusicVolume, gameState, isSceneReady]);
 
   // Handle browser autoplay policy by starting game music on user interaction
   useEffect(() => {
-    if (gameState !== 'playing') return;
+    if (gameState !== 'playing' || !isSceneReady) return;
 
     const playBgm = () => {
       if (bgmRef.current && bgmRef.current.paused) {
@@ -65,7 +64,7 @@ export function HUD() {
       window.removeEventListener('pointerdown', playBgm);
       window.removeEventListener('keydown', playBgm);
     };
-  }, [gameState]);
+  }, [gameState, isSceneReady]);
 
   // Transient gameStore subscriber (speed, rpm, gear)
   useEffect(() => {
@@ -139,7 +138,7 @@ export function HUD() {
     return () => unsubRacing();
   }, [gameState, gameMode]);
 
-  if (gameState !== 'playing') return null;
+  if (gameState !== 'playing' || !isSceneReady) return null;
 
   return (
     <div id="hud" style={styles.container}>
@@ -180,15 +179,32 @@ export function HUD() {
         </div>
       )}
 
-      {/* Stage Complete Overlay Banner (Time Attack only) */}
-      {gameMode === 'timeattack' && showStageComplete && (
-        <div style={styles.bannerContainer}>
-          <div style={styles.stageCompleteBanner}>
-            <div style={styles.bannerTitle}>STAGE COMPLETE!</div>
-            <div style={styles.bannerTime}>TIME: {formatLapTime(lastLapTime || 0)}</div>
-            {lastLapTime === bestLapTime && (
-              <div style={styles.newRecordBadge}>★ NEW RECORD! ★</div>
-            )}
+      {/* Authentic Classic Rally 3-2-1-GO Countdown (Time Attack only) */}
+      {gameMode === 'timeattack' && countdown !== null && (
+        <div style={styles.classicRallyCountdown}>
+          <div key={countdown} style={styles.rallyCountdownContent}>
+            <div style={styles.rallyStageRibbon}>
+              <span>STAGE START</span>
+            </div>
+            <div
+              style={{
+                ...styles.rallyCountdownDigit,
+                color:
+                  countdown === 0
+                    ? '#00ff66'
+                    : countdown === 1
+                    ? '#ff3333'
+                    : countdown === 2
+                    ? '#ff9900'
+                    : '#ffcc00',
+                textShadow:
+                  countdown === 0
+                    ? '0 6px 0 #000000, 0 0 35px rgba(0, 255, 102, 0.9), 0 0 60px rgba(0, 255, 102, 0.5)'
+                    : '0 6px 0 #000000, 0 0 25px rgba(0, 0, 0, 0.9), 0 0 45px currentColor',
+              }}
+            >
+              {countdown === 0 ? 'GO!' : countdown}
+            </div>
           </div>
         </div>
       )}
@@ -502,45 +518,47 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: 'monospace',
     marginTop: '1px',
   },
-  bannerContainer: {
+  classicRallyCountdown: {
     position: 'absolute',
-    top: '30%',
+    top: '22%',
     left: 0,
     right: 0,
     display: 'flex',
     justifyContent: 'center',
+    alignItems: 'center',
     pointerEvents: 'none',
     zIndex: 100,
   },
-  stageCompleteBanner: {
-    background: 'linear-gradient(135deg, rgba(18, 24, 38, 0.96), rgba(185, 28, 28, 0.96))',
-    border: '2px solid rgba(255,255,255,0.3)',
-    borderRadius: '16px',
-    padding: '24px 48px',
-    textAlign: 'center',
-    boxShadow: '0 12px 48px rgba(0,0,0,0.85), 0 0 30px rgba(185,28,28,0.5)',
+  rallyCountdownContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  bannerTitle: {
-    fontSize: '32px',
+  rallyStageRibbon: {
+    background: 'linear-gradient(90deg, transparent, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.85) 80%, transparent)',
+    padding: '4px 32px',
+    fontSize: '15px',
     fontWeight: 900,
+    fontStyle: 'italic',
     color: '#ffffff',
-    letterSpacing: '3px',
-    textShadow: '0 2px 8px rgba(0,0,0,0.8)',
+    letterSpacing: '4px',
+    textTransform: 'uppercase',
+    textShadow: '0 2px 4px rgba(0,0,0,0.9)',
+    borderBottom: '2px solid #ffcc00',
+    transform: 'skew(-12deg)',
+    marginBottom: '2px',
   },
-  bannerTime: {
-    fontSize: '24px',
-    fontWeight: 800,
-    color: '#38bdf8',
-    fontFamily: 'monospace',
-    marginTop: '6px',
-  },
-  newRecordBadge: {
-    fontSize: '16px',
+  rallyCountdownDigit: {
+    fontSize: '110px',
     fontWeight: 900,
-    color: '#facc15',
-    letterSpacing: '2px',
-    marginTop: '8px',
-    textShadow: '0 0 10px rgba(250,204,21,0.8)',
+    fontStyle: 'italic',
+    fontFamily: "'Impact', 'Arial Black', sans-serif",
+    lineHeight: 1,
+    letterSpacing: '4px',
+    transform: 'skew(-12deg)',
+    WebkitTextStroke: '2.5px #000000',
+    userSelect: 'none',
   },
   rallyCluster: {
     position: 'absolute',

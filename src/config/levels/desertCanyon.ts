@@ -1,31 +1,109 @@
+import { Vector3, CatmullRomCurve3 } from 'three';
 import type { LevelData, PropData } from '@/types/level';
 
-const NUM_PROPS = 600;
-const PROPS_CLEARING_RADIUS = 40;
-const PROPS_EDGE_MARGIN = 0.88;
-const TREE_PROBABILITY = 0.15; // Desert shrubs and boulders
+const LEVEL2_TRACK_POINTS = [
+  { x: 0, z: 0 },         // CP 0: Start / Finish Gantry
+  { x: 140, z: 50 },      // CP 1: Canyon Entry Straight
+  { x: 270, z: 110 },     // CP 2: Sweeping Right 4 over Dune
+  { x: 390, z: 190 },     // CP 3: Sharp Left 2 into Rock Gorge
+  { x: 470, z: 320 },     // CP 4: High-Speed Plateau Run
+  { x: 370, z: 430 },     // CP 5: Hairpin Right around Mesa
+  { x: 220, z: 470 },     // CP 6: Steep Gorge Descent
+  { x: 50, z: 410 },      // CP 7: 90° Left into Dry Riverbed
+  { x: -70, z: 450 },     // CP 8: Right 3 Flick
+  { x: -210, z: 390 },    // CP 9: Sand Wash Chicane
+  { x: -330, z: 270 },    // CP 10: Technical Hairpin Left
+  { x: -420, z: 120 },    // CP 11: Western Canyon Ridge Climb
+  { x: -470, z: -50 },    // CP 12: Fast Ridge Crest Straight
+  { x: -370, z: -170 },   // CP 13: 90° Right Flick
+  { x: -440, z: -290 },   // CP 14: Sand Dune Hairpin Left
+  { x: -310, z: -400 },   // CP 15: High-Speed Dunes Descent
+  { x: -150, z: -350 },   // CP 16: Sharp Right 3 Chicane
+  { x: -210, z: -210 },   // CP 17: S-Bend around Rock Pillars
+  { x: -120, z: -110 },   // CP 18: Fast Canyon Straight
+  { x: -60, z: -30 },     // CP 19: Final S-Bend to Start Line
+];
 
 function generateDesertProps(mapWidth: number, mapDepth: number): PropData[] {
   const props: PropData[] = [];
-
   const random = (seed: number) => {
     const x = Math.sin(seed) * 10000;
     return x - Math.floor(x);
   };
 
-  for (let i = 0; i < NUM_PROPS; i++) {
-    const isTree = random(i * 5) < TREE_PROBABILITY;
-    const x = (random(i * 5 + 1) - 0.5) * mapWidth * PROPS_EDGE_MARGIN;
-    const z = (random(i * 5 + 2) - 0.5) * mapDepth * PROPS_EDGE_MARGIN;
+  let propId = 0;
 
-    // Keep spawn & start straight clear
-    if (Math.abs(x) < PROPS_CLEARING_RADIUS && Math.abs(z) < PROPS_CLEARING_RADIUS) continue;
+  // 1. Canyon Rock Formations & Markers along track
+  const trackCurve = new CatmullRomCurve3(
+    LEVEL2_TRACK_POINTS.map((p) => new Vector3(p.x, 0, p.z)),
+    true,
+    'catmullrom',
+    0.5
+  );
 
-    const yRot = random(i * 5 + 3) * Math.PI * 2;
-    const scaleBase = isTree ? 1.2 + random(i * 5 + 4) * 1.5 : 0.8 + random(i * 5 + 4) * 2.5;
+  const numTrackSamples = 120;
+  for (let i = 0; i < numTrackSamples; i++) {
+    const u = i / numTrackSamples;
+    const pt = trackCurve.getPointAt(u);
+    const tangent = trackCurve.getTangentAt(u).normalize();
+    
+    const normalX = -tangent.z;
+    const normalZ = tangent.x;
+
+    if (Math.hypot(pt.x, pt.z) < 45) continue;
+
+    const sideOffsets = [10.0, 20.0];
+    for (const offset of sideOffsets) {
+      // Left side boulder / shrub
+      const isLeftTree = random(propId * 5) < 0.15;
+      const leftDist = offset + (random(propId * 5 + 1) - 0.5) * 4.0;
+      const leftScale = isLeftTree ? 1.6 + random(propId * 5 + 2) * 1.8 : 1.2 + random(propId * 5 + 2) * 2.8;
+      
+      props.push({
+        id: `desert_corridor_L_${propId++}`,
+        type: isLeftTree ? 'tree' : 'rock',
+        position: [
+          pt.x + normalX * leftDist + tangent.x * (random(propId * 5 + 3) - 0.5) * 4.0,
+          0,
+          pt.z + normalZ * leftDist + tangent.z * (random(propId * 5 + 3) - 0.5) * 4.0,
+        ],
+        rotation: [0, random(propId * 5 + 4) * Math.PI * 2, 0],
+        scale: [leftScale, isLeftTree ? leftScale * 1.2 : leftScale * 0.9, leftScale],
+      });
+
+      // Right side boulder / shrub
+      const isRightTree = random(propId * 5) < 0.15;
+      const rightDist = offset + (random(propId * 5 + 1) - 0.5) * 4.0;
+      const rightScale = isRightTree ? 1.6 + random(propId * 5 + 2) * 1.8 : 1.2 + random(propId * 5 + 2) * 2.8;
+
+      props.push({
+        id: `desert_corridor_R_${propId++}`,
+        type: isRightTree ? 'tree' : 'rock',
+        position: [
+          pt.x - normalX * rightDist + tangent.x * (random(propId * 5 + 3) - 0.5) * 4.0,
+          0,
+          pt.z - normalZ * rightDist + tangent.z * (random(propId * 5 + 3) - 0.5) * 4.0,
+        ],
+        rotation: [0, random(propId * 5 + 4) * Math.PI * 2, 0],
+        scale: [rightScale, isRightTree ? rightScale * 1.2 : rightScale * 0.9, rightScale],
+      });
+    }
+  }
+
+  // 2. Wide Desert Basin Boulders & Shrubs
+  const NUM_BG_PROPS = 1000;
+  for (let i = 0; i < NUM_BG_PROPS; i++) {
+    const isTree = random(propId * 5) < 0.12;
+    const x = (random(propId * 5 + 1) - 0.5) * mapWidth * 0.75;
+    const z = (random(propId * 5 + 2) - 0.5) * mapDepth * 0.75;
+
+    if (Math.hypot(x, z) < 45) continue;
+
+    const yRot = random(propId * 5 + 3) * Math.PI * 2;
+    const scaleBase = isTree ? 1.4 + random(propId * 5 + 4) * 1.8 : 1.0 + random(propId * 5 + 4) * 3.2;
 
     props.push({
-      id: `desert_prop_${i}`,
+      id: `desert_bg_${propId++}`,
       type: isTree ? 'tree' : 'rock',
       position: [x, 0, z],
       rotation: [0, yRot, 0],
@@ -40,56 +118,65 @@ export const LEVEL2_DESERT_DATA: LevelData = {
   id: 'desert_canyon',
   name: 'Desert Canyon',
   terrainBase: {
-    width: 800,
-    depth: 800,
-    subdivisions: 256,
-    amplitude: 38,
-    frequency: 0.0035,
+    width: 2000,
+    depth: 2000,
+    subdivisions: 384,
+    amplitude: 20,
+    frequency: 0.002,
     octaves: 4,
     lacunarity: 2.1,
     persistence: 0.42,
     seed: 98765,
   },
   track: {
-    width: 28,
-    falloff: 45,
-    targetHeight: 1.0,
-    points: [
-      { x: 0, z: 0 },         // Checkpoint 0: Start / Finish Gantry
-      { x: 110, z: 40 },      // Checkpoint 1: Canyon Entry
-      { x: 210, z: 100 },     // Checkpoint 2: Sand Dunes Pass
-      { x: 240, z: 190 },     // Checkpoint 3: Eastern Plateau Bend
-      { x: 120, z: 250 },     // Checkpoint 4: Gorge Descent
-      { x: -50, z: 230 },     // Checkpoint 5: Dry Riverbed Sweep
-      { x: -190, z: 150 },    // Checkpoint 6: Rocky Valley Hairpin
-      { x: -230, z: 10 },     // Checkpoint 7: Western Ridge Climb
-      { x: -160, z: -130 },   // Checkpoint 8: North Dunes Crest
-      { x: -70, z: -110 },    // Checkpoint 9: Canyon Chicane
-      { x: -70, z: -25 },     // Checkpoint 10: Start Straight Approach
-    ],
+    width: 12.0,
+    falloff: 12.0,
+    targetHeight: 0,
+    points: LEVEL2_TRACK_POINTS,
   },
   heightModifiers: [
     {
       x: 0,
       z: 0,
-      radius: 65,
-      absoluteHeight: 1.0,
-      shape: 'sphere', // Level spawn & start straight
+      radius: 80,
+      absoluteHeight: 8.0,
+      shape: 'sphere', // Level spawn & start straight foundation
     },
     {
-      x: -220,
-      z: -220,
-      radius: 180,
+      x: 550,
+      z: -450,
+      radius: 380,
+      heightDelta: 75,
+      shape: 'smooth', // Grand North-East Canyon Mesa
+    },
+    {
+      x: -520,
+      z: -480,
+      radius: 400,
       heightDelta: 80,
-      shape: 'sphere',
+      shape: 'smooth', // Great North-West Mesa Massif
     },
     {
-      x: 200,
-      z: -200,
-      radius: 150,
-      heightDelta: 60,
-      shape: 'sphere',
+      x: 520,
+      z: 500,
+      radius: 360,
+      heightDelta: 65,
+      shape: 'smooth', // South-East Red Rock Ridge
+    },
+    {
+      x: -500,
+      z: 480,
+      radius: 380,
+      heightDelta: 70,
+      shape: 'smooth', // South-West High Dunes
+    },
+    {
+      x: -560,
+      z: 50,
+      radius: 320,
+      heightDelta: 55,
+      shape: 'smooth', // Western Canyon Buttress
     },
   ],
-  props: generateDesertProps(800, 800),
+  props: generateDesertProps(2000, 2000),
 };

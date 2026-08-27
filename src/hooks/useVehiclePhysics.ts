@@ -6,6 +6,7 @@ import { Vector3, Quaternion, Euler, Object3D } from 'three';
 import type { VehicleConfig, SurfaceType } from '@/types/vehicle';
 import { useInputUpdater } from '@/hooks/useInput';
 import { useGameStore } from '@/store/gameStore';
+import { useRacingStore } from '@/store/racingStore';
 import { DEFAULT_VEHICLE_CONFIG, MS_TO_KMH, MAX_DELTA } from '@/config/vehicle';
 import { updateGearbox, calculateRPM } from '@/utils/physics/powertrain';
 import { applyDrivetrain } from '@/utils/physics/drivetrain';
@@ -46,10 +47,19 @@ export function useVehiclePhysics(
   const prevGearRef = useRef<number>(1);
   const prevSurfaceRef = useRef<SurfaceType>('tarmac');
   const prevSpeedKmhRef = useRef<number>(0);
+  const currentRpmRef = useRef<number>(1000);
+  const isAirborneRef = useRef<boolean>(false);
+  const settleFramesRef = useRef<number>(0);
   const vehicleControllerRef = useRef<InstanceType<
     typeof rapier.DynamicRayCastVehicleController
   > | null>(null);
   const getInput = useInputUpdater();
+
+  useEffect(() => {
+    settleFramesRef.current = 0;
+    currentRpmRef.current = 1000;
+    isAirborneRef.current = false;
+  }, [levelPreset.id, config]);
 
   // Initialize the vehicle controller
   useEffect(() => {
@@ -95,9 +105,19 @@ export function useVehiclePhysics(
 
   // Frame update: apply forces, read state
   useFrame((_, delta) => {
+    if (useGameStore.getState().gameState !== 'playing') return;
+
     const controller = vehicleControllerRef.current;
     const body = chassisRef.current;
     if (!controller || !body) return;
+
+    // Settle vehicle physics on ground before dismissing loading screen
+    if (!useGameStore.getState().isSceneReady) {
+      settleFramesRef.current += 1;
+      if (settleFramesRef.current >= 15) {
+        useGameStore.getState().setSceneReady(true);
+      }
+    }
 
     const dt = Math.min(delta, MAX_DELTA);
     const input = getInput(dt);
@@ -126,7 +146,14 @@ export function useVehiclePhysics(
 
     // Automatic Gearbox Logic
     const state = useGameStore.getState();
-    const currentGear = updateGearbox(speedKmh, forwardSpeed, input, state.gear);
+    const isCountingDown = state.gameMode === 'timeattack' && useRacingStore.getState().raceStatus === 'countdown';
+
+    if (isCountingDown) {
+      body.setLinvel({ x: 0, y: Math.min(0, linvel.y), z: 0 }, true);
+      body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    }
+
+    const currentGear = updateGearbox(speedKmh, forwardSpeed, input, state.gear, isAirborneRef.current);
 
     if (currentGear !== prevGearRef.current) {
       emitGameEvent('gear_shifted', {
@@ -171,6 +198,17 @@ export function useVehiclePhysics(
     // --- 4. UPDATE RAPIER VEHICLE ---
     controller.updateVehicle(dt);
 
+    // --- 4.1. GROUND CONTACT & AIRBORNE TELEMETRY ---
+    let groundedCount = 0;
+    for (let i = 0; i < config.wheels.length; i++) {
+      if (controller.wheelIsInContact ? controller.wheelIsInContact(i) : true) {
+        groundedCount++;
+      }
+    }
+    const groundedRatio = groundedCount / Math.max(1, config.wheels.length);
+    const isAirborne = groundedCount === 0;
+    isAirborneRef.current = isAirborne;
+
     // --- 4.5. GAMEPAD HAPTIC RUMBLE FEEDBACK ---
     const speedDelta = prevSpeedKmhRef.current - speedKmh;
     if (speedDelta > 25 && prevSpeedKmhRef.current > 30) {
@@ -188,11 +226,19 @@ export function useVehiclePhysics(
     // --- 5. APPLY AERODYNAMICS & EXTERNAL FORCES ---
     applyAerodynamics(body, config, forwardSpeed, _velocity, pos.y, dt);
 
-    // --- 6. SYNC VISUALS ---
-    syncWheelVisuals(controller, wheelRefs, config, forwardSpeed, dt);
+    // --- 6. UPDATE TELEMETRY & ENGINE RPM ---
+    const targetRpm = calculateRPM(speedKmh, currentGear, input, {
+      currentRpm: currentRpmRef.current,
+      dt,
+      groundedRatio,
+      isAirborne,
+    });
+    currentRpmRef.current = targetRpm;
+
+    // --- 6.5. SYNC VISUALS ---
+    syncWheelVisuals(controller, wheelRefs, config, forwardSpeed, dt, targetRpm, currentGear);
 
     // --- 7. UPDATE TELEMETRY & HUD ---
-    const targetRpm = calculateRPM(speedKmh, currentGear, input);
     _euler.setFromQuaternion(_quat, 'YXZ');
 
     // Batch all state updates into one call
@@ -228,12 +274,19 @@ export function useVehiclePhysics(
       body.setLinvel({ x: 0, y: 0, z: 0 }, true);
       body.setAngvel({ x: 0, y: 0, z: 0 }, true);
 
+      currentRpmRef.current = 1000;
+      isAirborneRef.current = false;
+
       emitGameEvent('vehicle_reset', {
         reason: pos.y < fallResetY ? 'out_of_bounds' : 'manual',
       });
 
       if (resetState.pendingReset) {
         resetState.triggerReset(false);
+      }
+
+      if (resetState.gameMode === 'timeattack') {
+        useRacingStore.getState().startCountdown();
       }
     }
   });

@@ -1,8 +1,8 @@
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Text } from '@react-three/drei';
+import { Text, useTexture } from '@react-three/drei';
 import { RigidBody, CuboidCollider } from '@react-three/rapier';
-import type { Mesh } from 'three';
+import { RepeatWrapping, DoubleSide, type Mesh } from 'three';
 import { useRacingStore } from '@/store/racingStore';
 import type { CheckpointData } from '@/types/racing';
 
@@ -12,18 +12,17 @@ interface StartFinishGantryProps {
 }
 
 /**
- * Procedural Rally Teardrop / Feather Flag component.
+ * Procedural Rally Teardrop / Feather Flag component with realistic AI-generated fabric texture.
  */
 function RallyFlag({
   position,
   rotationY = 0,
-  flagColor = '#ffb700',
 }: {
   readonly position: [number, number, number];
   readonly rotationY?: number;
-  readonly flagColor?: string;
 }) {
   const flagMeshRef = useRef<Mesh>(null);
+  const flagTexture = useTexture('/textures/race/flag_sponsor.jpg');
 
   useFrame(({ clock }) => {
     if (flagMeshRef.current) {
@@ -36,69 +35,58 @@ function RallyFlag({
 
   return (
     <group position={position} rotation={[0, rotationY, 0]}>
-      {/* Base stand */}
-      <mesh position={[0, 0.08, 0]}>
-        <cylinderGeometry args={[0.45, 0.5, 0.16, 12]} />
+      {/* Heavy base stand */}
+      <mesh position={[0, 0.08, 0]} castShadow>
+        <cylinderGeometry args={[0.5, 0.55, 0.16, 16]} />
         <meshStandardMaterial color="#1a1a1a" roughness={0.7} metalness={0.4} />
       </mesh>
 
-      {/* Flag pole (curved tip) */}
-      <mesh position={[0, 2.6, 0]}>
+      {/* Flag curved pole */}
+      <mesh position={[0, 2.6, 0]} castShadow>
         <cylinderGeometry args={[0.04, 0.06, 5.2, 8]} />
         <meshStandardMaterial color="#333333" metalness={0.9} roughness={0.2} />
       </mesh>
 
-      {/* Flag fabric */}
-      <mesh ref={flagMeshRef} position={[0.45, 3.2, 0]}>
-        <planeGeometry args={[0.85, 3.2, 4, 8]} />
+      {/* Realistic textured flag fabric */}
+      <mesh ref={flagMeshRef} position={[0.55, 3.2, 0]} castShadow>
+        <planeGeometry args={[1.1, 3.4, 6, 10]} />
         <meshStandardMaterial
-          color={flagColor}
+          map={flagTexture}
           roughness={0.6}
-          side={2}
+          side={DoubleSide}
         />
-      </mesh>
-      {/* Flag inner stripe / logo strip */}
-      <mesh position={[0.45, 3.2, 0.01]}>
-        <planeGeometry args={[0.3, 2.8]} />
-        <meshBasicMaterial color="#ffffff" side={2} />
       </mesh>
     </group>
   );
 }
 
 /**
- * Concrete & plastic Rally Safety Barrier block with warning chevrons.
+ * Photorealistic Plastic/Concrete Rally Safety Barrier block.
  */
 function SafetyBarrier({
   position,
   rotationY = 0,
-  isRed = true,
 }: {
   readonly position: [number, number, number];
   readonly rotationY?: number;
-  readonly isRed?: boolean;
 }) {
-  const color = isRed ? '#d32f2f' : '#f5f5f5';
+  const barrierTexture = useTexture('/textures/race/safety_barrier.jpg');
 
   return (
     <group position={position} rotation={[0, rotationY, 0]}>
-      {/* Main barrier body */}
-      <mesh position={[0, 0.5, 0]} castShadow receiveShadow>
-        <boxGeometry args={[2.2, 1.0, 0.65]} />
-        <meshStandardMaterial color={color} roughness={0.8} />
-      </mesh>
       {/* Base footing */}
       <mesh position={[0, 0.1, 0]}>
         <boxGeometry args={[2.4, 0.2, 0.8]} />
-        <meshStandardMaterial color="#222222" roughness={0.9} />
+        <meshStandardMaterial color="#212529" roughness={0.9} />
       </mesh>
-      {/* Reflective top stripe */}
-      <mesh position={[0, 0.85, 0]}>
-        <boxGeometry args={[2.22, 0.12, 0.67]} />
+
+      {/* Main barrier body with high-res texture */}
+      <mesh position={[0, 0.65, 0]} castShadow receiveShadow>
+        <boxGeometry args={[2.2, 1.1, 0.68]} />
         <meshStandardMaterial
-          color={isRed ? '#ffc107' : '#212121'}
-          roughness={0.3}
-          metalness={0.2}
+          map={barrierTexture}
+          roughness={0.65}
+          metalness={0.05}
         />
       </mesh>
     </group>
@@ -108,7 +96,13 @@ function SafetyBarrier({
 /**
  * Rally Timing & Marshall Podium on the side of the start line.
  */
-function MarshallPodium({ position, rotationY = 0 }: { readonly position: [number, number, number]; readonly rotationY?: number }) {
+function MarshallPodium({
+  position,
+  rotationY = 0,
+}: {
+  readonly position: [number, number, number];
+  readonly rotationY?: number;
+}) {
   return (
     <group position={position} rotation={[0, rotationY, 0]}>
       {/* Platform */}
@@ -152,26 +146,58 @@ function MarshallPodium({ position, rotationY = 0 }: { readonly position: [numbe
 /**
  * 3D Rally Start/Finish Gantry & Starting Area Scenery.
  * Renders metallic truss architecture, start lights, digital timing screen,
- * ground start grid decals, sponsor banners, flags, and safety barriers.
+ * ground start grid with realistic AI-generated asphalt decals, sponsor banners, flags, and safety barriers.
+ * Free of arcade sky beacons or unnatural glowing ground circles.
  */
-export function StartFinishGantry({ data, isTarget }: StartFinishGantryProps) {
+export function StartFinishGantry({ data }: StartFinishGantryProps) {
   const raceStatus = useRacingStore((s) => s.raceStatus);
+  const countdown = useRacingStore((s) => s.countdown);
   const currentLapTime = useRacingStore((s) => s.currentLapTime);
   const bestLapTime = useRacingStore((s) => s.bestLapTime);
 
   const [x, y, z] = data.position;
   const width = data.width;
   const halfWidth = width / 2;
-  const pillarHeight = 8.4;
-  const topBarY = 8.15;
+  const pillarHeight = 8.6;
+  const topBarY = 8.35;
   const botBarY = 6.45;
-  const bannerCenterY = 7.3;
-  const bannerHeight = 1.5;
-  const ledScreenY = 5.65;
-  const startLightsY = 4.85;
+  const bannerCenterY = 7.4;
+  const bannerHeight = 1.8;
+  const bannerWidth = width * 0.82;
+  const ledScreenY = 5.55;
+  const startLightsY = 4.75;
 
-  const isRacing = raceStatus === 'racing';
-  const startLightColor = isRacing ? '#00e676' : '#ff1744';
+  const isRacing = raceStatus === 'racing' || countdown === 0;
+
+  const getLightColor = (index: number) => {
+    if (isRacing) {
+      return '#00e676'; // Bright green when racing or START
+    }
+    if (raceStatus === 'countdown' && countdown !== null) {
+      if (countdown === 3 && index < 3) return '#ff1744';
+      if (countdown === 2 && index < 4) return '#ff1744';
+      if (countdown === 1) return '#ff1744';
+      return '#1a2228'; // Unlit lamp
+    }
+    return '#ff1744';
+  };
+
+  // Load realistic AI-generated textures
+  const carbonTexture = useTexture('/textures/race/carbon_fiber.jpg');
+  const sponsorTexture = useTexture('/textures/race/sponsor_strip.jpg');
+  const hazardTexture = useTexture('/textures/race/hazard_pad.jpg');
+
+  useMemo(() => {
+    carbonTexture.wrapS = RepeatWrapping;
+    carbonTexture.wrapT = RepeatWrapping;
+    carbonTexture.repeat.set(6, 1);
+    carbonTexture.needsUpdate = true;
+
+    hazardTexture.wrapS = RepeatWrapping;
+    hazardTexture.wrapT = RepeatWrapping;
+    hazardTexture.repeat.set(2, 1);
+    hazardTexture.needsUpdate = true;
+  }, [carbonTexture, hazardTexture]);
 
   // Format timer for display on the gantry board
   const timerText = useMemo(() => {
@@ -187,15 +213,6 @@ export function StartFinishGantry({ data, isTarget }: StartFinishGantryProps) {
     const secs = (bestLapTime % 60).toFixed(2).padStart(5, '0');
     return `BEST ${mins}:${secs}`;
   }, [bestLapTime]);
-
-  const beaconMeshRef = useRef<Mesh>(null);
-  useFrame(({ clock }) => {
-    if (beaconMeshRef.current && isTarget) {
-      const t = clock.getElapsedTime();
-      const scale = 1 + Math.sin(t * 4) * 0.08;
-      beaconMeshRef.current.scale.set(scale, 1, scale);
-    }
-  });
 
   return (
     <group position={[x, y, z]} rotation={[0, data.rotationY, 0]}>
@@ -215,110 +232,48 @@ export function StartFinishGantry({ data, isTarget }: StartFinishGantryProps) {
         />
         {/* Overhead Truss & Header Banner */}
         <CuboidCollider
-          args={[(width + 1.2) / 2, 1.0, 0.6]}
+          args={[(width + 1.2) / 2, 1.1, 0.6]}
           position={[0, bannerCenterY, 0]}
           friction={0.8}
         />
 
         {/* Left Side Safety Barriers */}
-        <CuboidCollider args={[1.1, 0.5, 0.35]} position={[-halfWidth - 1.2, 0.5, -3.5]} friction={0.8} />
-        <CuboidCollider args={[1.1, 0.5, 0.35]} position={[-halfWidth - 1.2, 0.5, -1.2]} friction={0.8} />
-        <CuboidCollider args={[1.1, 0.5, 0.35]} position={[-halfWidth - 1.2, 0.5, 1.2]} friction={0.8} />
-        <CuboidCollider args={[1.1, 0.5, 0.35]} position={[-halfWidth - 1.2, 0.5, 3.5]} friction={0.8} />
+        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[-halfWidth - 1.2, 0.6, -3.5]} friction={0.8} />
+        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[-halfWidth - 1.2, 0.6, -1.2]} friction={0.8} />
+        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[-halfWidth - 1.2, 0.6, 1.2]} friction={0.8} />
+        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[-halfWidth - 1.2, 0.6, 3.5]} friction={0.8} />
 
         {/* Right Side Safety Barriers */}
-        <CuboidCollider args={[1.1, 0.5, 0.35]} position={[halfWidth + 1.2, 0.5, -3.5]} friction={0.8} />
-        <CuboidCollider args={[1.1, 0.5, 0.35]} position={[halfWidth + 1.2, 0.5, -1.2]} friction={0.8} />
-        <CuboidCollider args={[1.1, 0.5, 0.35]} position={[halfWidth + 1.2, 0.5, 1.2]} friction={0.8} />
-        <CuboidCollider args={[1.1, 0.5, 0.35]} position={[halfWidth + 1.2, 0.5, 3.5]} friction={0.8} />
+        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[halfWidth + 1.2, 0.6, -3.5]} friction={0.8} />
+        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[halfWidth + 1.2, 0.6, -1.2]} friction={0.8} />
+        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[halfWidth + 1.2, 0.6, 1.2]} friction={0.8} />
+        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[halfWidth + 1.2, 0.6, 3.5]} friction={0.8} />
 
         {/* Marshall Timing Podium */}
         <CuboidCollider args={[1.6, 1.4, 1.2]} position={[halfWidth + 4.8, 1.4, 0]} friction={0.8} />
       </RigidBody>
 
-      {/* ─── 1. GROUND START LINE & GRID BOXES ─── */}
-      {/* Start Line Tarmac Base Strip */}
-      <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[width, 3.2]} />
-        <meshStandardMaterial color="#1a1c1e" roughness={0.9} />
-      </mesh>
-
-      {/* Main Checkered Start/Finish Line */}
-      <group position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        {/* White start line bar */}
-        <mesh position={[0, 0, 0]}>
-          <planeGeometry args={[width * 0.95, 0.7]} />
-          <meshBasicMaterial color="#ffffff" />
-        </mesh>
-        {/* Black checker overlay blocks */}
-        {Array.from({ length: 14 }).map((_, idx) => {
-          const step = (width * 0.9) / 14;
-          const posX = -width * 0.45 + idx * step + step / 2;
-          return idx % 2 === 0 ? (
-            <mesh key={idx} position={[posX, 0, 0.002]}>
-              <planeGeometry args={[step, 0.7]} />
-              <meshBasicMaterial color="#111111" />
-            </mesh>
-          ) : null;
-        })}
-      </group>
-
-      {/* Yellow Starting Grid Launch Box (Behind start line) */}
-      <group position={[0, 0.025, -3.2]} rotation={[-Math.PI / 2, 0, 0]}>
-        {/* Left grid box border */}
-        <mesh position={[-2.2, 0, 0]}>
-          <planeGeometry args={[0.25, 4.5]} />
-          <meshBasicMaterial color="#ffc107" />
-        </mesh>
-        {/* Right grid box border */}
-        <mesh position={[2.2, 0, 0]}>
-          <planeGeometry args={[0.25, 4.5]} />
-          <meshBasicMaterial color="#ffc107" />
-        </mesh>
-        {/* Front launch limit bar */}
-        <mesh position={[0, 2.2, 0]}>
-          <planeGeometry args={[4.65, 0.25]} />
-          <meshBasicMaterial color="#ffc107" />
-        </mesh>
-        {/* Rear launch limit bar */}
-        <mesh position={[0, -2.2, 0]}>
-          <planeGeometry args={[4.65, 0.25]} />
-          <meshBasicMaterial color="#ffc107" />
-        </mesh>
-        {/* Launch Arrow */}
-        <mesh position={[0, 0, 0]}>
-          <planeGeometry args={[1.2, 1.6]} />
-          <meshBasicMaterial color="#ffc107" transparent opacity={0.65} />
-        </mesh>
-      </group>
-
-      {/* Embedded Timing Sensor Loop Wires */}
-      <mesh position={[0, 0.035, 1.2]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[width * 0.9, 0.1]} />
-        <meshBasicMaterial color="#ff3d00" />
-      </mesh>
-      <mesh position={[0, 0.035, -1.2]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[width * 0.9, 0.1]} />
-        <meshBasicMaterial color="#ff3d00" />
-      </mesh>
-
-      {/* ─── 2. GANTRY VERTICAL TRUSS PILLARS ─── */}
+      {/* ─── 1. GANTRY VERTICAL TRUSS PILLARS ─── */}
       {/* Left Pillar Assembly */}
       <group position={[-halfWidth, 0, 0]}>
-        {/* Sub-ground Foundation / Anchor (prevent floating on slopes) */}
+        {/* Sub-ground Foundation Anchor */}
         <mesh position={[0, -1.5, 0]}>
           <cylinderGeometry args={[1.1, 1.2, 3.5, 12]} />
-          <meshStandardMaterial color="#2e3338" roughness={0.9} />
+          <meshStandardMaterial color="#212529" roughness={0.9} />
         </mesh>
 
         {/* Hazard Striped Crash Base Pad */}
-        <mesh position={[0, 0.7, 0]} castShadow>
-          <boxGeometry args={[1.6, 1.4, 1.6]} />
-          <meshStandardMaterial color="#ffb700" roughness={0.5} metalness={0.2} />
+        <mesh position={[0, 0.75, 0]} castShadow receiveShadow>
+          <boxGeometry args={[1.6, 1.5, 1.6]} />
+          <meshStandardMaterial
+            map={hazardTexture}
+            roughness={0.7}
+            metalness={0.1}
+          />
         </mesh>
-        {/* Dark accent band on base */}
-        <mesh position={[0, 0.7, 0]}>
-          <boxGeometry args={[1.62, 0.4, 1.62]} />
+        {/* Dark accent cap */}
+        <mesh position={[0, 1.52, 0]}>
+          <boxGeometry args={[1.64, 0.08, 1.64]} />
           <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
         </mesh>
 
@@ -327,42 +282,40 @@ export function StartFinishGantry({ data, isTarget }: StartFinishGantryProps) {
           ([-0.38, 0.38] as const).map((oz) => (
             <mesh key={`lp_${ox}_${oz}`} position={[ox, pillarHeight / 2, oz]} castShadow>
               <cylinderGeometry args={[0.07, 0.07, pillarHeight, 8]} />
-              <meshStandardMaterial color="#b0bec5" metalness={0.9} roughness={0.25} />
+              <meshStandardMaterial color="#cfd8dc" metalness={0.9} roughness={0.25} />
             </mesh>
           )),
         )}
 
         {/* Diagonal Truss Cross-Braces */}
         {Array.from({ length: 6 }).map((_, idx) => (
-          <mesh key={`diag_l_${idx}`} position={[0, 1.8 + idx * 1.0, 0]} rotation={[0.45, 0, 0]}>
+          <mesh key={`diag_l_${idx}`} position={[0, 2.0 + idx * 1.0, 0]} rotation={[0.45, 0, 0]}>
             <cylinderGeometry args={[0.035, 0.035, 1.2, 6]} />
             <meshStandardMaterial color="#78909c" metalness={0.8} roughness={0.35} />
           </mesh>
         ))}
-
-        {/* Glowing Neon Strip on Pillar */}
-        <mesh position={[0.45, pillarHeight / 2, 0]}>
-          <boxGeometry args={[0.05, pillarHeight - 1.6, 0.1]} />
-          <meshBasicMaterial color={isRacing ? '#00e676' : '#ffb700'} />
-        </mesh>
       </group>
 
       {/* Right Pillar Assembly */}
       <group position={[halfWidth, 0, 0]}>
-        {/* Sub-ground Foundation / Anchor */}
+        {/* Sub-ground Foundation */}
         <mesh position={[0, -1.5, 0]}>
           <cylinderGeometry args={[1.1, 1.2, 3.5, 12]} />
-          <meshStandardMaterial color="#2e3338" roughness={0.9} />
+          <meshStandardMaterial color="#212529" roughness={0.9} />
         </mesh>
 
         {/* Hazard Striped Crash Base Pad */}
-        <mesh position={[0, 0.7, 0]} castShadow>
-          <boxGeometry args={[1.6, 1.4, 1.6]} />
-          <meshStandardMaterial color="#ffb700" roughness={0.5} metalness={0.2} />
+        <mesh position={[0, 0.75, 0]} castShadow receiveShadow>
+          <boxGeometry args={[1.6, 1.5, 1.6]} />
+          <meshStandardMaterial
+            map={hazardTexture}
+            roughness={0.7}
+            metalness={0.1}
+          />
         </mesh>
-        {/* Dark accent band on base */}
-        <mesh position={[0, 0.7, 0]}>
-          <boxGeometry args={[1.62, 0.4, 1.62]} />
+        {/* Dark accent cap */}
+        <mesh position={[0, 1.52, 0]}>
+          <boxGeometry args={[1.64, 0.08, 1.64]} />
           <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
         </mesh>
 
@@ -371,35 +324,29 @@ export function StartFinishGantry({ data, isTarget }: StartFinishGantryProps) {
           ([-0.38, 0.38] as const).map((oz) => (
             <mesh key={`rp_${ox}_${oz}`} position={[ox, pillarHeight / 2, oz]} castShadow>
               <cylinderGeometry args={[0.07, 0.07, pillarHeight, 8]} />
-              <meshStandardMaterial color="#b0bec5" metalness={0.9} roughness={0.25} />
+              <meshStandardMaterial color="#cfd8dc" metalness={0.9} roughness={0.25} />
             </mesh>
           )),
         )}
 
         {/* Diagonal Truss Cross-Braces */}
         {Array.from({ length: 6 }).map((_, idx) => (
-          <mesh key={`diag_r_${idx}`} position={[0, 1.8 + idx * 1.0, 0]} rotation={[-0.45, 0, 0]}>
+          <mesh key={`diag_r_${idx}`} position={[0, 2.0 + idx * 1.0, 0]} rotation={[-0.45, 0, 0]}>
             <cylinderGeometry args={[0.035, 0.035, 1.2, 6]} />
             <meshStandardMaterial color="#78909c" metalness={0.8} roughness={0.35} />
           </mesh>
         ))}
-
-        {/* Glowing Neon Strip on Pillar */}
-        <mesh position={[-0.45, pillarHeight / 2, 0]}>
-          <boxGeometry args={[0.05, pillarHeight - 1.6, 0.1]} />
-          <meshBasicMaterial color={isRacing ? '#00e676' : '#ffb700'} />
-        </mesh>
       </group>
 
-      {/* ─── 3. OVERHEAD TRUSS CROSSBEAMS (Framing the banner above & below) ─── */}
-      {/* Top Crossbar Tubes (horizontal along X axis above banner top edge) */}
+      {/* ─── 3. OVERHEAD TRUSS CROSSBEAMS ─── */}
+      {/* Top Crossbar Tubes */}
       {([-0.38, 0.38] as const).map((oz) => (
         <mesh key={`top_bar_${oz}`} position={[0, topBarY, oz]} rotation={[0, 0, Math.PI / 2]}>
           <cylinderGeometry args={[0.08, 0.08, width + 1.2, 8]} />
           <meshStandardMaterial color="#cfd8dc" metalness={0.9} roughness={0.2} />
         </mesh>
       ))}
-      {/* Bottom Crossbar Tubes (horizontal along X axis below banner bottom edge) */}
+      {/* Bottom Crossbar Tubes */}
       {([-0.38, 0.38] as const).map((oz) => (
         <mesh key={`bot_bar_${oz}`} position={[0, botBarY, oz]} rotation={[0, 0, Math.PI / 2]}>
           <cylinderGeometry args={[0.08, 0.08, width + 1.2, 8]} />
@@ -407,128 +354,141 @@ export function StartFinishGantry({ data, isTarget }: StartFinishGantryProps) {
         </mesh>
       ))}
 
-      {/* ─── 4. RALLY SPONSOR / CHAMPIONSHIP HEADER BANNER ─── */}
+      {/* ─── 4. REALISTIC WRC HEADER BANNER (NO STRETCHING, NO FAKE TIMES) ─── */}
       <group position={[0, bannerCenterY, 0]}>
-        {/* Main Banner Board Chassis (mounted flush inside the truss frame) */}
+        {/* Main Banner Board Chassis */}
         <mesh castShadow>
-          <boxGeometry args={[width * 0.84, bannerHeight, 0.45]} />
-          <meshStandardMaterial color="#10151c" roughness={0.3} metalness={0.8} />
+          <boxGeometry args={[bannerWidth, bannerHeight, 0.42]} />
+          <meshStandardMaterial color="#14181f" roughness={0.4} metalness={0.7} />
         </mesh>
 
         {/* Front Banner Face (facing oncoming vehicles approaching from -Z) */}
-        <group position={[0, 0, -0.23]} rotation={[0, Math.PI, 0]}>
-          {/* Dark Background Plate */}
+        <group position={[0, 0, -0.215]} rotation={[0, Math.PI, 0]}>
+          {/* Carbon Fiber Background */}
           <mesh>
-            <planeGeometry args={[width * 0.82, bannerHeight - 0.1]} />
+            <planeGeometry args={[bannerWidth - 0.1, bannerHeight - 0.1]} />
             <meshStandardMaterial
-              color="#0d1b2a"
+              map={carbonTexture}
               roughness={0.4}
-              metalness={0.3}
+              metalness={0.2}
             />
           </mesh>
 
-          {/* Clean Yellow Accent Border Frame */}
-          {/* Top border bar */}
-          <mesh position={[0, (bannerHeight - 0.1) / 2 - 0.04, 0.005]}>
-            <planeGeometry args={[width * 0.8, 0.035]} />
+          {/* Yellow Framing Borders */}
+          <mesh position={[0, (bannerHeight - 0.1) / 2 - 0.035, 0.005]}>
+            <planeGeometry args={[bannerWidth - 0.1, 0.06]} />
             <meshBasicMaterial color="#ffb700" />
           </mesh>
-          {/* Bottom border bar */}
-          <mesh position={[0, -(bannerHeight - 0.1) / 2 + 0.04, 0.005]}>
-            <planeGeometry args={[width * 0.8, 0.035]} />
-            <meshBasicMaterial color="#ffb700" />
-          </mesh>
-          {/* Left border bar */}
-          <mesh position={[-(width * 0.8) / 2 + 0.0175, 0, 0.005]}>
-            <planeGeometry args={[0.035, bannerHeight - 0.18]} />
-            <meshBasicMaterial color="#ffb700" />
-          </mesh>
-          {/* Right border bar */}
-          <mesh position={[(width * 0.8) / 2 - 0.0175, 0, 0.005]}>
-            <planeGeometry args={[0.035, bannerHeight - 0.18]} />
+          <mesh position={[0, -(bannerHeight - 0.1) / 2 + 0.035, 0.005]}>
+            <planeGeometry args={[bannerWidth - 0.1, 0.06]} />
             <meshBasicMaterial color="#ffb700" />
           </mesh>
 
-          {/* Front Banner Typography (completely unobstructed by truss crossbeams) */}
+          {/* Left & Right Chevron Accents */}
+          {([-1, 1] as const).map((side) => (
+            <group key={`sf_chev_${side}`} position={[side * (bannerWidth * 0.44), 0, 0.006]}>
+              <mesh>
+                <planeGeometry args={[1.1, bannerHeight - 0.2]} />
+                <meshBasicMaterial color="#ffb700" />
+              </mesh>
+              <mesh position={[-side * 0.18, 0, 0.001]} rotation={[0, 0, side * 0.35]}>
+                <planeGeometry args={[0.4, bannerHeight * 0.8]} />
+                <meshBasicMaterial color="#14181f" />
+              </mesh>
+            </group>
+          ))}
+
+          {/* Rally Sponsor Ribbon across bottom */}
+          <mesh position={[0, -0.44, 0.006]}>
+            <planeGeometry args={[bannerWidth * 0.78, 0.38]} />
+            <meshStandardMaterial
+              map={sponsorTexture}
+              roughness={0.5}
+            />
+          </mesh>
+
+          {/* Crisp 3D Vector Typography */}
           <Text
-            position={[0, 0.22, 0.01]}
-            fontSize={0.52}
+            position={[0, 0.34, 0.01]}
+            fontSize={0.65}
             color="#ffb700"
             anchorX="center"
             anchorY="middle"
-            outlineWidth={0.02}
+            outlineWidth={0.035}
             outlineColor="#000000"
+            letterSpacing={0.08}
           >
             START / FINISH
           </Text>
 
           <Text
-            position={[0, -0.28, 0.01]}
-            fontSize={0.26}
-            color="#00d4ff"
+            position={[0, -0.04, 0.01]}
+            fontSize={0.30}
+            color="#ffffff"
             anchorX="center"
             anchorY="middle"
+            letterSpacing={0.06}
           >
             ★ OPEN RALLY CHAMPIONSHIP ★
           </Text>
         </group>
 
-        {/* Rear Banner Face (facing finished/returning vehicles looking towards -Z) */}
-        <group position={[0, 0, 0.23]} rotation={[0, 0, 0]}>
-          {/* Dark Background Plate */}
+        {/* Rear Banner Face */}
+        <group position={[0, 0, 0.215]} rotation={[0, 0, 0]}>
           <mesh>
-            <planeGeometry args={[width * 0.82, bannerHeight - 0.1]} />
-            <meshStandardMaterial color="#0d1b2a" roughness={0.4} />
+            <planeGeometry args={[bannerWidth - 0.1, bannerHeight - 0.1]} />
+            <meshStandardMaterial
+              map={carbonTexture}
+              roughness={0.4}
+              metalness={0.2}
+            />
           </mesh>
 
-          {/* Clean Yellow Accent Border Frame */}
-          {/* Top border bar */}
-          <mesh position={[0, (bannerHeight - 0.1) / 2 - 0.04, 0.005]}>
-            <planeGeometry args={[width * 0.8, 0.035]} />
+          <mesh position={[0, (bannerHeight - 0.1) / 2 - 0.035, 0.005]}>
+            <planeGeometry args={[bannerWidth - 0.1, 0.06]} />
             <meshBasicMaterial color="#ffb700" />
           </mesh>
-          {/* Bottom border bar */}
-          <mesh position={[0, -(bannerHeight - 0.1) / 2 + 0.04, 0.005]}>
-            <planeGeometry args={[width * 0.8, 0.035]} />
+          <mesh position={[0, -(bannerHeight - 0.1) / 2 + 0.035, 0.005]}>
+            <planeGeometry args={[bannerWidth - 0.1, 0.06]} />
             <meshBasicMaterial color="#ffb700" />
           </mesh>
-          {/* Left border bar */}
-          <mesh position={[-(width * 0.8) / 2 + 0.0175, 0, 0.005]}>
-            <planeGeometry args={[0.035, bannerHeight - 0.18]} />
-            <meshBasicMaterial color="#ffb700" />
-          </mesh>
-          {/* Right border bar */}
-          <mesh position={[(width * 0.8) / 2 - 0.0175, 0, 0.005]}>
-            <planeGeometry args={[0.035, bannerHeight - 0.18]} />
-            <meshBasicMaterial color="#ffb700" />
+
+          <mesh position={[0, -0.44, 0.006]}>
+            <planeGeometry args={[bannerWidth * 0.78, 0.38]} />
+            <meshStandardMaterial
+              map={sponsorTexture}
+              roughness={0.5}
+            />
           </mesh>
 
           <Text
-            position={[0, 0.22, 0.01]}
-            fontSize={0.52}
+            position={[0, 0.34, 0.01]}
+            fontSize={0.65}
             color="#ffb700"
             anchorX="center"
             anchorY="middle"
-            outlineWidth={0.02}
+            outlineWidth={0.035}
             outlineColor="#000000"
+            letterSpacing={0.08}
           >
-            FINISH / LAP TIME
+            FINISH / TIMING
           </Text>
           <Text
-            position={[0, -0.28, 0.01]}
-            fontSize={0.26}
+            position={[0, -0.04, 0.01]}
+            fontSize={0.30}
             color="#00d4ff"
             anchorX="center"
             anchorY="middle"
+            letterSpacing={0.06}
           >
             ★ OPEN RALLY CHAMPIONSHIP ★
           </Text>
         </group>
       </group>
 
-      {/* ─── 5. DIGITAL TIMING LED SCREEN & START LIGHTS ─── */}
+      {/* ─── 5. DIGITAL TIMING LED SCREEN & FIA START LIGHTS ─── */}
       <group position={[0, ledScreenY, 0]}>
-        {/* Support Struts connecting bottom truss crossbar to LED screen */}
+        {/* Support Struts */}
         {([-1.6, 1.6] as const).map((sx) => (
           <mesh key={`strut_${sx}`} position={[sx, (botBarY - ledScreenY) / 2, 0]}>
             <cylinderGeometry args={[0.04, 0.04, botBarY - ledScreenY, 6]} />
@@ -538,31 +498,28 @@ export function StartFinishGantry({ data, isTarget }: StartFinishGantryProps) {
 
         {/* LED Screen Chassis */}
         <mesh position={[0, 0, 0]}>
-          <boxGeometry args={[4.4, 0.85, 0.32]} />
+          <boxGeometry args={[4.6, 0.85, 0.32]} />
           <meshStandardMaterial color="#080808" roughness={0.4} metalness={0.9} />
         </mesh>
 
         {/* Front Face (facing oncoming vehicle at start, oriented towards -Z) */}
         <group position={[0, 0, -0.17]} rotation={[0, Math.PI, 0]}>
-          {/* Glowing Screen Face */}
           <mesh>
-            <planeGeometry args={[4.2, 0.72]} />
+            <planeGeometry args={[4.4, 0.72]} />
             <meshBasicMaterial color="#05101a" />
           </mesh>
-          {/* Live Timer Text (local +X rotates to driver's left) */}
           <Text
-            position={[1.1, 0, 0.01]}
-            fontSize={0.34}
+            position={[1.15, 0, 0.01]}
+            fontSize={0.36}
             color={isRacing ? '#00e676' : '#ffeb3b'}
             anchorX="center"
             anchorY="middle"
           >
             {timerText}
           </Text>
-          {/* Stage / Best Lap Info Text (local -X rotates to driver's right) */}
           <Text
-            position={[-1.1, 0, 0.01]}
-            fontSize={0.26}
+            position={[-1.15, 0, 0.01]}
+            fontSize={0.28}
             color="#00d4ff"
             anchorX="center"
             anchorY="middle"
@@ -571,15 +528,15 @@ export function StartFinishGantry({ data, isTarget }: StartFinishGantryProps) {
           </Text>
         </group>
 
-        {/* Rear Face (for returning vehicles looking towards -Z) */}
+        {/* Rear Face (for returning vehicles) */}
         <group position={[0, 0, 0.17]} rotation={[0, 0, 0]}>
           <mesh>
-            <planeGeometry args={[4.2, 0.72]} />
+            <planeGeometry args={[4.4, 0.72]} />
             <meshBasicMaterial color="#05101a" />
           </mesh>
           <Text
-            position={[-1.1, 0, 0.01]}
-            fontSize={0.34}
+            position={[-1.15, 0, 0.01]}
+            fontSize={0.36}
             color={isRacing ? '#00e676' : '#ffeb3b'}
             anchorX="center"
             anchorY="middle"
@@ -587,8 +544,8 @@ export function StartFinishGantry({ data, isTarget }: StartFinishGantryProps) {
             {timerText}
           </Text>
           <Text
-            position={[1.1, 0, 0.01]}
-            fontSize={0.26}
+            position={[1.15, 0, 0.01]}
+            fontSize={0.28}
             color="#00d4ff"
             anchorX="center"
             anchorY="middle"
@@ -606,30 +563,33 @@ export function StartFinishGantry({ data, isTarget }: StartFinishGantryProps) {
           <meshStandardMaterial color="#1f1f1f" roughness={0.6} metalness={0.7} />
         </mesh>
         {/* 5 Light Units */}
-        {([-1.2, -0.6, 0, 0.6, 1.2] as const).map((lx, i) => (
-          <group key={`light_${i}`} position={[lx, 0, 0]}>
-            {/* Front Light Bulb */}
-            <mesh position={[0, 0, -0.17]}>
-              <sphereGeometry args={[0.14, 12, 12]} />
-              <meshBasicMaterial color={startLightColor} />
-            </mesh>
-            {/* Front Light Rim */}
-            <mesh position={[0, 0, -0.16]} rotation={[0, Math.PI, 0]}>
-              <ringGeometry args={[0.14, 0.18, 12]} />
-              <meshStandardMaterial color="#111111" metalness={0.9} side={2} />
-            </mesh>
-            {/* Rear Light Bulb */}
-            <mesh position={[0, 0, 0.17]}>
-              <sphereGeometry args={[0.14, 12, 12]} />
-              <meshBasicMaterial color={startLightColor} />
-            </mesh>
-            {/* Rear Light Rim */}
-            <mesh position={[0, 0, 0.16]} rotation={[0, 0, 0]}>
-              <ringGeometry args={[0.14, 0.18, 12]} />
-              <meshStandardMaterial color="#111111" metalness={0.9} side={2} />
-            </mesh>
-          </group>
-        ))}
+        {([-1.2, -0.6, 0, 0.6, 1.2] as const).map((lx, i) => {
+          const lightColor = getLightColor(i);
+          return (
+            <group key={`light_${i}`} position={[lx, 0, 0]}>
+              {/* Front Light Bulb */}
+              <mesh position={[0, 0, -0.17]}>
+                <sphereGeometry args={[0.14, 12, 12]} />
+                <meshBasicMaterial color={lightColor} />
+              </mesh>
+              {/* Front Light Rim */}
+              <mesh position={[0, 0, -0.16]} rotation={[0, Math.PI, 0]}>
+                <ringGeometry args={[0.14, 0.18, 12]} />
+                <meshStandardMaterial color="#111111" metalness={0.9} side={DoubleSide} />
+              </mesh>
+              {/* Rear Light Bulb */}
+              <mesh position={[0, 0, 0.17]}>
+                <sphereGeometry args={[0.14, 12, 12]} />
+                <meshBasicMaterial color={lightColor} />
+              </mesh>
+              {/* Rear Light Rim */}
+              <mesh position={[0, 0, 0.16]} rotation={[0, 0, 0]}>
+                <ringGeometry args={[0.14, 0.18, 12]} />
+                <meshStandardMaterial color="#111111" metalness={0.9} side={DoubleSide} />
+              </mesh>
+            </group>
+          );
+        })}
       </group>
 
       {/* Overhead Gantry Down-Spotlights (Illuminating the start grid) */}
@@ -641,61 +601,39 @@ export function StartFinishGantry({ data, isTarget }: StartFinishGantryProps) {
           </mesh>
           <mesh position={[0, -0.2, 0]} rotation={[Math.PI / 2 + Math.PI / 6, 0, 0]}>
             <circleGeometry args={[0.22, 12]} />
-            <meshBasicMaterial color="#fffde7" side={2} />
+            <meshStandardMaterial
+              color="#fffde7"
+              emissive="#fffde7"
+              emissiveIntensity={0.6}
+              roughness={0.2}
+              side={DoubleSide}
+            />
           </mesh>
         </group>
       ))}
 
-      {/* ─── 6. SKY BEACON & ACTIVE TARGET AURA ─── */}
-      {isTarget && (
-        <>
-          {/* Vertical Atmospheric Light Column */}
-          <mesh ref={beaconMeshRef} position={[0, 20, 0]}>
-            <cylinderGeometry args={[halfWidth * 0.35, halfWidth * 0.7, 40, 16, 1, true]} />
-            <meshBasicMaterial
-              color="#ffb700"
-              transparent
-              opacity={0.18}
-              side={2}
-              depthWrite={false}
-            />
-          </mesh>
-
-          {/* Ground Trigger Aura Ring */}
-          <mesh position={[0, 0.15, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[1.5, halfWidth * 0.95, 32]} />
-            <meshBasicMaterial
-              color="#ffb700"
-              transparent
-              opacity={0.35}
-              side={2}
-            />
-          </mesh>
-        </>
-      )}
-
-      {/* ─── 7. FLANKING SCENERY (FLAGS, BARRIERS & PODIUM) ─── */}
+      {/* ─── 6. FLANKING SCENERY (FLAGS, BARRIERS & PODIUM) ─── */}
       {/* Left Teardrop Flags */}
-      <RallyFlag position={[-halfWidth - 2.8, 0, -4.0]} rotationY={0.3} flagColor="#ff9800" />
-      <RallyFlag position={[-halfWidth - 2.8, 0, 4.0]} rotationY={-0.2} flagColor="#00d4ff" />
+      <RallyFlag position={[-halfWidth - 3.2, 0, -4.0]} rotationY={0.3} />
+      <RallyFlag position={[-halfWidth - 3.2, 0, 4.0]} rotationY={-0.2} />
 
       {/* Right Teardrop Flags */}
-      <RallyFlag position={[halfWidth + 2.8, 0, -4.0]} rotationY={-0.3} flagColor="#00d4ff" />
-      <RallyFlag position={[halfWidth + 2.8, 0, 4.0]} rotationY={0.2} flagColor="#ff9800" />
+      <RallyFlag position={[halfWidth + 3.2, 0, -4.0]} rotationY={-0.3} />
+      <RallyFlag position={[halfWidth + 3.2, 0, 4.0]} rotationY={0.2} />
 
       {/* Safety Barriers Channeling the Start Area (Left & Right) */}
-      <SafetyBarrier position={[-halfWidth - 1.2, 0, -3.5]} rotationY={0.08} isRed={true} />
-      <SafetyBarrier position={[-halfWidth - 1.2, 0, -1.2]} rotationY={0} isRed={false} />
-      <SafetyBarrier position={[-halfWidth - 1.2, 0, 1.2]} rotationY={0} isRed={true} />
-      <SafetyBarrier position={[-halfWidth - 1.2, 0, 3.5]} rotationY={-0.08} isRed={false} />
+      <SafetyBarrier position={[-halfWidth - 1.2, 0, -3.5]} rotationY={0.08} />
+      <SafetyBarrier position={[-halfWidth - 1.2, 0, -1.2]} rotationY={0} />
+      <SafetyBarrier position={[-halfWidth - 1.2, 0, 1.2]} rotationY={0} />
+      <SafetyBarrier position={[-halfWidth - 1.2, 0, 3.5]} rotationY={-0.08} />
 
-      <SafetyBarrier position={[halfWidth + 1.2, 0, -3.5]} rotationY={-0.08} isRed={false} />
-      <SafetyBarrier position={[halfWidth + 1.2, 0, -1.2]} rotationY={0} isRed={true} />
-      <SafetyBarrier position={[halfWidth + 1.2, 0, 1.2]} rotationY={0} isRed={false} />
-      <SafetyBarrier position={[halfWidth + 1.2, 0, 3.5]} rotationY={0.08} isRed={true} />
+      <SafetyBarrier position={[halfWidth + 1.2, 0, -3.5]} rotationY={-0.08} />
+      <SafetyBarrier position={[halfWidth + 1.2, 0, -1.2]} rotationY={0} />
+      <SafetyBarrier position={[halfWidth + 1.2, 0, 1.2]} rotationY={0} />
+      <SafetyBarrier position={[halfWidth + 1.2, 0, 3.5]} rotationY={0.08} />
 
       {/* Marshall Timing Podium on Right Side */}
-      <MarshallPodium position={[halfWidth + 4.8, 0, 0]} rotationY={-Math.PI / 2} />
+      <MarshallPodium position={[halfWidth + 5.2, 0, 0]} rotationY={-Math.PI / 2} />
     </group>
   );
 }

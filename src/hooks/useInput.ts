@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import type { InputState } from '@/types/game';
 import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useRacingStore } from '@/store/racingStore';
 import { lerp } from '@/utils/math';
 import {
   STEER_SPEED,
@@ -76,15 +77,13 @@ export function useInputUpdater(): (dt: number) => InputState {
         setTelemetryEnabled(!current);
       }
 
-      // Escape for Pause Menu
+      // Escape for Pause Menu (only enters pause from active gameplay; unpausing is handled exclusively by MenuOverlay)
       if (e.code === 'Escape' && !escapeToggledRef.current) {
         escapeToggledRef.current = true;
 
         const state = useGameStore.getState();
         if (state.gameState === 'playing') {
           setGameState('paused');
-        } else if (state.gameState === 'paused') {
-          setGameState('playing');
         }
       }
 
@@ -148,6 +147,21 @@ export function useInputUpdater(): (dt: number) => InputState {
       _cameraLookY = 0;
       stateRef.current.throttle = 0;
       stateRef.current.brake = 0;
+      stateRef.current.steering = 0;
+      stateRef.current.handbrake = true;
+      stateRef.current.reset = false;
+      return stateRef.current;
+    }
+
+    const gameMode = useGameStore.getState().gameMode;
+    const raceStatus = useRacingStore.getState().raceStatus;
+    const isCountingDown = gameMode === 'timeattack' && raceStatus === 'countdown';
+
+    if (isCountingDown) {
+      _cameraLookX = 0;
+      _cameraLookY = 0;
+      stateRef.current.throttle = 0;
+      stateRef.current.brake = 1;
       stateRef.current.steering = 0;
       stateRef.current.handbrake = true;
       stateRef.current.reset = false;

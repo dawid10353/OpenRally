@@ -14,8 +14,8 @@ export const LEVEL_PRESET_ISLAND: LevelPreset = {
   difficulty: 'easy',
   surfaceDescription: 'Mud & Grass',
   data: LEVEL1_DATA,
-  spawnPosition: [-4.0, 0.8, 2.0],
-  spawnRotationY: Math.atan2(90 - (-70), -45 - 35), // ~2.034 rad (116.5°) aligned with start straight
+  spawnPosition: [-3.5, 11.0, 2.0],
+  spawnRotationY: Math.atan2(130 - (-70), -70 - (-35)), // Aligned with start straight
   fallResetY: -8.25,
 };
 
@@ -31,8 +31,8 @@ export const LEVEL_PRESET_DESERT: LevelPreset = {
   difficulty: 'medium',
   surfaceDescription: 'Sand & Gravel',
   data: LEVEL2_DESERT_DATA,
-  spawnPosition: [-4.2, 2.3, -1.5],
-  spawnRotationY: Math.atan2(110 - (-70), 40 - (-25)), // ~1.225 rad (70.2°) aligned with start straight
+  spawnPosition: [-3.5, 11.0, -1.5],
+  spawnRotationY: Math.atan2(140 - (-60), 50 - (-30)), // Aligned with start straight
   fallResetY: -10.0,
   environment: {
     sky: {

@@ -28,13 +28,26 @@ export function Minimap() {
 
     const levelPreset = getLevelPreset(selectedLevelId);
     const levelData = levelPreset.data;
-    const mapWidth = levelData.terrainBase.width;
-    const mapDepth = levelData.terrainBase.depth;
+    const trackPoints = levelData.track.points.map((p) => new Vector3(p.x, 0, p.z));
+
+    // Calculate dynamic bounding box of track for optimal rally gauge framing
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (const p of trackPoints) {
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.z < minZ) minZ = p.z;
+      if (p.z > maxZ) maxZ = p.z;
+    }
+    const centerTrackX = (minX + maxX) / 2;
+    const centerTrackZ = (minZ + maxZ) / 2;
+    const spanX = Math.max(200, maxX - minX);
+    const spanZ = Math.max(200, maxZ - minZ);
+    const maxSpan = Math.max(spanX, spanZ) * 1.35;
 
     // Coordinate conversion function
     const toCanvasCoords = (wx: number, wz: number): [number, number] => {
-      const cx = MARGIN + ((wx + mapWidth / 2) / mapWidth) * INNER_SIZE;
-      const cy = MARGIN + ((wz + mapDepth / 2) / mapDepth) * INNER_SIZE;
+      const cx = CANVAS_SIZE / 2 + ((wx - centerTrackX) / maxSpan) * INNER_SIZE;
+      const cy = CANVAS_SIZE / 2 + ((wz - centerTrackZ) / maxSpan) * INNER_SIZE;
       return [cx, cy];
     };
 
@@ -43,8 +56,6 @@ export function Minimap() {
     offscreen.width = CANVAS_SIZE;
     offscreen.height = CANVAS_SIZE;
     const offCtx = offscreen.getContext('2d');
-
-    const trackPoints = levelData.track.points.map((p) => new Vector3(p.x, 0, p.z));
 
     if (offCtx) {
       // Circular clip mask for rally gauge dial

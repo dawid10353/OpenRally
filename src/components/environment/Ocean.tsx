@@ -94,7 +94,7 @@ function generateWaterNormalTexture(size: number): DataTexture {
 }
 
 export function Ocean() {
-  const waterRef = useRef<Water>(null);
+  const waterRef = useRef<Water | Mesh>(null);
   const { scene, size } = useThree();
   const { heightmapData, levelData } = useTerrainData();
   const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
@@ -133,7 +133,6 @@ export function Ocean() {
     );
     texture.magFilter = LinearFilter;
     texture.minFilter = LinearFilter;
-    // Texture coordinates will be mapped manually, but clamping is safe for terrain bounds
     texture.needsUpdate = true;
     return texture;
   }, [heightmapData]);
@@ -173,7 +172,7 @@ export function Ocean() {
         alpha: WATER_ALPHA,
       });
 
-      waterMesh.material.transparent = true; 
+      waterMesh.material.transparent = false; 
       waterMesh.rotation.x = -Math.PI / 2;
       waterMesh.position.y = WATER_POSITION_Y;
 
@@ -190,13 +189,13 @@ export function Ocean() {
           varying vec3 vWorldPos;
           varying vec3 vWaveNormal;
 
-          vec3 GerstnerWave(vec4 wave, vec3 p, inout vec3 tangent, inout vec3 binormal) {
+          vec3 GerstnerWave(vec4 wave, vec2 worldCoord, inout vec3 tangent, inout vec3 binormal) {
             float steepness = wave.z;
             float wavelength = wave.w;
             float k = 2.0 * 3.14159 / wavelength;
             float c = sqrt(9.8 / k);
             vec2 d = normalize(wave.xy);
-            float f = k * (dot(d, p.xy) - c * time);
+            float f = k * (dot(d, worldCoord) - c * time);
             float a = steepness / k;
 
             tangent += vec3(
@@ -209,9 +208,10 @@ export function Ocean() {
               -d.y * d.y * (steepness * sin(f)),
               d.y * (steepness * cos(f))
             );
+            // Local plane coordinates: x is +X, y is -Z, z is +Y
             return vec3(
               d.x * (a * cos(f)),
-              d.y * (a * cos(f)),
+              -d.y * (a * cos(f)),
               a * sin(f)
             );
           }
@@ -221,13 +221,13 @@ export function Ocean() {
         shader.vertexShader = shader.vertexShader.replace(
           /mirrorCoord\s*=\s*modelMatrix\s*\*\s*vec4\(\s*position,\s*1\.0\s*\);/,
           `
-          vec3 gridPoint = position;
+          vec4 worldOrig = modelMatrix * vec4(position, 1.0);
           vec3 myTangent = vec3(1.0, 0.0, 0.0);
           vec3 myBinormal = vec3(0.0, 1.0, 0.0);
-          vec3 p = gridPoint;
-          p += GerstnerWave(u_waveA, gridPoint, myTangent, myBinormal);
-          p += GerstnerWave(u_waveB, gridPoint, myTangent, myBinormal);
-          p += GerstnerWave(u_waveC, gridPoint, myTangent, myBinormal);
+          vec3 p = position;
+          p += GerstnerWave(u_waveA, worldOrig.xz, myTangent, myBinormal);
+          p += GerstnerWave(u_waveB, worldOrig.xz, myTangent, myBinormal);
+          p += GerstnerWave(u_waveC, worldOrig.xz, myTangent, myBinormal);
 
           vec3 transformed = p;
           vWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
@@ -271,22 +271,32 @@ export function Ocean() {
             (vWorldPos.z + u_terrainSize.y * 0.5) / u_terrainSize.y
           );
           
+          // Sample terrain heightmap clamped to [0, 1] range
           float terrainHeight = texture2D(u_terrainHeightmap, clamp(terrainUv, 0.0, 1.0)).r;
-          
-          vec2 edgeDist = abs(terrainUv - 0.5) * 2.0;
-          float outsideDist = max(0.0, max(edgeDist.x, edgeDist.y) - 1.0);
-          terrainHeight -= outsideDist * 500.0;
 
-          float diff = max(0.0, vWorldPos.y - terrainHeight);
-          float foamAmount = clamp(1.0 - (diff / u_foamThreshold), 0.0, 1.0);
-          foamAmount = pow(foamAmount, 2.0); 
+          // If outside terrain bounding box, blend to deep seabed floor (-65.0)
+          vec2 boxDist = max(vec2(0.0), abs(terrainUv - 0.5) * 2.0 - vec2(1.0));
+          float distOutside = length(boxDist * u_terrainSize * 0.5);
+          terrainHeight = mix(terrainHeight, -65.0, clamp(distOutside / 50.0, 0.0, 1.0));
+
+          float waterDepth = vWorldPos.y - terrainHeight;
           
-          float depthAmount = clamp(diff / u_depthThreshold, 0.0, 1.0);
+          // Foam only exists in shallow water near shore (0.0 < waterDepth < u_foamThreshold)
+          float foamAmount = 0.0;
+          if (waterDepth > 0.0 && waterDepth < u_foamThreshold) {
+            float f = 1.0 - (waterDepth / u_foamThreshold);
+            foamAmount = f * f;
+          }
+          
+          // Depth transition: 0 = shallow turquoise (shore), 1 = deep ocean
+          float depthAmount = clamp(waterDepth / u_depthThreshold, 0.0, 1.0);
+          depthAmount = smoothstep(0.0, 1.0, depthAmount);
+          
           vec3 deepColor = outgoingLight; 
           vec3 waterAlbedo = mix(u_shallowColor, deepColor, depthAmount);
           vec3 finalColor = mix(waterAlbedo, u_foamColor, foamAmount);
           
-          gl_FragColor = vec4( finalColor, alpha + foamAmount );
+          gl_FragColor = vec4( finalColor, 1.0 );
           `
         );
       };
@@ -298,8 +308,8 @@ export function Ocean() {
         color: WATER_COLOR,
         roughness: 0.1,
         metalness: 0.8,
-        transparent: true,
-        opacity: WATER_ALPHA,
+        transparent: false,
+        opacity: 1.0,
         normalMap: waterNormals,
       });
 
@@ -326,13 +336,13 @@ export function Ocean() {
           varying vec3 vWorldPos;
           varying vec3 vWaveNormal;
 
-          vec3 GerstnerWave(vec4 wave, vec3 p, inout vec3 tangent, inout vec3 binormal) {
+          vec3 GerstnerWave(vec4 wave, vec2 worldCoord, inout vec3 tangent, inout vec3 binormal) {
             float steepness = wave.z;
             float wavelength = wave.w;
             float k = 2.0 * 3.14159 / wavelength;
             float c = sqrt(9.8 / k);
             vec2 d = normalize(wave.xy);
-            float f = k * (dot(d, p.xy) - c * time);
+            float f = k * (dot(d, worldCoord) - c * time);
             float a = steepness / k;
 
             tangent += vec3(
@@ -347,7 +357,7 @@ export function Ocean() {
             );
             return vec3(
               d.x * (a * cos(f)),
-              d.y * (a * cos(f)),
+              -d.y * (a * cos(f)),
               a * sin(f)
             );
           }
@@ -358,13 +368,13 @@ export function Ocean() {
           '#include <beginnormal_vertex>',
           `
           #include <beginnormal_vertex>
-          vec3 gridPoint = position;
+          vec4 worldOrig = modelMatrix * vec4(position, 1.0);
           vec3 myTangent = vec3(1.0, 0.0, 0.0);
           vec3 myBinormal = vec3(0.0, 1.0, 0.0);
-          vec3 p = gridPoint;
-          p += GerstnerWave(u_waveA, gridPoint, myTangent, myBinormal);
-          p += GerstnerWave(u_waveB, gridPoint, myTangent, myBinormal);
-          p += GerstnerWave(u_waveC, gridPoint, myTangent, myBinormal);
+          vec3 p = position;
+          p += GerstnerWave(u_waveA, worldOrig.xz, myTangent, myBinormal);
+          p += GerstnerWave(u_waveB, worldOrig.xz, myTangent, myBinormal);
+          p += GerstnerWave(u_waveC, worldOrig.xz, myTangent, myBinormal);
 
           vWaveNormal = normalize(normalMatrix * normalize(cross(myTangent, myBinormal)));
           objectNormal = normalize(cross(myTangent, myBinormal));
@@ -415,21 +425,32 @@ export function Ocean() {
             (vWorldPos.z + u_terrainSize.y * 0.5) / u_terrainSize.y
           );
           
+          // Sample terrain heightmap clamped to [0, 1] range
           float terrainHeight = texture2D(u_terrainHeightmap, clamp(terrainUv, 0.0, 1.0)).r;
-          vec2 edgeDist = abs(terrainUv - 0.5) * 2.0;
-          float outsideDist = max(0.0, max(edgeDist.x, edgeDist.y) - 1.0);
-          terrainHeight -= outsideDist * 500.0;
 
-          float diff = max(0.0, vWorldPos.y - terrainHeight);
-          float foamAmount = clamp(1.0 - (diff / u_foamThreshold), 0.0, 1.0);
-          foamAmount = pow(foamAmount, 2.0); 
+          // If outside terrain bounding box, blend to deep seabed floor (-65.0)
+          vec2 boxDist = max(vec2(0.0), abs(terrainUv - 0.5) * 2.0 - vec2(1.0));
+          float distOutside = length(boxDist * u_terrainSize * 0.5);
+          terrainHeight = mix(terrainHeight, -65.0, clamp(distOutside / 50.0, 0.0, 1.0));
+
+          float waterDepth = vWorldPos.y - terrainHeight;
           
-          float depthAmount = clamp(diff / u_depthThreshold, 0.0, 1.0);
+          // Foam only exists in shallow water near shore (0.0 < waterDepth < u_foamThreshold)
+          float foamAmount = 0.0;
+          if (waterDepth > 0.0 && waterDepth < u_foamThreshold) {
+            float f = 1.0 - (waterDepth / u_foamThreshold);
+            foamAmount = f * f;
+          }
+          
+          // Depth transition: 0 = shallow turquoise (shore), 1 = deep ocean
+          float depthAmount = clamp(waterDepth / u_depthThreshold, 0.0, 1.0);
+          depthAmount = smoothstep(0.0, 1.0, depthAmount);
+          
           vec3 deepColor = gl_FragColor.rgb; 
           vec3 waterAlbedo = mix(u_shallowColor, deepColor, depthAmount);
           vec3 finalColor = mix(waterAlbedo, u_foamColor, foamAmount);
           
-          gl_FragColor = vec4( finalColor, gl_FragColor.a + foamAmount );
+          gl_FragColor = vec4( finalColor, 1.0 );
           `
         );
       };
@@ -438,7 +459,16 @@ export function Ocean() {
     }
   }, [waterNormals, scene.fog, terrainHeightmap, levelData, size, segmentsCount, graphicsQuality]);
 
-  useFrame(() => {
+  useFrame(({ camera }) => {
+    // Snap water mesh to grid increments based on camera position for infinite seamless ocean
+    const gridSpacing = WATER_SIZE / segmentsCount;
+    const snapX = Math.floor(camera.position.x / gridSpacing) * gridSpacing;
+    const snapZ = Math.floor(camera.position.z / gridSpacing) * gridSpacing;
+    if (waterRef.current) {
+      waterRef.current.position.x = snapX;
+      waterRef.current.position.z = snapZ;
+    }
+
     const mat = water.material as {
       uniforms?: Record<string, IUniform>;
       userData?: {

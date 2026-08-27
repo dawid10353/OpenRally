@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { RacingStore } from '@/types/racing';
 import { emitGameEvent } from '@/utils/events';
 import { useGameStore } from '@/store/gameStore';
+import { playCountdownBeep } from '@/utils/countdownSound';
 
 const TRACK_RECORDS_KEY = 'openrally_track_records';
 const LEGACY_BEST_LAP_KEY = 'openrally_best_lap';
@@ -48,6 +49,8 @@ export const useRacingStore = create<RacingStore>((set, get) => ({
   splitDelta: null,
   lapCount: 0,
   showStageComplete: false,
+  countdown: null,
+  countdownTimer: 0,
 
   getBestLapForLevel: (levelId: string) => {
     return get().bestLapTimes[levelId] ?? null;
@@ -58,9 +61,74 @@ export const useRacingStore = create<RacingStore>((set, get) => ({
     set({ bestLapTime: records[levelId] ?? null });
   },
 
+  startCountdown: () => {
+    playCountdownBeep(false);
+    set({
+      raceStatus: 'countdown',
+      countdown: 3,
+      countdownTimer: 0,
+      currentCheckpoint: 1,
+      currentLapTime: 0,
+      splitDelta: null,
+      showStageComplete: false,
+    });
+  },
+
+  tickCountdown: (dt: number) => {
+    const { raceStatus, countdownTimer, countdown } = get();
+    if (raceStatus !== 'countdown' && countdown === null) return;
+
+    const newTimer = countdownTimer + dt;
+
+    if (newTimer < 1.0) {
+      if (countdown !== 3) {
+        playCountdownBeep(false);
+        set({ countdown: 3, countdownTimer: newTimer });
+      } else {
+        set({ countdownTimer: newTimer });
+      }
+    } else if (newTimer < 2.0) {
+      if (countdown !== 2) {
+        playCountdownBeep(false);
+        set({ countdown: 2, countdownTimer: newTimer });
+      } else {
+        set({ countdownTimer: newTimer });
+      }
+    } else if (newTimer < 3.0) {
+      if (countdown !== 1) {
+        playCountdownBeep(false);
+        set({ countdown: 1, countdownTimer: newTimer });
+      } else {
+        set({ countdownTimer: newTimer });
+      }
+    } else if (newTimer < 3.7) {
+      if (countdown !== 0) {
+        playCountdownBeep(true);
+        set({
+          raceStatus: 'racing',
+          countdown: 0, // 0 corresponds to "START!" badge
+          countdownTimer: newTimer,
+          currentLapTime: newTimer - 3.0,
+        });
+      } else {
+        set({
+          countdownTimer: newTimer,
+          currentLapTime: newTimer - 3.0,
+        });
+      }
+    } else {
+      set({
+        countdown: null,
+        countdownTimer: newTimer,
+      });
+    }
+  },
+
   startRace: () => {
     set({
       raceStatus: 'racing',
+      countdown: null,
+      countdownTimer: 0,
       currentCheckpoint: 1, // Heading towards checkpoint 1
       currentLapTime: 0,
       splitDelta: null,
@@ -78,9 +146,9 @@ export const useRacingStore = create<RacingStore>((set, get) => ({
   passCheckpoint: (index: number) => {
     const { raceStatus, currentCheckpoint, totalCheckpoints, currentLapTime, bestLapTimes, lapCount } = get();
 
-    // Crossing start line from idle or completed starts the race timer
-    if (index === 0 && (raceStatus === 'idle' || raceStatus === 'completed')) {
-      get().startRace();
+    // Crossing start line from idle starts the race countdown
+    if (index === 0 && raceStatus === 'idle') {
+      get().startCountdown();
       return;
     }
 
@@ -107,13 +175,14 @@ export const useRacingStore = create<RacingStore>((set, get) => ({
         }
 
         set({
-          raceStatus: 'completed',
-          currentCheckpoint: 0,
+          raceStatus: 'racing',
+          currentCheckpoint: 1,
+          currentLapTime: 0,
           lastLapTime: finalTime,
           bestLapTime: newBest,
           bestLapTimes: newRecords,
           lapCount: lapCount + 1,
-          showStageComplete: true,
+          showStageComplete: false,
         });
 
         emitGameEvent('lap_completed', {
@@ -121,11 +190,6 @@ export const useRacingStore = create<RacingStore>((set, get) => ({
           lapTime: finalTime,
           isBest,
         });
-
-        // Hide stage complete banner after 4 seconds
-        setTimeout(() => {
-          set({ showStageComplete: false });
-        }, 4000);
       } else {
         // Advance to next checkpoint along the closed loop (1 -> 2 -> ... -> N-1 -> 0)
         const nextCp = (currentCheckpoint + 1) % totalCheckpoints;
@@ -141,6 +205,8 @@ export const useRacingStore = create<RacingStore>((set, get) => ({
       currentLapTime: 0,
       splitDelta: null,
       showStageComplete: false,
+      countdown: null,
+      countdownTimer: 0,
     });
   },
 }));
