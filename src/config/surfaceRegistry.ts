@@ -75,8 +75,8 @@ export const SURFACE_REGISTRY: Record<SurfaceType, SurfaceDefinition> = {
     id: 'sand',
     name: 'Beach Sand / Dunes',
     tireModel: {
-      front: { baseGrip: 1.4, peakSlipAngle: Math.PI / 6, slideGrip: 1.0 },
-      rear: { baseGrip: 1.2, peakSlipAngle: Math.PI / 6, slideGrip: 0.8 },
+      front: { baseGrip: 1.45, peakSlipAngle: Math.PI / 6, slideGrip: 1.05 },
+      rear: { baseGrip: 1.3, peakSlipAngle: Math.PI / 6, slideGrip: 0.9 },
     },
     particles: {
       color: '#d4b483',
@@ -90,8 +90,8 @@ export const SURFACE_REGISTRY: Record<SurfaceType, SurfaceDefinition> = {
       volumeMultiplier: 1.3,
     },
     skidMarkOpacity: 0.5,
-    rollingResistance: 0.042,
-    looseSurfaceTractionLoss: 0.45,
+    rollingResistance: 0.020,
+    looseSurfaceTractionLoss: 0.28,
   },
   snow: {
     id: 'snow',

@@ -17,11 +17,9 @@ export function getSurfaceAtPosition(
   heightmapData?: HeightmapData,
   levelData?: LevelData,
 ): SurfaceType {
-  // Low elevation near the water level is sand
-  if (y < SAND_ELEVATION_THRESHOLD) {
-    return 'sand';
-  }
+  const isDesert = levelData?.id?.toLowerCase().includes('desert') ?? false;
 
+  // 1. Prepared track circuit takes precedence over underlying terrain elevation
   if (heightmapData && levelData) {
     const { trackMasks, cols, rows } = heightmapData;
     const mapWidth = levelData.terrainBase.width;
@@ -35,9 +33,20 @@ export function getSurfaceAtPosition(
     if (col >= 0 && col < cols && row >= 0 && row < rows) {
       const mask = trackMasks[row * cols + col];
       if (mask > 0.35) {
-        return 'mud';
+        return isDesert ? 'gravel' : 'mud';
       }
     }
+  }
+
+  // 2. Off-track terrain handling:
+  // Desert maps are sandy dunes everywhere off-track
+  if (isDesert) {
+    return 'sand';
+  }
+
+  // Low elevation near the water level is coastal sand/beach
+  if (y < SAND_ELEVATION_THRESHOLD) {
+    return 'sand';
   }
 
   // Off the muddy track, driving on grass/dirt

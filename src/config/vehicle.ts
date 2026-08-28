@@ -30,13 +30,13 @@ export const TIRE_MODELS: Record<'tarmac' | 'mud' | 'grass' | 'sand', import('@/
     rear: { baseGrip: 1.65, peakSlipAngle: Math.PI / 7, slideGrip: 1.15 },
   },
   sand: {
-    front: { baseGrip: 1.4, peakSlipAngle: Math.PI / 6, slideGrip: 1.0 },
-    rear: { baseGrip: 1.2, peakSlipAngle: Math.PI / 6, slideGrip: 0.8 },
+    front: { baseGrip: 1.45, peakSlipAngle: Math.PI / 6, slideGrip: 1.05 },
+    rear: { baseGrip: 1.3, peakSlipAngle: Math.PI / 6, slideGrip: 0.9 },
   },
 };
 
-/** Terrain elevation threshold below which sand friction is applied */
-export const SAND_ELEVATION_THRESHOLD = 0;
+/** Terrain elevation threshold below which coastal sand friction is applied (ocean surface is at -8.0) */
+export const SAND_ELEVATION_THRESHOLD = -5.0;
 
 // ─── Reset ───────────────────────────────────────────────────────────
 /** Y position below which the vehicle resets (fallen into ocean, wheels completely submerged) */
