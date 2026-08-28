@@ -24,3 +24,8 @@ pnpm-debug.log*
 .DS_Store
 *.env
 *.env.local
+
+# Scratch and Raw Media
+scratch/
+/OpenRally*.mp4
+
