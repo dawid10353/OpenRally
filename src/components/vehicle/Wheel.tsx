@@ -28,7 +28,7 @@ export const Wheel = forwardRef<Object3D, WheelProps>(function Wheel(
           {/* LOD 0: Pełny model GLB */}
           <Clone
             object={scene}
-            // Ustawiamy lekko pomniejszoną skalę
+            // Ustawiamy lekko pomniejszoną skalę dopasowaną do nadkoli
             scale={0.75}
             // Rotacja poprawiająca ułożenie względem osi
             rotation={[0, isRightSide ? Math.PI / 2 : -Math.PI / 2, 0]}

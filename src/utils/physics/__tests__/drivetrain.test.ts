@@ -69,4 +69,28 @@ describe('drivetrain physics', () => {
     expect(controller.forces[2]).toBe(0);
     expect(controller.forces[3]).toBe(0);
   });
+
+  it('boosts engine force during steering under throttle to overcome cornering tire scrub', () => {
+    const straightController = createMockController();
+    applyDrivetrain(
+      straightController,
+      DEFAULT_VEHICLE_CONFIG,
+      { throttle: 1, brake: 0, steering: 0 },
+      15,
+      2
+    );
+
+    const corneringController = createMockController();
+    applyDrivetrain(
+      corneringController,
+      DEFAULT_VEHICLE_CONFIG,
+      { throttle: 1, brake: 0, steering: 0.8 },
+      15,
+      2
+    );
+
+    // Forces during cornering should be higher than straight line to maintain exit power
+    expect(corneringController.forces[0]).toBeGreaterThan(straightController.forces[0]);
+    expect(corneringController.forces[2]).toBeGreaterThan(straightController.forces[2]);
+  });
 });

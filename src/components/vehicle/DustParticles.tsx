@@ -112,7 +112,10 @@ export function DustParticles({ wheelsRef, chassisRef }: DustParticlesProps) {
       if (emissionsToDo > 0) {
         timeAccumulator.current -= emissionsToDo * EMIT_RATE;
         const currentSurface = useGameStore.getState().surface;
-        const surfaceColorHex = getSurfaceDefinition(currentSurface).particles.color;
+        const surfaceDef = getSurfaceDefinition(currentSurface);
+        const surfaceColorHex = surfaceDef.particles.color;
+        const surfaceScale = surfaceDef.particles.scale;
+        const surfaceLifetime = surfaceDef.particles.lifetime;
 
         for (let e = 0; e < emissionsToDo; e++) {
           // Emit from all wheels
@@ -144,9 +147,9 @@ export function DustParticles({ wheelsRef, chassisRef }: DustParticlesProps) {
             );
 
             p.life = 0;
-            p.maxLife = isDrifting ? DRIFT_PARTICLE_LIFETIME : DRIVE_PARTICLE_LIFETIME;
-            p.scale = Math.random() * 0.3 + 0.1; // Even smaller for less volume
-            if (isDrifting) {
+            p.maxLife = (isDrifting ? DRIFT_PARTICLE_LIFETIME : DRIVE_PARTICLE_LIFETIME) * Math.max(0.5, surfaceLifetime / 0.5);
+            p.scale = (Math.random() * 0.25 + 0.15) * surfaceScale;
+            if (isDrifting && currentSurface === 'tarmac') {
               p.color.copy(SMOKE_COLOR);
             } else {
               p.color.set(surfaceColorHex);

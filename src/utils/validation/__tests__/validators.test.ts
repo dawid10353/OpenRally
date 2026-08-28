@@ -29,9 +29,9 @@ describe('Runtime Validators', () => {
     it('catches incorrect wheel count', () => {
       const badWheelsConfig = {
         ...DEFAULT_VEHICLE_CONFIG,
-        // @ts-expect-error test incorrect wheel count
         wheels: [DEFAULT_VEHICLE_CONFIG.wheels[0], DEFAULT_VEHICLE_CONFIG.wheels[1]],
       };
+      // @ts-expect-error test runtime rejection of invalid wheel count
       const res = validateVehicleConfig(badWheelsConfig);
       expect(res.valid).toBe(false);
       expect(res.errors.some((e) => e.includes('wheels count'))).toBe(true);
@@ -93,6 +93,18 @@ describe('Runtime Validators', () => {
       const res = validateSurfaceDefinition(badSurface);
       expect(res.valid).toBe(false);
       expect(res.errors.some((e) => e.includes('baseGrip must be > 0'))).toBe(true);
+    });
+
+    it('catches invalid rolling resistance and looseSurfaceTractionLoss', () => {
+      const badPropsSurface = {
+        ...SURFACE_REGISTRY.sand,
+        rollingResistance: -0.05,
+        looseSurfaceTractionLoss: 1.5,
+      };
+      const res = validateSurfaceDefinition(badPropsSurface);
+      expect(res.valid).toBe(false);
+      expect(res.errors.some((e) => e.includes('rollingResistance must be >= 0'))).toBe(true);
+      expect(res.errors.some((e) => e.includes('looseSurfaceTractionLoss must be between [0, 1]'))).toBe(true);
     });
   });
 });

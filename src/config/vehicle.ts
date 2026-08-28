@@ -18,20 +18,20 @@ export const SHIFT_DOWN_SPEEDS = [0, 0, 30, 70, 120, 170]; // Shift to previous 
 // ─── Friction & Tire Models ──────────────────────────────────────────
 export const TIRE_MODELS: Record<'tarmac' | 'mud' | 'grass' | 'sand', import('@/types/vehicle').TireConfig> = {
   tarmac: {
-    front: { baseGrip: 3.2, peakSlipAngle: Math.PI / 8, slideGrip: 3.0 },
-    rear: { baseGrip: 3.6, peakSlipAngle: Math.PI / 8, slideGrip: 3.3 },
+    front: { baseGrip: 3.4, peakSlipAngle: Math.PI / 8, slideGrip: 3.1 },
+    rear: { baseGrip: 3.4, peakSlipAngle: Math.PI / 8, slideGrip: 3.1 },
   },
   mud: {
-    front: { baseGrip: 2.3, peakSlipAngle: Math.PI / 6, slideGrip: 1.9 },
-    rear: { baseGrip: 2.5, peakSlipAngle: Math.PI / 6, slideGrip: 2.0 },
+    front: { baseGrip: 2.3, peakSlipAngle: Math.PI / 6.5, slideGrip: 1.8 },
+    rear: { baseGrip: 2.15, peakSlipAngle: Math.PI / 6.5, slideGrip: 1.6 },
   },
   grass: {
-    front: { baseGrip: 2.0, peakSlipAngle: Math.PI / 7, slideGrip: 1.6 },
-    rear: { baseGrip: 2.3, peakSlipAngle: Math.PI / 7, slideGrip: 1.8 },
+    front: { baseGrip: 1.85, peakSlipAngle: Math.PI / 7, slideGrip: 1.3 },
+    rear: { baseGrip: 1.65, peakSlipAngle: Math.PI / 7, slideGrip: 1.15 },
   },
   sand: {
-    front: { baseGrip: 1.5, peakSlipAngle: Math.PI / 6, slideGrip: 1.3 },
-    rear: { baseGrip: 1.8, peakSlipAngle: Math.PI / 6, slideGrip: 1.5 },
+    front: { baseGrip: 1.4, peakSlipAngle: Math.PI / 6, slideGrip: 1.0 },
+    rear: { baseGrip: 1.2, peakSlipAngle: Math.PI / 6, slideGrip: 0.8 },
   },
 };
 
@@ -70,20 +70,21 @@ export const DEFAULT_VEHICLE_CONFIG: VehicleConfig = {
     frontBias: 0.50, // 50/50 even 4-wheel brake distribution
   },
   suspension: {
-    frontAntiRollBarStiffness: 18.0, // Active ARB prevents rollovers on aggressive turns
-    rearAntiRollBarStiffness: 14.0,
+    frontAntiRollBarStiffness: 14.0, // Balanced ARB prevents understeer and keeps car level
+    rearAntiRollBarStiffness: 15.0,
   },
   handling: {
     steeringCurve: [
       [0, Math.PI / 4],      // 45 degrees at 0 km/h
-      [50, Math.PI / 5.5],   // ~33 degrees at 50 km/h (great responsive cornering)
-      [120, Math.PI / 10],   // 18 degrees at 120 km/h
-      [200, Math.PI / 20],   // 9 degrees at 200 km/h
+      [40, Math.PI / 4.8],   // ~37.5 degrees at 40 km/h (agile turn-in)
+      [90, Math.PI / 7.5],   // 24 degrees at 90 km/h (sharp medium-speed steering)
+      [150, Math.PI / 12],   // 15 degrees at 150 km/h
+      [220, Math.PI / 18],   // 10 degrees at 220 km/h
     ],
-    steeringSpeed: 6, // Fast, agile steering response
+    steeringSpeed: 7.5, // Crisp, responsive steering input
     assists: {
-      yawDamping: 0.12, // Subtle, natural drift assist for satisfying slides
-      driftGripMultiplier: 0.18,
+      yawDamping: 0.08, // Dynamic agility assist for satisfying slides without understeer
+      driftGripMultiplier: 0.22,
     },
   },
   aerodynamics: {
@@ -95,9 +96,9 @@ export const DEFAULT_VEHICLE_CONFIG: VehicleConfig = {
       position: [-0.76, -0.2, 1.45],
       radius: 0.35,
       suspensionRestLength: 0.32,
-      suspensionTravel: 0.26,
+      suspensionTravel: 0.28,
       suspensionStiffness: 34,
-      suspensionDamping: 4.2,
+      suspensionDamping: 4.0,
       maxSuspensionForce: 8000,
       steerable: true,
       powered: true,
@@ -107,9 +108,9 @@ export const DEFAULT_VEHICLE_CONFIG: VehicleConfig = {
       position: [0.76, -0.2, 1.45],
       radius: 0.35,
       suspensionRestLength: 0.32,
-      suspensionTravel: 0.30,
-      suspensionStiffness: 32,
-      suspensionDamping: 3.5,
+      suspensionTravel: 0.28,
+      suspensionStiffness: 34,
+      suspensionDamping: 4.0,
       maxSuspensionForce: 8000,
       steerable: true,
       powered: true,

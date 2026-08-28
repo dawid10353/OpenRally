@@ -52,4 +52,16 @@ describe('assists physics', () => {
     const sumYaw = yawTorques.reduce((a, b) => a + b, 0);
     expect(sumYaw).toBe(0);
   });
+
+  it('applies agile turn-in torque assisting corner entry when steering is applied', () => {
+    // Car moving forward at 15 m/s with left steering (+0.8) and minimal angular velocity
+    const body = createMockBody({ angvel: { x: 0, y: 0, z: 0 } });
+    applyAssists(body, DEFAULT_VEHICLE_CONFIG, { ...baseInput, steering: 0.8 }, 15, 0.016);
+
+    expect(body.applyTorqueImpulse).toHaveBeenCalled();
+    const yawTorques = body.appliedTorques.map((t) => t.y);
+    const sumYaw = yawTorques.reduce((a, b) => a + b, 0);
+    // Should apply positive torque in the direction of left steering
+    expect(sumYaw).toBeGreaterThan(0);
+  });
 });

@@ -34,7 +34,7 @@ export const WRC_VEHICLE_CONFIG: VehicleConfig = {
     maxSpeed: 265,
   },
   drivetrain: {
-    frontBias: 0.5, // 50/50 AWD
+    frontBias: 0.48, // 48/52 Rear-biased AWD for nimble rally throttle steering
   },
   brakes: {
     maxForce: 18,
@@ -42,20 +42,21 @@ export const WRC_VEHICLE_CONFIG: VehicleConfig = {
     frontBias: 0.50, // Balanced 50/50 4-wheel brake distribution (no nose-dive / stoppies)
   },
   suspension: {
-    frontAntiRollBarStiffness: 22.0,
-    rearAntiRollBarStiffness: 18.0,
+    frontAntiRollBarStiffness: 18.0,
+    rearAntiRollBarStiffness: 20.0, // Stiffer rear ARB eliminates understeer and promotes razor-sharp turn-in
   },
   handling: {
     steeringCurve: [
-      [0, Math.PI / 4],      // 45 degrees at 0 km/h
-      [50, Math.PI / 5],     // 36 degrees at 50 km/h (ultra-sharp corner entry)
-      [120, Math.PI / 9],    // 20 degrees at 120 km/h
-      [200, Math.PI / 18],   // 10 degrees at 200 km/h
+      [0, Math.PI / 3.8],    // 47.3 degrees at 0 km/h
+      [40, Math.PI / 4.5],   // 40 degrees at 40 km/h (instant agile corner entry)
+      [90, Math.PI / 7.0],   // 25.7 degrees at 90 km/h (sharp medium-speed steering)
+      [150, Math.PI / 11],   // 16.3 degrees at 150 km/h
+      [240, Math.PI / 16],   // 11.25 degrees at 240 km/h
     ],
-    steeringSpeed: 8.0, // Razor-sharp modern rally steering response
+    steeringSpeed: 9.5, // Razor-sharp modern WRC rally steering response
     assists: {
-      yawDamping: 0.10,
-      driftGripMultiplier: 0.20,
+      yawDamping: 0.06, // Natural rotation and agile drift control
+      driftGripMultiplier: 0.24,
     },
   },
   aerodynamics: {

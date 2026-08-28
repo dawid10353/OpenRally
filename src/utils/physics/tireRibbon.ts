@@ -31,7 +31,7 @@ export const DEFAULT_RIBBON_CONFIG: TireRibbonConfig = {
   minDistance: 0.18,
   tireWidth: 0.34,
   treadTileLength: 0.45,
-  normalOffset: 0.025,
+  normalOffset: 0.015,
 };
 
 /**
@@ -166,7 +166,7 @@ export function sampleTerrainHeightAndNormal(
   levelData: LevelData | undefined,
   outPos: Vector3,
   outNormal: Vector3,
-  bias = 0.025,
+  bias = 0.015,
 ): void {
   if (!heightmapData || !levelData) {
     outPos.set(x, 0 + bias, z);

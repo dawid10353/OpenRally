@@ -88,8 +88,8 @@ export function TireTracks({ wheelsRef, chassisRef }: TireTracksProps) {
       depthTest: true,
       side: DoubleSide,
       polygonOffset: true,
-      polygonOffsetFactor: -8,
-      polygonOffsetUnits: -8,
+      polygonOffsetFactor: -0.5,
+      polygonOffsetUnits: -1,
     });
   }, [trackTexture]);
 

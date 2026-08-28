@@ -61,6 +61,12 @@ describe('powertrain physics', () => {
       expect(updateGearbox(200, 55, { ...baseInput, throttle: 1 }, 3, true)).toBe(3);
       expect(updateGearbox(20, 5, baseInput, 3, true)).toBe(3);
     });
+
+    it('triggers sport kickdown under full throttle when entering the lower speed range of a gear', () => {
+      // 3rd gear normally downshifts below 70 km/h; with full throttle, kickdown downshifts below 80 km/h
+      const gear = updateGearbox(75, 20.8, { ...baseInput, throttle: 1 }, 3);
+      expect(gear).toBe(2);
+    });
   });
 
   describe('calculateRPM', () => {
@@ -87,6 +93,38 @@ describe('powertrain physics', () => {
       const reverseRpm = calculateRPM(20, -1, { ...baseInput, brake: 1 });
       expect(reverseRpm).toBeGreaterThan(1500);
       expect(reverseRpm).toBeLessThanOrEqual(MAX_RPM);
+    });
+
+    describe('rally cornering and loose surface dynamics', () => {
+      it('maintains high RPM in powerband during hard cornering under full throttle', () => {
+        // Vehicle cornering at 50 km/h in 3rd gear with full throttle and sharp steering
+        const corneringRpm = calculateRPM(50, 3, { ...baseInput, throttle: 1, steering: 1 }, {
+          slipAngle: 0.4,
+          steering: 1,
+        });
+
+        // Engine should rev high in the powerband (> 6500 RPM) rather than bogging down to idle
+        expect(corneringRpm).toBeGreaterThan(6500);
+        expect(corneringRpm).toBeLessThanOrEqual(MAX_RPM);
+      });
+
+      it('flares RPM with wheelspin when driving on loose sand under full throttle', () => {
+        // Vehicle at 40 km/h in 2nd gear on beach sand (looseSurfaceTractionLoss = 0.45)
+        const sandRpm = calculateRPM(40, 2, { ...baseInput, throttle: 1 }, {
+          looseSurfaceTractionLoss: 0.45,
+        });
+
+        expect(sandRpm).toBeGreaterThan(6500);
+        expect(sandRpm).toBeLessThanOrEqual(MAX_RPM);
+      });
+
+      it('smoothly pulls down RPM under off-throttle engine braking when slowing down in gear', () => {
+        // Driving in 3rd gear at 60 km/h with 0 throttle
+        const coastingRpm = calculateRPM(60, 3, baseInput);
+        // Off-throttle in 3rd gear at 60 km/h should be around ~4000-4500 RPM, not 1000 RPM idle
+        expect(coastingRpm).toBeGreaterThan(3800);
+        expect(coastingRpm).toBeLessThan(5000);
+      });
     });
 
     describe('airborne dynamics', () => {
@@ -140,7 +178,7 @@ describe('powertrain physics', () => {
         let currentRpm = 7900; // was revving at redline in air
         const dt = 0.016;
 
-        // Vehicle touches down at 50 km/h in 3rd gear (normal grounded RPM is ~2500)
+        // Vehicle touches down at 50 km/h in 3rd gear (normal grounded RPM is ~2500-4000)
         for (let i = 0; i < 30; i++) {
           currentRpm = calculateRPM(50, 3, baseInput, {
             currentRpm,
@@ -150,8 +188,8 @@ describe('powertrain physics', () => {
           });
         }
 
-        // RPM should have settled back down to transmission speed (~2500 RPM)
-        expect(currentRpm).toBeLessThan(3500);
+        // RPM should have settled back down to transmission speed (~4000 RPM)
+        expect(currentRpm).toBeLessThan(4500);
         expect(currentRpm).toBeGreaterThanOrEqual(800);
       });
     });

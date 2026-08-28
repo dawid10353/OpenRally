@@ -24,6 +24,10 @@ export interface CreateSurfaceOptions {
   readonly audio?: Partial<SurfaceAudioConfig>;
   /** Skid mark opacity (0.0 to 1.0) */
   readonly skidMarkOpacity?: number;
+  /** Rolling resistance coefficient (e.g. 0.005 for tarmac, 0.12 for deep sand) */
+  readonly rollingResistance?: number;
+  /** Traction loss factor on high throttle for loose surface power slides */
+  readonly looseSurfaceTractionLoss?: number;
 }
 
 /**
@@ -63,5 +67,7 @@ export function createSurfaceDefinition(options: CreateSurfaceOptions): SurfaceD
     particles,
     audio,
     skidMarkOpacity: options.skidMarkOpacity ?? 0.5,
+    rollingResistance: options.rollingResistance ?? 0.01,
+    looseSurfaceTractionLoss: options.looseSurfaceTractionLoss ?? 0.0,
   };
 }

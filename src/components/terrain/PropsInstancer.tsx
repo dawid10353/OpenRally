@@ -563,7 +563,142 @@ export function createCabinStoneGeometry(): BufferGeometry {
 }
 
 /**
- * Creates the timber cabin walls, front porch, corner notch logs, and structural beams.
+ * Helper to construct a solid 3D triangular gable wall prism for cabin ends.
+ */
+function createGablePrismGeometry(
+  xHalf: number,
+  yBase: number,
+  yPeak: number,
+  zFront: number,
+  zBack: number,
+): BufferGeometry {
+  const geo = new BufferGeometry();
+
+  const zF = Math.max(zFront, zBack);
+  const zB = Math.min(zFront, zBack);
+  const thickness = zF - zB;
+
+  const dy = yPeak - yBase;
+  const len = Math.hypot(dy, xHalf);
+  const nx = dy / len;
+  const ny = xHalf / len;
+
+  const positions: number[] = [
+    // 0..2: Front face
+    -xHalf, yBase, zF,
+     xHalf, yBase, zF,
+     0,     yPeak, zF,
+
+    // 3..5: Back face
+     xHalf, yBase, zB,
+    -xHalf, yBase, zB,
+     0,     yPeak, zB,
+
+    // 6..9: Left slope
+    -xHalf, yBase, zB,
+    -xHalf, yBase, zF,
+     0,     yPeak, zF,
+     0,     yPeak, zB,
+
+    // 10..13: Right slope
+     xHalf, yBase, zF,
+     xHalf, yBase, zB,
+     0,     yPeak, zB,
+     0,     yPeak, zF,
+
+    // 14..17: Bottom face
+    -xHalf, yBase, zF,
+    -xHalf, yBase, zB,
+     xHalf, yBase, zB,
+     xHalf, yBase, zF,
+  ];
+
+  const normals: number[] = [
+    // Front face
+    0, 0, 1,
+    0, 0, 1,
+    0, 0, 1,
+
+    // Back face
+    0, 0, -1,
+    0, 0, -1,
+    0, 0, -1,
+
+    // Left slope
+    -nx, ny, 0,
+    -nx, ny, 0,
+    -nx, ny, 0,
+    -nx, ny, 0,
+
+    // Right slope
+    nx, ny, 0,
+    nx, ny, 0,
+    nx, ny, 0,
+    nx, ny, 0,
+
+    // Bottom face
+    0, -1, 0,
+    0, -1, 0,
+    0, -1, 0,
+    0, -1, 0,
+  ];
+
+  const uvs: number[] = [
+    // Front face
+    0.0, 0.0,
+    2.0, 0.0,
+    1.0, 1.3,
+
+    // Back face
+    2.0, 0.0,
+    0.0, 0.0,
+    1.0, 1.3,
+
+    // Left slope
+    0.0, 0.0,
+    thickness * 2, 0.0,
+    thickness * 2, 1.3,
+    0.0, 1.3,
+
+    // Right slope
+    0.0, 0.0,
+    thickness * 2, 0.0,
+    thickness * 2, 1.3,
+    0.0, 1.3,
+
+    // Bottom face
+    0.0, 0.0,
+    0.0, thickness * 2,
+    2.0, thickness * 2,
+    2.0, 0.0,
+  ];
+
+  const indices: number[] = [
+    // Front face
+    0, 1, 2,
+    // Back face
+    3, 4, 5,
+    // Left slope
+    6, 7, 8,
+    6, 8, 9,
+    // Right slope
+    10, 11, 12,
+    10, 12, 13,
+    // Bottom face
+    14, 15, 16,
+    14, 16, 17,
+  ];
+
+  geo.setAttribute('position', new Float32BufferAttribute(positions, 3));
+  geo.setAttribute('normal', new Float32BufferAttribute(normals, 3));
+  geo.setAttribute('uv', new Float32BufferAttribute(uvs, 2));
+  geo.setIndex(indices);
+
+  return geo;
+}
+
+/**
+ * Creates the timber cabin walls, front porch, corner notch logs, structural beams, and gable attic walls.
  */
 export function createCabinWallGeometry(): BufferGeometry {
   const parts: BufferGeometry[] = [];
@@ -576,6 +711,23 @@ export function createCabinWallGeometry(): BufferGeometry {
     wUvs.setXY(i, wUvs.getX(i) * 2.0, wUvs.getY(i) * 2.0);
   }
   parts.push(walls);
+
+  // Front triangular gable attic wall (closes space under roof from Y = 3.4 to 5.35, supporting upper window)
+  const frontGable = createGablePrismGeometry(3.0, 3.4, 5.35, 4.0, 3.75);
+  parts.push(frontGable);
+
+  // Rear triangular gable attic wall
+  const rearGable = createGablePrismGeometry(3.0, 3.4, 5.35, -3.75, -4.0);
+  parts.push(rearGable);
+
+  // Decorative horizontal timber frieze beams separating ground floor from gable attic
+  const frontFriezeBeam = new BoxGeometry(6.1, 0.16, 0.16);
+  frontFriezeBeam.translate(0, 3.4, 4.02);
+  parts.push(frontFriezeBeam);
+
+  const rearFriezeBeam = new BoxGeometry(6.1, 0.16, 0.16);
+  rearFriezeBeam.translate(0, 3.4, -4.02);
+  parts.push(rearFriezeBeam);
 
   // Front entrance porch timber deck
   const porchDeck = new BoxGeometry(6.0, 0.25, 1.8);

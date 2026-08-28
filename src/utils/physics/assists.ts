@@ -39,15 +39,30 @@ export function applyAssists(
 
   const mass = body.mass();
 
-  // 1. Gentle Drift & Yaw Assist (around local Y axis)
-  // When handbrake is pressed or player is drifting, allow free rotation for fun powerslides
+  // 1. Agile Turn-In & Yaw Stability Assist (around local Y axis)
+  // When handbrake is pressed, allow completely free rotation for handbrake slides
   if (!input.handbrake) {
-    const targetYawRate = input.steering * (Math.abs(forwardSpeed) / 2.85) * 0.55;
-    const yawRateError = _localAngVel.y - targetYawRate;
+    const absSpeed = Math.abs(forwardSpeed);
 
-    if (Math.abs(yawRateError) > 0.1) {
-      // Subtle stabilization damping to keep driving responsive and fun
-      localTorqueY = -yawRateError * config.handling.assists.yawDamping * mass * dt * 2.5;
+    if (Math.abs(input.steering) > 0.02 && absSpeed > 1.5) {
+      // Agile Turn-In Assistance (simulates front torque vectoring & active diff turn-in)
+      const speedRamp = Math.min(1.0, absSpeed / 12.0);
+      const turnInTorque = input.steering * speedRamp * 0.55 * mass * dt;
+      localTorqueY += turnInTorque;
+
+      // Allow natural rotation up to a dynamic yaw rate based on steering & speed
+      const targetYawRate = input.steering * Math.min(2.8, (absSpeed / 14.0) + 1.2);
+      const excessYaw = _localAngVel.y - targetYawRate;
+
+      // Only damp if vehicle is over-rotating beyond the intended drift angle
+      if (Math.sign(_localAngVel.y) === Math.sign(input.steering) && Math.abs(_localAngVel.y) > Math.abs(targetYawRate) + 0.3) {
+        localTorqueY -= excessYaw * config.handling.assists.yawDamping * mass * dt * 1.8;
+      }
+    } else {
+      // Centered / neutral steering — damp unintended snap-spins and oscillations
+      if (Math.abs(_localAngVel.y) > 0.1) {
+        localTorqueY -= _localAngVel.y * (config.handling.assists.yawDamping * 1.5) * mass * dt * 2.0;
+      }
     }
   }
 

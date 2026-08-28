@@ -43,4 +43,8 @@ export interface SurfaceDefinition {
   readonly audio: SurfaceAudioConfig;
   /** Tire track mark darkness (0.0 = invisible, 1.0 = pitch black) */
   readonly skidMarkOpacity: number;
+  /** Rolling resistance coefficient (e.g. 0.005 for tarmac, 0.12 for deep sand) */
+  readonly rollingResistance?: number;
+  /** Traction loss factor on high throttle for loose surface power slides (0.0 = none, 0.4 = high slip) */
+  readonly looseSurfaceTractionLoss?: number;
 }

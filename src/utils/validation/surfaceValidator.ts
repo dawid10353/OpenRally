@@ -61,6 +61,14 @@ export function validateSurfaceDefinition(surface: SurfaceDefinition): Validatio
     }
   }
 
+  // Rolling resistance & traction loss checks
+  if (surface.rollingResistance !== undefined && surface.rollingResistance < 0) {
+    errors.push(`surface.rollingResistance must be >= 0 (currently: ${surface.rollingResistance}).`);
+  }
+  if (surface.looseSurfaceTractionLoss !== undefined && (surface.looseSurfaceTractionLoss < 0 || surface.looseSurfaceTractionLoss > 1)) {
+    errors.push(`surface.looseSurfaceTractionLoss must be between [0, 1] (currently: ${surface.looseSurfaceTractionLoss}).`);
+  }
+
   return {
     valid: errors.length === 0,
     errors,

@@ -142,5 +142,40 @@ describe('tire and surface physics', () => {
       expect(controller.brakes[0]).toBe(0);
       expect(controller.brakes[1]).toBe(0);
     });
+
+    it('reduces rear wheel grip on loose surfaces when throttle is applied (power oversteer)', () => {
+      const controllerWithoutThrottle = createMockController();
+      const resultNoThrottle = applyTireFrictionAndBrakes(
+        controllerWithoutThrottle,
+        DEFAULT_VEHICLE_CONFIG,
+        { brake: 0, handbrake: false, steering: 0, throttle: 0 },
+        40,
+        11.1,
+        0,
+        -5, // Y < 0 -> sand surface
+        0,
+        0
+      );
+      const noThrottleGrips = [...resultNoThrottle.grips];
+
+      const controllerWithThrottle = createMockController();
+      const resultWithThrottle = applyTireFrictionAndBrakes(
+        controllerWithThrottle,
+        DEFAULT_VEHICLE_CONFIG,
+        { brake: 0, handbrake: false, steering: 0, throttle: 1 },
+        40,
+        11.1,
+        0,
+        -5, // Y < 0 -> sand surface
+        0,
+        0
+      );
+
+      expect(resultNoThrottle.surface).toBe('sand');
+      expect(resultWithThrottle.surface).toBe('sand');
+      // Rear wheels (index 2, 3) should experience reduced grip under full throttle on sand
+      expect(resultWithThrottle.grips[2]).toBeLessThan(noThrottleGrips[2]);
+      expect(resultWithThrottle.grips[3]).toBeLessThan(noThrottleGrips[3]);
+    });
   });
 });

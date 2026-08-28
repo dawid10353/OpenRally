@@ -64,7 +64,7 @@ const _gripsBuffer: number[] = [0, 0, 0, 0];
 export function applyTireFrictionAndBrakes(
   controller: IRapierVehicleController,
   config: VehicleConfig,
-  input: Pick<InputState, 'brake' | 'handbrake' | 'steering'>,
+  input: Pick<InputState, 'brake' | 'handbrake' | 'steering'> & { throttle?: number },
   speedKmh: number,
   forwardSpeed: number,
   posX: number,
@@ -82,6 +82,8 @@ export function applyTireFrictionAndBrakes(
   if (_gripsBuffer.length !== config.wheels.length) {
     _gripsBuffer.length = config.wheels.length;
   }
+
+  const throttle = input.throttle ?? 0;
 
   for (let i = 0; i < config.wheels.length; i++) {
     const wheel = config.wheels[i];
@@ -107,6 +109,14 @@ export function applyTireFrictionAndBrakes(
       // Linear drop-off to slideGrip over 45 degrees
       const overSlip = Math.min(1.0, (absSlipAngle - gripCurve.peakSlipAngle) / (Math.PI / 4));
       currentFriction = gripCurve.baseGrip - (gripCurve.baseGrip - gripCurve.slideGrip) * overSlip;
+    }
+
+    // Dynamic loose surface traction loss under throttle (power oversteer / wheelspin)
+    if (throttle > 0.15 && surfaceDef.looseSurfaceTractionLoss && wheel.powered) {
+      // Rear/steerable power delivery breaks traction on loose surfaces (mud, grass, sand)
+      const axleSlipFactor = !wheel.steerable ? 1.0 : 0.45;
+      const tractionLoss = axleSlipFactor * surfaceDef.looseSurfaceTractionLoss * throttle;
+      currentFriction *= Math.max(0.35, 1.0 - tractionLoss);
     }
 
     // Handbrake — drift assist grip multiplier

@@ -16,6 +16,7 @@ import { applyAssists } from '@/utils/physics/assists';
 import { syncWheelVisuals } from '@/utils/physics/visuals';
 import { applyAntiRollBars } from '@/utils/physics/suspension';
 import { emitGameEvent } from '@/utils/events';
+import { getSurfaceDefinition } from '@/config/surfaceRegistry';
 import { useTerrainData } from '@/components/terrain/TerrainContext';
 import { rumbleImpact, rumbleSlip, rumbleSurface } from '@/utils/input/gamepadHaptics';
 
@@ -23,6 +24,7 @@ import { rumbleImpact, rumbleSlip, rumbleSurface } from '@/utils/input/gamepadHa
 const _forward = new Vector3();
 const _right = new Vector3();
 const _velocity = new Vector3();
+const _dragImpulse = new Vector3();
 const _quat = new Quaternion();
 const _euler = new Euler();
 const _spawnQuat = new Quaternion();
@@ -136,7 +138,9 @@ export function useVehiclePhysics(
     _velocity.set(linvel.x, linvel.y, linvel.z);
     const forwardSpeed = _velocity.dot(_forward); // m/s along forward axis
     const lateralSpeed = _velocity.dot(_right);   // m/s along lateral axis
-    const speedKmh = Math.abs(forwardSpeed) * MS_TO_KMH;
+    // Use planar ground speed so cornering/drifting does not cause artificial RPM drop or gear downshift
+    const groundSpeed = Math.hypot(forwardSpeed, lateralSpeed);
+    const speedKmh = groundSpeed * MS_TO_KMH;
     
     // Slip angle calculation
     let slipAngle = 0;
@@ -214,17 +218,29 @@ export function useVehiclePhysics(
     if (speedDelta > 25 && prevSpeedKmhRef.current > 30) {
       // Sudden deceleration / heavy collision impact
       rumbleImpact(Math.min(1.0, speedDelta / 60));
-    } else if (Math.abs(lateralSpeed) > 3.5 || (input.handbrake && speedKmh > 12)) {
+    } else if (Math.abs(lateralSpeed) > 2.8 || (input.handbrake && speedKmh > 12)) {
       // Tire slip / drifting vibration
-      rumbleSlip(Math.min(1.0, Math.abs(lateralSpeed) / 8));
-    } else if (surface !== 'tarmac' && speedKmh > 20) {
+      rumbleSlip(Math.min(1.0, Math.abs(lateralSpeed) / 7));
+    } else if (surface !== 'tarmac' && speedKmh > 15) {
       // Off-road surface roughness
-      rumbleSurface(Math.min(1.0, speedKmh / 90));
+      const surfaceIntensity = surface === 'sand' ? 1.3 : surface === 'mud' ? 1.1 : 0.9;
+      rumbleSurface(Math.min(1.0, (speedKmh / 80) * surfaceIntensity));
     }
     prevSpeedKmhRef.current = speedKmh;
 
-    // --- 5. APPLY AERODYNAMICS & EXTERNAL FORCES ---
+    // --- 5. APPLY AERODYNAMICS & SURFACE ROLLING DRAG ---
     applyAerodynamics(body, config, forwardSpeed, _velocity, pos.y, dt);
+
+    const surfaceDef = getSurfaceDefinition(surface);
+
+    // Physical rolling resistance (loose ground deceleration: sand, tall grass, mud)
+    if (groundedRatio > 0 && Math.abs(forwardSpeed) > 0.1) {
+      const rollingResistance = surfaceDef.rollingResistance ?? 0.005;
+      const dragImpulseMagnitude = rollingResistance * body.mass() * 9.81 * groundedRatio * dt;
+      const clampedDrag = Math.min(dragImpulseMagnitude, Math.abs(forwardSpeed) * body.mass());
+      _dragImpulse.copy(_forward).multiplyScalar(-Math.sign(forwardSpeed) * clampedDrag);
+      body.applyImpulse(_dragImpulse, true);
+    }
 
     // --- 6. UPDATE TELEMETRY & ENGINE RPM ---
     const targetRpm = calculateRPM(speedKmh, currentGear, input, {
@@ -232,6 +248,9 @@ export function useVehiclePhysics(
       dt,
       groundedRatio,
       isAirborne,
+      slipAngle,
+      steering: input.steering,
+      looseSurfaceTractionLoss: surfaceDef.looseSurfaceTractionLoss,
     });
     currentRpmRef.current = targetRpm;
 
