@@ -2,8 +2,25 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useRacingStore } from '../racingStore';
 
 describe('racingStore', () => {
+  let mockStorage: Record<string, string> = {};
+
   beforeEach(() => {
     vi.useFakeTimers();
+    mockStorage = {};
+    const storageMock = {
+      getItem: vi.fn((key: string) => mockStorage[key] ?? null),
+      setItem: vi.fn((key: string, value: string) => {
+        mockStorage[key] = value;
+      }),
+      removeItem: vi.fn((key: string) => {
+        delete mockStorage[key];
+      }),
+      clear: vi.fn(() => {
+        mockStorage = {};
+      }),
+    };
+    vi.stubGlobal('localStorage', storageMock);
+
     useRacingStore.setState({
       raceStatus: 'idle',
       currentCheckpoint: 0,
@@ -122,5 +139,25 @@ describe('racingStore', () => {
 
     useRacingStore.getState().syncBestLapForLevel('desert_canyon');
     expect(useRacingStore.getState().bestLapTime).toBe(58.2);
+  });
+
+  it('resets all track records and clears persisted localStorage', () => {
+    localStorage.setItem('openrally_track_records', JSON.stringify({ level1: 40.0, level2: 55.0 }));
+    localStorage.setItem('openrally_best_lap', '40.0');
+
+    useRacingStore.setState({
+      bestLapTimes: { level1: 40.0, level2: 55.0 },
+      bestLapTime: 40.0,
+      splitDelta: -1.2,
+    });
+
+    useRacingStore.getState().resetAllTrackRecords();
+
+    const state = useRacingStore.getState();
+    expect(state.bestLapTimes).toEqual({});
+    expect(state.bestLapTime).toBeNull();
+    expect(state.splitDelta).toBeNull();
+    expect(localStorage.getItem('openrally_track_records')).toBeNull();
+    expect(localStorage.getItem('openrally_best_lap')).toBeNull();
   });
 });

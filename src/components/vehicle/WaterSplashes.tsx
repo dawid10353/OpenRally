@@ -10,6 +10,9 @@ const _scale = new Vector3();
 
 // Create water splash texture
 const createSplashTexture = () => {
+  if (typeof document === 'undefined') {
+    return new CanvasTexture({} as unknown as HTMLCanvasElement);
+  }
   const canvas = document.createElement('canvas');
   canvas.width = 32;
   canvas.height = 32;
@@ -145,16 +148,13 @@ export function WaterSplashes({ wheelsRef, chassisRef }: WaterSplashesProps) {
       timeAccumulator.current = 0;
     }
 
+    let activeCount = 0;
     for (let i = 0; i < MAX_PARTICLES; i++) {
       const p = particles[i];
       if (p.active) {
         p.life += delta;
         if (p.life >= p.maxLife) {
           p.active = false;
-          dummy.position.set(0, -1000, 0);
-          dummy.updateMatrix();
-          meshRef.current.setMatrixAt(i, dummy.matrix);
-          opacityArray[i] = 0;
           continue;
         }
 
@@ -194,18 +194,22 @@ export function WaterSplashes({ wheelsRef, chassisRef }: WaterSplashesProps) {
         _scale.set(currentScale, currentScale, currentScale);
         dummy.matrix.compose(p.position, dummy.quaternion, _scale);
 
-        meshRef.current.setMatrixAt(i, dummy.matrix);
-        meshRef.current.setColorAt(i, p.color);
-        opacityArray[i] = currentOpacity;
+        meshRef.current.setMatrixAt(activeCount, dummy.matrix);
+        meshRef.current.setColorAt(activeCount, p.color);
+        opacityArray[activeCount] = currentOpacity;
+        activeCount++;
       }
     }
 
-    meshRef.current.instanceMatrix.needsUpdate = true;
-    if (meshRef.current.instanceColor) {
-      meshRef.current.instanceColor.needsUpdate = true;
-    }
-    if (meshRef.current.geometry && meshRef.current.geometry.attributes.instanceOpacity) {
-      meshRef.current.geometry.attributes.instanceOpacity.needsUpdate = true;
+    meshRef.current.count = activeCount;
+    if (activeCount > 0) {
+      meshRef.current.instanceMatrix.needsUpdate = true;
+      if (meshRef.current.instanceColor) {
+        meshRef.current.instanceColor.needsUpdate = true;
+      }
+      if (meshRef.current.geometry && meshRef.current.geometry.attributes.instanceOpacity) {
+        meshRef.current.geometry.attributes.instanceOpacity.needsUpdate = true;
+      }
     }
   });
 

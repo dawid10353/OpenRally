@@ -89,4 +89,24 @@ describe('Checkpoints & Track Alignment System', () => {
     const normalizedDiff = Math.min(diff, Math.PI * 2 - diff);
     expect(normalizedDiff).toBeLessThan(0.15);
   });
+
+  it('validates atmospheric scattering parameters in level environments', () => {
+    const levels = getAvailableLevels();
+    for (const level of levels) {
+      if (level.environment?.sky) {
+        const { turbidity, rayleigh, mieCoefficient, mieDirectionalG } = level.environment.sky;
+        if (turbidity !== undefined) expect(turbidity).toBeGreaterThan(0);
+        if (rayleigh !== undefined) expect(rayleigh).toBeGreaterThan(0);
+        if (mieCoefficient !== undefined) expect(mieCoefficient).toBeGreaterThan(0);
+        if (mieDirectionalG !== undefined) expect(mieDirectionalG).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('exports optimized CheckpointGate and StartFinishGantry components', async () => {
+    const { CheckpointGate } = await import('../CheckpointGate');
+    const { StartFinishGantry } = await import('../StartFinishGantry');
+    expect(CheckpointGate).toBeDefined();
+    expect(StartFinishGantry).toBeDefined();
+  });
 });

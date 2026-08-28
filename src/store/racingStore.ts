@@ -9,6 +9,7 @@ const LEGACY_BEST_LAP_KEY = 'openrally_best_lap';
 
 function loadTrackRecords(): Record<string, number> {
   try {
+    if (typeof localStorage === 'undefined') return {};
     const raw = localStorage.getItem(TRACK_RECORDS_KEY);
     if (raw) {
       return JSON.parse(raw) as Record<string, number>;
@@ -29,7 +30,9 @@ function loadTrackRecords(): Record<string, number> {
 
 function saveTrackRecords(records: Record<string, number>): void {
   try {
-    localStorage.setItem(TRACK_RECORDS_KEY, JSON.stringify(records));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(TRACK_RECORDS_KEY, JSON.stringify(records));
+    }
   } catch {
     // ignore
   }
@@ -207,6 +210,25 @@ export const useRacingStore = create<RacingStore>((set, get) => ({
       showStageComplete: false,
       countdown: null,
       countdownTimer: 0,
+    });
+  },
+
+  resetAllTrackRecords: () => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem(TRACK_RECORDS_KEY);
+        localStorage.removeItem(LEGACY_BEST_LAP_KEY);
+      }
+    } catch {
+      // ignore
+    }
+    set({
+      bestLapTimes: {},
+      bestLapTime: null,
+      splitDelta: null,
+    });
+    emitGameEvent('track_records_reset', {
+      timestamp: Date.now(),
     });
   },
 }));

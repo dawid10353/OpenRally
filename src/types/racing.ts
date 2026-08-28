@@ -35,4 +35,5 @@ export interface RacingStore {
   resetRace: () => void;
   getBestLapForLevel: (levelId: string) => number | null;
   syncBestLapForLevel: (levelId: string) => void;
+  resetAllTrackRecords: () => void;
 }

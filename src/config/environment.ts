@@ -9,6 +9,10 @@ export const SKY_CONFIG = {
   sunPosition: [80, 100, 60] as [number, number, number],
   inclination: 0,
   azimuth: 0.25,
+  turbidity: 4.5,
+  rayleigh: 1.4,
+  mieCoefficient: 0.005,
+  mieDirectionalG: 0.82,
 };
 
 export const FOG_CONFIG = {
@@ -20,35 +24,35 @@ export const FOG_CONFIG = {
 // ─── Lighting ───────────────────────────────────────────────────────
 export const LIGHTING_CONFIG = {
   ambient: {
-    intensity: 0.22,
-    color: '#a8c0dc',
+    intensity: 0.24,
+    color: '#b2cde8',
   },
   directional: {
-    intensity: 1.25,
-    color: '#fff4e6',
+    intensity: 1.35,
+    color: '#fff6ec',
     shadowMapSize: 1024,
-    shadowCameraRange: 80,
+    shadowCameraRange: 75,
     shadowCameraNear: 0.5,
-    shadowCameraFar: 600,
-    shadowBias: -0.0001,
-    shadowNormalBias: 0.02,
+    shadowCameraFar: 450,
+    shadowBias: -0.00008,
+    shadowNormalBias: 0.035,
   },
   hemisphere: {
-    skyColor: '#70a4d8',
-    groundColor: '#25361b',
-    intensity: 0.35,
+    skyColor: '#80b3e6',
+    groundColor: '#2b3d1f',
+    intensity: 0.38,
   },
 };
 
 // ─── Post-Processing ────────────────────────────────────────────────
 export const POSTPROCESSING_CONFIG = {
   bloom: {
-    luminanceThreshold: 1.0,
-    luminanceSmoothing: 0.9,
-    intensity: 0.4,
+    luminanceThreshold: 0.88,
+    luminanceSmoothing: 0.35,
+    intensity: 0.42,
   },
   vignette: {
-    offset: 0.3,
-    darkness: 0.6,
+    offset: 0.32,
+    darkness: 0.52,
   },
 };

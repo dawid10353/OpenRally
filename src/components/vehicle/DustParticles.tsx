@@ -10,6 +10,9 @@ const _scale = new Vector3();
 
 // Create soft particle texture outside component to avoid recreation
 const createDustTexture = () => {
+  if (typeof document === 'undefined') {
+    return new CanvasTexture({} as unknown as HTMLCanvasElement);
+  }
   const canvas = document.createElement('canvas');
   canvas.width = 64;
   canvas.height = 64;
@@ -108,6 +111,8 @@ export function DustParticles({ wheelsRef, chassisRef }: DustParticlesProps) {
 
       if (emissionsToDo > 0) {
         timeAccumulator.current -= emissionsToDo * EMIT_RATE;
+        const currentSurface = useGameStore.getState().surface;
+        const surfaceColorHex = getSurfaceDefinition(currentSurface).particles.color;
 
         for (let e = 0; e < emissionsToDo; e++) {
           // Emit from all wheels
@@ -141,8 +146,6 @@ export function DustParticles({ wheelsRef, chassisRef }: DustParticlesProps) {
             p.life = 0;
             p.maxLife = isDrifting ? DRIFT_PARTICLE_LIFETIME : DRIVE_PARTICLE_LIFETIME;
             p.scale = Math.random() * 0.3 + 0.1; // Even smaller for less volume
-            const currentSurface = useGameStore.getState().surface;
-            const surfaceColorHex = getSurfaceDefinition(currentSurface).particles.color;
             if (isDrifting) {
               p.color.copy(SMOKE_COLOR);
             } else {
@@ -160,18 +163,14 @@ export function DustParticles({ wheelsRef, chassisRef }: DustParticlesProps) {
       timeAccumulator.current = 0;
     }
 
-    // Update and render particles
+    // Update and render active particles packed continuously
+    let activeCount = 0;
     for (let i = 0; i < MAX_PARTICLES; i++) {
       const p = particles[i];
       if (p.active) {
         p.life += delta;
         if (p.life >= p.maxLife) {
           p.active = false;
-          // Hide it
-          dummy.position.set(0, -1000, 0);
-          dummy.updateMatrix();
-          meshRef.current.setMatrixAt(i, dummy.matrix);
-          opacityArray[i] = 0;
           continue;
         }
 
@@ -208,18 +207,22 @@ export function DustParticles({ wheelsRef, chassisRef }: DustParticlesProps) {
         _scale.set(currentScale, currentScale, currentScale);
         dummy.matrix.compose(p.position, dummy.quaternion, _scale);
 
-        meshRef.current.setMatrixAt(i, dummy.matrix);
-        meshRef.current.setColorAt(i, p.color);
-        opacityArray[i] = currentOpacity;
+        meshRef.current.setMatrixAt(activeCount, dummy.matrix);
+        meshRef.current.setColorAt(activeCount, p.color);
+        opacityArray[activeCount] = currentOpacity;
+        activeCount++;
       }
     }
 
-    meshRef.current.instanceMatrix.needsUpdate = true;
-    if (meshRef.current.instanceColor) {
-      meshRef.current.instanceColor.needsUpdate = true;
-    }
-    if (meshRef.current.geometry && meshRef.current.geometry.attributes.instanceOpacity) {
-      meshRef.current.geometry.attributes.instanceOpacity.needsUpdate = true;
+    meshRef.current.count = activeCount;
+    if (activeCount > 0) {
+      meshRef.current.instanceMatrix.needsUpdate = true;
+      if (meshRef.current.instanceColor) {
+        meshRef.current.instanceColor.needsUpdate = true;
+      }
+      if (meshRef.current.geometry && meshRef.current.geometry.attributes.instanceOpacity) {
+        meshRef.current.geometry.attributes.instanceOpacity.needsUpdate = true;
+      }
     }
   });
 

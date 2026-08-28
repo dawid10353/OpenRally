@@ -13,7 +13,6 @@ import { RigidBody, HeightfieldCollider } from '@react-three/rapier';
 import { useTerrainData } from '@/components/terrain/TerrainContext';
 import { useSettingsStore } from '@/store/settingsStore';
 import { mapRange } from '@/utils/math';
-import type { GraphicsQuality } from '@/types';
 import {
   BIOME_COLOR_LOW,
   BIOME_COLOR_MID,
@@ -21,13 +20,10 @@ import {
   BIOME_MID_THRESHOLD,
 } from '@/config/terrain';
 import {
-  DETAIL_NOISE_SCALE,
-  DETAIL_NOISE_STRENGTH,
   SLOPE_DARKENING_STRENGTH,
 } from '@/config/terrainDetail';
 
 interface TerrainMaterialOptions {
-  quality: GraphicsQuality;
   grassTexture: Texture;
   trackTexture: Texture;
   rockTexture: Texture;
@@ -37,10 +33,10 @@ interface TerrainMaterialOptions {
 
 /**
  * Custom MeshStandardMaterial with photorealistic multi-texture splatting,
- * triplanar slope projection for cliffs, damp mud track blending, and micro-relief.
+ * triplanar slope projection for cliffs, and damp mud track blending.
  */
 export function createDetailedTerrainMaterial(options: TerrainMaterialOptions): MeshStandardMaterial {
-  const { quality, grassTexture, trackTexture, rockTexture, sandTexture, isDesert } = options;
+  const { grassTexture, trackTexture, rockTexture, sandTexture, isDesert } = options;
 
   const mat = new MeshStandardMaterial({
     vertexColors: true,
@@ -51,8 +47,6 @@ export function createDetailedTerrainMaterial(options: TerrainMaterialOptions): 
 
   mat.onBeforeCompile = (shader) => {
     // Add custom uniforms
-    shader.uniforms.u_detailScale = { value: DETAIL_NOISE_SCALE };
-    shader.uniforms.u_detailStrength = { value: DETAIL_NOISE_STRENGTH };
     shader.uniforms.u_slopeDarkening = { value: SLOPE_DARKENING_STRENGTH };
     shader.uniforms.u_grassTexture = { value: grassTexture };
     shader.uniforms.u_trackTexture = { value: trackTexture };
@@ -91,8 +85,6 @@ export function createDetailedTerrainMaterial(options: TerrainMaterialOptions): 
         varying vec3 vWorldNormal;
         varying float vTrackMask;
 
-        uniform float u_detailScale;
-        uniform float u_detailStrength;
         uniform float u_slopeDarkening;
         uniform float u_isDesert;
 
@@ -100,38 +92,6 @@ export function createDetailedTerrainMaterial(options: TerrainMaterialOptions): 
         uniform sampler2D u_trackTexture;
         uniform sampler2D u_rockTexture;
         uniform sampler2D u_sandTexture;
-
-        ${quality !== 'low' ? `
-        float hash(vec2 p) {
-          vec3 p3 = fract(vec3(p.xyx) * 0.1031);
-          p3 += dot(p3, p3.yzx + 33.33);
-          return fract((p3.x + p3.y) * p3.z);
-        }
-
-        float noise2D(vec2 p) {
-          vec2 i = floor(p);
-          vec2 f = fract(p);
-          f = f * f * (3.0 - 2.0 * f);
-
-          float a = hash(i);
-          float b = hash(i + vec2(1.0, 0.0));
-          float c = hash(i + vec2(0.0, 1.0));
-          float d = hash(i + vec2(1.0, 1.0));
-
-          return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-        }
-
-        float fbm(vec2 p) {
-          float value = 0.0;
-          float amplitude = 0.5;
-          for (int i = 0; i < 2; i++) {
-            value += amplitude * noise2D(p);
-            p *= 2.0;
-            amplitude *= 0.5;
-          }
-          return value;
-        }
-        ` : ''}
       `,
     );
 
@@ -157,12 +117,12 @@ export function createDetailedTerrainMaterial(options: TerrainMaterialOptions): 
           baseGround = mix(grassMacro, grassMicro, 0.5);
         }
 
-        // Rally track dirt/mud texture sampling
+        // Rally track dirt/mud texture sampling with subtle color grading
         vec2 uvTrackMacro = vWorldPosition.xz * 0.08;
         vec2 uvTrackMicro = mat2(0.866, -0.5, 0.5, 0.866) * (vWorldPosition.xz * 0.35);
         vec3 trackMacro = texture2D(u_trackTexture, uvTrackMacro).rgb;
         vec3 trackMicro = texture2D(u_trackTexture, uvTrackMicro).rgb;
-        vec3 trackTex = mix(trackMacro, trackMicro, 0.5);
+        vec3 trackTex = mix(trackMacro, trackMicro, 0.5) * vec3(0.95, 0.90, 0.85);
 
         // Blend base ground with track
         vec3 blendedAlbedo = mix(baseGround, trackTex, clamp(vTrackMask * 1.25, 0.0, 1.0));
@@ -184,15 +144,8 @@ export function createDetailedTerrainMaterial(options: TerrainMaterialOptions): 
         // Use natural vibrant texture albedo directly with subtle macro-lighting
         diffuseColor.rgb = blendedAlbedo;
 
-        ${quality !== 'low' ? `
-        // Micro-relief noise overlay
-        float detailNoise = fbm(uvMicro * 15.0);
-        float noiseMod = 1.0 + (detailNoise * 2.0 - 1.0) * (u_detailStrength * 0.45);
-        diffuseColor.rgb *= noiseMod;
-        ` : ''}
-
         // Slope darkening — ambient occlusion on steep crevices
-        float slopeFactor = 1.0 - slope * (u_slopeDarkening * 0.8);
+        float slopeFactor = 1.0 - slope * (u_slopeDarkening * 0.75);
         diffuseColor.rgb *= slopeFactor;
       `,
     );
@@ -245,19 +198,20 @@ export function Terrain() {
     // Rotate plane to lie flat (PlaneGeometry is in XY, we need XZ)
     geo.rotateX(-Math.PI / 2);
 
-    // Displace vertices using heightmap
+    // Displace vertices using heightmap with preallocated typed buffers
     const positions = geo.attributes.position;
-    const colors: number[] = [];
-    const trackMaskArray: number[] = [];
+    const vertexCount = positions.count;
+    const colors = new Float32Array(vertexCount * 3);
+    const trackMaskArray = new Float32Array(vertexCount);
 
     const tempColor = new Color();
     const MUD_COLOR = new Color('#3b2818');
 
-    for (let i = 0; i < positions.count; i++) {
+    for (let i = 0; i < vertexCount; i++) {
       const height = heightmapData.heights[i];
       const trackMask = heightmapData.trackMasks[i];
       positions.setY(i, height);
-      trackMaskArray.push(trackMask);
+      trackMaskArray[i] = trackMask;
 
       // Color based on normalized height
       const normalizedHeight = mapRange(
@@ -282,7 +236,10 @@ export function Terrain() {
         tempColor.lerp(MUD_COLOR, trackMask * 0.8);
       }
 
-      colors.push(tempColor.r, tempColor.g, tempColor.b);
+      const idx = i * 3;
+      colors[idx] = tempColor.r;
+      colors[idx + 1] = tempColor.g;
+      colors[idx + 2] = tempColor.b;
     }
 
     geo.setAttribute('color', new Float32BufferAttribute(colors, 3));
@@ -296,14 +253,13 @@ export function Terrain() {
   const material = useMemo(
     () =>
       createDetailedTerrainMaterial({
-        quality: graphicsQuality,
         grassTexture,
         trackTexture,
         rockTexture,
         sandTexture,
         isDesert,
       }),
-    [graphicsQuality, grassTexture, trackTexture, rockTexture, sandTexture, isDesert],
+    [grassTexture, trackTexture, rockTexture, sandTexture, isDesert],
   );
 
   // Prepare heights for Rapier HeightfieldCollider

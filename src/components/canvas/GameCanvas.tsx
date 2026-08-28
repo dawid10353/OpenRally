@@ -53,6 +53,11 @@ export function GameCanvas() {
   const inclination = levelPreset.environment?.sky?.inclination ?? SKY_CONFIG.inclination;
   const azimuth = levelPreset.environment?.sky?.azimuth ?? SKY_CONFIG.azimuth;
 
+  const turbidity = levelPreset.environment?.sky?.turbidity ?? SKY_CONFIG.turbidity;
+  const rayleigh = levelPreset.environment?.sky?.rayleigh ?? SKY_CONFIG.rayleigh;
+  const mieCoefficient = levelPreset.environment?.sky?.mieCoefficient ?? SKY_CONFIG.mieCoefficient;
+  const mieDirectionalG = levelPreset.environment?.sky?.mieDirectionalG ?? SKY_CONFIG.mieDirectionalG;
+
   const dpr: [number, number] =
     graphicsQuality === 'low'
       ? [0.5, 0.75]
@@ -70,8 +75,10 @@ export function GameCanvas() {
       gl={{
         antialias: false,
         powerPreference: 'high-performance',
+        stencil: false,
+        depth: true,
         toneMapping: ACESFilmicToneMapping,
-        toneMappingExposure: 0.95,
+        toneMappingExposure: 1.02,
       }}
       performance={{ min: 0.5 }}
       style={{ width: '100%', height: '100%' }}
@@ -85,12 +92,16 @@ export function GameCanvas() {
         {/* Lighting */}
         <Lights />
 
-        {/* Procedural Sky visible to player */}
+        {/* Procedural Sky visible to player with realistic atmospheric scattering */}
         <Sky 
           distance={SKY_CONFIG.distance} 
           sunPosition={sunPosition}
           inclination={inclination} 
           azimuth={azimuth} 
+          turbidity={turbidity}
+          rayleigh={rayleigh}
+          mieCoefficient={mieCoefficient}
+          mieDirectionalG={mieDirectionalG}
         />
         {/* Environment captures the Sky for realistic reflections on water and car */}
         <Environment background={false} resolution={256} frames={1}>
@@ -99,6 +110,10 @@ export function GameCanvas() {
             sunPosition={sunPosition} 
             inclination={inclination} 
             azimuth={azimuth} 
+            turbidity={turbidity}
+            rayleigh={rayleigh}
+            mieCoefficient={mieCoefficient}
+            mieDirectionalG={mieDirectionalG}
           />
         </Environment>
 

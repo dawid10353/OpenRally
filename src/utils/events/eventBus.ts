@@ -40,6 +40,9 @@ export interface GameEventMap {
     intensity: number;
     point?: [number, number, number];
   };
+  track_records_reset: {
+    timestamp: number;
+  };
 }
 
 export type GameEventName = keyof GameEventMap;

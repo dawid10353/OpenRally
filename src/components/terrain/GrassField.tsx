@@ -9,8 +9,11 @@ import {
   Vector3,
   MeshLambertMaterial,
   InstancedMesh,
+  RepeatWrapping,
+  SRGBColorSpace,
   type IUniform,
 } from 'three';
+import { useTexture } from '@react-three/drei';
 import { createNoise2D } from 'simplex-noise';
 import { useTerrainData } from '@/components/terrain/TerrainContext';
 import { useGameStore } from '@/store/gameStore';
@@ -33,9 +36,8 @@ import {
 } from '@/config/grass';
 
 /**
- * Creates a base multi-blade procedural grass cluster geometry.
- * Comprises 6 tapered, curved blade ribbons radiating in an organic fan
- * with upward-biased normals for soft ambient light distribution.
+ * Creates a volumetric 3D grass cluster geometry with 3 crossed, curved cards
+ * and upward-biased smooth hemisphere normals for ambient light distribution.
  */
 export function createGrassTuftGeometry(): BufferGeometry {
   const verts: number[] = [];
@@ -43,67 +45,62 @@ export function createGrassTuftGeometry(): BufferGeometry {
   const uvs: number[] = [];
   const normals: number[] = [];
 
-  const NUM_BLADES = 6;
-  const BLADE_WIDTH = 0.055;
+  const NUM_CARDS = 3;
+  const WIDTH = 0.55;
+  const HEIGHT = 0.52;
 
-  for (let b = 0; b < NUM_BLADES; b++) {
-    const angle = (b / NUM_BLADES) * Math.PI * 2 + ((b * 13) % 7) * 0.15;
-    const c = Math.cos(angle);
-    const s = Math.sin(angle);
+  for (let c = 0; c < NUM_CARDS; c++) {
+    const angle = (c * Math.PI) / NUM_CARDS;
+    const cosA = Math.cos(angle);
+    const sinA = Math.sin(angle);
 
-    // Perpendicular vector for blade width
-    const perpX = -s * BLADE_WIDTH * 0.5;
-    const perpZ = c * BLADE_WIDTH * 0.5;
+    const halfW = WIDTH * 0.5;
+    const pX = -sinA * halfW;
+    const pZ = cosA * halfW;
 
-    // Outward curvature curve
-    const lean = 0.18 + ((b * 17) % 5) * 0.04;
-    const leanX = c * lean;
-    const leanZ = s * lean;
+    const lean = 0.08;
+    const leanX = cosA * lean;
+    const leanZ = sinA * lean;
 
     // Segment 0: Base (Y = 0)
-    const bLX = -perpX, bLZ = -perpZ, bY = 0.0;
-    const bRX = perpX, bRZ = perpZ;
+    const bLX = -pX, bY = 0.0, bLZ = -pZ;
+    const bRX = pX, bRZ = pZ;
 
-    // Segment 1: Mid (Y = 0.5)
-    const mScale = 0.8;
-    const mLX = leanX * 0.35 - perpX * mScale, mLZ = leanZ * 0.35 - perpZ * mScale, mY = 0.5;
-    const mRX = leanX * 0.35 + perpX * mScale, mRZ = leanZ * 0.35 + perpZ * mScale;
+    // Segment 1: Mid (Y = HEIGHT * 0.5)
+    const midH = HEIGHT * 0.5;
+    const mLX = -pX * 0.9 + leanX * 0.3, mY = midH, mLZ = -pZ * 0.9 + leanZ * 0.3;
+    const mRX = pX * 0.9 + leanX * 0.3, mRZ = pZ * 0.9 + leanZ * 0.3;
 
-    // Segment 2: Tip (Y = 1.0)
-    const tScale = 0.25;
-    const tLX = leanX - perpX * tScale, tLZ = leanZ - perpZ * tScale, tY = 1.0;
-    const tRX = leanX + perpX * tScale, tRZ = leanZ + perpZ * tScale;
+    // Segment 2: Tip (Y = HEIGHT)
+    const tLX = -pX * 0.75 + leanX, tY = HEIGHT, tLZ = -pZ * 0.75 + leanZ;
+    const tRX = pX * 0.75 + leanX, tRZ = pZ * 0.75 + leanZ;
 
-    // Upward-biased smooth normals
-    const normX = c * 0.3;
-    const normY = 0.85;
-    const normZ = s * 0.3;
+    // Upward-biased soft normal
+    const nX = cosA * 0.25;
+    const nY = 0.90;
+    const nZ = sinA * 0.25;
 
-    // Quad 1: Base to Mid
-    // Tri 1
+    // Quad lower
     verts.push(bLX, bY, bLZ,  bRX, bY, bRZ,  mRX, mY, mRZ);
     tips.push(0.0, 0.0, 0.5);
-    uvs.push(0, 0,  1, 0,  1, 0.5);
-    normals.push(normX, normY, normZ,  normX, normY, normZ,  normX, normY, normZ);
+    uvs.push(0.0, 0.0,  1.0, 0.0,  1.0, 0.5);
+    normals.push(nX, nY, nZ,  nX, nY, nZ,  nX, nY, nZ);
 
-    // Tri 2
     verts.push(bLX, bY, bLZ,  mRX, mY, mRZ,  mLX, mY, mLZ);
     tips.push(0.0, 0.5, 0.5);
-    uvs.push(0, 0,  1, 0.5,  0, 0.5);
-    normals.push(normX, normY, normZ,  normX, normY, normZ,  normX, normY, normZ);
+    uvs.push(0.0, 0.0,  1.0, 0.5,  0.0, 0.5);
+    normals.push(nX, nY, nZ,  nX, nY, nZ,  nX, nY, nZ);
 
-    // Quad 2: Mid to Tip
-    // Tri 1
+    // Quad upper
     verts.push(mLX, mY, mLZ,  mRX, mY, mRZ,  tRX, tY, tRZ);
     tips.push(0.5, 0.5, 1.0);
-    uvs.push(0, 0.5,  1, 0.5,  1, 1.0);
-    normals.push(normX, normY, normZ,  normX, normY, normZ,  normX, normY, normZ);
+    uvs.push(0.0, 0.5,  1.0, 0.5,  1.0, 1.0);
+    normals.push(nX, nY, nZ,  nX, nY, nZ,  nX, nY, nZ);
 
-    // Tri 2
     verts.push(mLX, mY, mLZ,  tRX, tY, tRZ,  tLX, tY, tLZ);
     tips.push(0.5, 1.0, 1.0);
-    uvs.push(0, 0.5,  1, 1.0,  0, 1.0);
-    normals.push(normX, normY, normZ,  normX, normY, normZ,  normX, normY, normZ);
+    uvs.push(0.0, 0.5,  1.0, 1.0,  0.0, 1.0);
+    normals.push(nX, nY, nZ,  nX, nY, nZ,  nX, nY, nZ);
   }
 
   const geo = new BufferGeometry();
@@ -180,6 +177,23 @@ export function GrassField() {
   const { heightmapData, levelData } = useTerrainData();
   const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
 
+  // Load photorealistic foliage textures
+  const [grassTuftTex, wildflowerTex, desertTuftTex] = useTexture([
+    '/textures/foliage/grass_tuft.jpg',
+    '/textures/foliage/wildflower_tuft.jpg',
+    '/textures/foliage/desert_tuft.jpg',
+  ]);
+
+  useMemo(() => {
+    [grassTuftTex, wildflowerTex, desertTuftTex].forEach((tex) => {
+      tex.wrapS = RepeatWrapping;
+      tex.wrapT = RepeatWrapping;
+      tex.colorSpace = SRGBColorSpace;
+      tex.anisotropy = 4;
+      tex.needsUpdate = true;
+    });
+  }, [grassTuftTex, wildflowerTex, desertTuftTex]);
+
   const isDesert = levelData.id.toLowerCase().includes('desert');
 
   const shaderUniformsRef = useRef<Record<string, IUniform>[]>([]);
@@ -219,12 +233,12 @@ export function GrassField() {
 
     const targetGrassCount =
       graphicsQuality === 'low'
-        ? 12000
+        ? 14000
         : graphicsQuality === 'medium'
-        ? 32000
+        ? 36000
         : graphicsQuality === 'high'
-        ? 60000
-        : 95000;
+        ? 72000
+        : 105000;
     const maxAttempts = targetGrassCount * 8;
 
     while (placed < targetGrassCount && attempt < maxAttempts) {
@@ -235,7 +249,7 @@ export function GrassField() {
       const z = (seededRandom(seed + 1) - 0.5) * mapDepth * GRASS_EDGE_MARGIN;
 
       const noiseVal = clumpNoise(x * 0.05, z * 0.05);
-      if (noiseVal < -0.15) continue;
+      if (noiseVal < -0.18) continue;
 
       if (Math.abs(x) < GRASS_CLEARING_RADIUS && Math.abs(z) < GRASS_CLEARING_RADIUS) continue;
 
@@ -253,12 +267,12 @@ export function GrassField() {
       if (normalizedHeight > GRASS_MAX_TERRAIN_HEIGHT) continue;
       if (y < -5) continue;
 
-      const patchScale = mapRange(noiseVal, -0.15, 1.0, 0.6, 1.35);
+      const patchScale = mapRange(noiseVal, -0.18, 1.0, 0.7, 1.4);
       const scaleY = (GRASS_HEIGHT_MIN + seededRandom(seed + 2) * (GRASS_HEIGHT_MAX - GRASS_HEIGHT_MIN)) * patchScale;
-      const scaleXZ = (0.75 + seededRandom(seed + 3) * 0.6) * patchScale;
+      const scaleXZ = (0.8 + seededRandom(seed + 3) * 0.6) * patchScale;
       const rotY = seededRandom(seed + 4) * Math.PI * 2;
 
-      dummy.position.set(x, y, z);
+      dummy.position.set(x, y - 0.03, z);
       dummy.rotation.set(0, rotY, 0);
       dummy.scale.set(scaleXZ, scaleY, scaleXZ);
       dummy.updateMatrix();
@@ -296,11 +310,14 @@ export function GrassField() {
     return { chunksData: chunks, geometry: geo };
   }, [heightmapData, levelData, graphicsQuality, isDesert]);
 
-  // Create shared custom grass material
+  // Create shared custom grass material with photorealistic texture & wind shader
   const material = useMemo(() => {
     shaderUniformsRef.current = [];
 
+    const activeTexture = isDesert ? desertTuftTex : grassTuftTex;
+
     const mat = new MeshLambertMaterial({
+      map: activeTexture,
       side: DoubleSide,
       transparent: true,
       color: 0xffffff,
@@ -311,6 +328,9 @@ export function GrassField() {
       shader.uniforms.u_windSpeed = { value: WIND_SPEED };
       shader.uniforms.u_windStrength = { value: WIND_STRENGTH };
       shader.uniforms.u_carPosition = { value: new Vector3(0, 0, 0) };
+      shader.uniforms.u_activeTex = { value: activeTexture };
+      shader.uniforms.u_flowerTex = { value: wildflowerTex };
+      shader.uniforms.u_isDesert = { value: isDesert ? 1.0 : 0.0 };
 
       shaderUniformsRef.current.push(shader.uniforms);
 
@@ -328,10 +348,11 @@ export function GrassField() {
         `#include <common>
         varying float vBladeTip;
         varying vec2 vMyUv;
+        varying vec3 vWorldGrassPos;
         `,
       );
 
-      // Custom vertex displacement for wind waves and vehicle bending
+      // Custom vertex displacement for dynamic multi-octave wind waves and vehicle bending
       shader.vertexShader = shader.vertexShader.replace(
         '#include <project_vertex>',
         `
@@ -340,12 +361,13 @@ export function GrassField() {
         vec3 displaced = transformed;
 
         vec4 worldPos = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+        vWorldGrassPos = worldPos.xyz;
         
-        // Dynamic multi-frequency wind sway
-        if (bladeTip > 0.3) {
-          float wave1 = sin(u_time * u_windSpeed + worldPos.x * 0.15 + worldPos.z * 0.22);
-          float wave2 = cos(u_time * (u_windSpeed * 0.7) + worldPos.x * 0.08 + worldPos.z * 0.12);
-          float gust = sin(u_time * 0.9 + worldPos.x * 0.03) * 0.5 + 0.5;
+        // Multi-frequency organic wind sway
+        if (bladeTip > 0.25) {
+          float wave1 = sin(u_time * u_windSpeed + worldPos.x * 0.14 + worldPos.z * 0.20);
+          float wave2 = cos(u_time * (u_windSpeed * 0.65) + worldPos.x * 0.07 + worldPos.z * 0.11);
+          float gust = sin(u_time * 0.85 + worldPos.x * 0.025) * 0.5 + 0.5;
 
           displaced.x += (wave1 + wave2 * 0.5) * u_windStrength * (1.0 + gust) * bladeTip;
           displaced.z += (wave2 - wave1 * 0.4) * u_windStrength * (1.0 + gust * 0.7) * bladeTip;
@@ -353,16 +375,16 @@ export function GrassField() {
 
         vec4 instanceWorldPos = instanceMatrix * vec4(displaced, 1.0);
 
-        // Responsive vehicle pushdown & deflection
+        // Real-time vehicle pushdown & deflection under wheels
         float distToCar = distance(instanceWorldPos.xyz, u_carPosition);
-        float bendRadius = 2.4;
+        float bendRadius = 2.5;
         if (distToCar < bendRadius && bladeTip > 0.05) {
           vec3 pushDir = normalize(instanceWorldPos.xyz - u_carPosition);
           pushDir.y = 0.0;
-          float pushStrength = (1.0 - (distToCar / bendRadius));
-          pushStrength = pushStrength * pushStrength; // Quadratic falloff
-          displaced.x += pushDir.x * pushStrength * 0.9 * bladeTip;
-          displaced.z += pushDir.z * pushStrength * 0.9 * bladeTip;
+          float pushStrength = 1.0 - (distToCar / bendRadius);
+          pushStrength = pushStrength * pushStrength;
+          displaced.x += pushDir.x * pushStrength * 0.95 * bladeTip;
+          displaced.z += pushDir.z * pushStrength * 0.95 * bladeTip;
           displaced.y -= pushStrength * 0.45 * bladeTip;
         }
         
@@ -378,6 +400,10 @@ export function GrassField() {
       shader.fragmentShader = `
         varying float vBladeTip;
         varying vec2 vMyUv;
+        varying vec3 vWorldGrassPos;
+        uniform sampler2D u_activeTex;
+        uniform sampler2D u_flowerTex;
+        uniform float u_isDesert;
       ` + shader.fragmentShader;
 
       shader.fragmentShader = shader.fragmentShader.replace(
@@ -385,21 +411,39 @@ export function GrassField() {
         `
         #include <color_fragment>
 
-        // Natural gradient from moist earth root (blending into terrain) to fresh sunlit tip
-        vec3 rootColor = diffuseColor.rgb * 0.48;
-        vec3 tipColor = diffuseColor.rgb * 1.32;
-        vec3 bladeColor = mix(rootColor, tipColor, smoothstep(0.05, 0.95, vBladeTip));
+        // Sample texture with wildflower scattering on meadow
+        vec4 grassTex;
+        if (u_isDesert > 0.5) {
+          grassTex = texture2D(u_activeTex, vMyUv);
+        } else {
+          // Organic meadow wildflower clusters
+          float flowerPattern = sin(vWorldGrassPos.x * 0.2) * cos(vWorldGrassPos.z * 0.2);
+          if (flowerPattern > 0.45) {
+            grassTex = texture2D(u_flowerTex, vMyUv);
+          } else {
+            grassTex = texture2D(u_activeTex, vMyUv);
+          }
+        }
 
-        // Subsurface scattering fake — tips catch vibrant sunlight
-        float sunTranslucency = mix(0.75, 1.25, vBladeTip);
-        diffuseColor.rgb = bladeColor * sunTranslucency;
+        // Alpha discard for photorealistic blade cutout
+        float lum = max(grassTex.r, max(grassTex.g, grassTex.b));
+        if (lum < 0.075) {
+          discard;
+        }
+
+        // Natural gradient from dark moist root to sunlit golden tips
+        vec3 rootDarkening = diffuseColor.rgb * mix(0.42, 1.0, smoothstep(0.0, 0.4, vBladeTip));
+        vec3 bladeAlbedo = grassTex.rgb * rootDarkening * 1.35;
+
+        // Subsurface scattering fake — sunlight filtering through blades
+        float sunTranslucency = mix(0.85, 1.28, vBladeTip);
+        diffuseColor.rgb = bladeAlbedo * sunTranslucency;
         `,
       );
     };
 
     return mat;
-  }, []);
-
+  }, [isDesert, desertTuftTex, grassTuftTex, wildflowerTex]);
 
   useFrame((state) => {
     const time = state.clock.getElapsedTime();
@@ -419,12 +463,12 @@ export function GrassField() {
         lastCamPosRef.current.copy(camPos);
         const maxDistSq =
           graphicsQuality === 'very_high'
-            ? 320 * 320
+            ? 340 * 340
             : graphicsQuality === 'high'
-            ? 200 * 200
+            ? 220 * 220
             : graphicsQuality === 'medium'
-            ? 150 * 150
-            : 100 * 100;
+            ? 160 * 160
+            : 110 * 110;
 
         chunksData.forEach((chunk, idx) => {
           const mesh = meshRefs.current[idx];
@@ -433,8 +477,10 @@ export function GrassField() {
           const distSq = chunk.center.distanceToSquared(camPos);
           if (distSq > maxDistSq) {
             mesh.count = 0;
+            mesh.visible = false;
           } else {
             mesh.count = chunk.matrices.length;
+            mesh.visible = chunk.matrices.length > 0;
           }
         });
       }
@@ -457,4 +503,3 @@ export function GrassField() {
     </group>
   );
 }
-

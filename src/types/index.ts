@@ -34,6 +34,7 @@ export type {
   HeightmapData,
 } from './terrain';
 export type {
+  PropType,
   PropData,
   TerrainBaseConfig,
   HeightmapModification,

@@ -2,7 +2,10 @@ import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { DirectionalLight } from 'three';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useGameStore } from '@/store/gameStore';
 import { LIGHTING_CONFIG, SKY_CONFIG } from '@/config/environment';
+
+import { getLevelPreset } from '@/config/levelRegistry';
 
 /**
  * Scene lighting setup — ambient + directional sun + hemisphere.
@@ -13,7 +16,11 @@ import { LIGHTING_CONFIG, SKY_CONFIG } from '@/config/environment';
 export function Lights() {
   const shadowsEnabled = useSettingsStore((s) => s.shadowsEnabled);
   const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
+  const selectedLevelId = useGameStore((s) => s.selectedLevelId);
   const lightRef = useRef<DirectionalLight>(null);
+
+  const levelPreset = getLevelPreset(selectedLevelId);
+  const sunPos = levelPreset.environment?.sky?.sunPosition ?? SKY_CONFIG.sunPosition;
 
   // Dynamiczne dostosowanie rozdzielczości i zasięgu mapy cieni
   const shadowMapSize =
@@ -34,15 +41,21 @@ export function Lights() {
     if (lightRef.current) {
       const camPos = state.camera.position;
       
-      // Słońce podąża za kamerą zachowując swój wektor kierunkowy
+      // Texel snapping: align light target with shadow map texel size to eliminate shadow edge shimmering
+      const worldUnitsPerTexel = (shadowRange * 2) / Math.max(256, shadowMapSize);
+      const snappedX = Math.round(camPos.x / worldUnitsPerTexel) * worldUnitsPerTexel;
+      const snappedZ = Math.round(camPos.z / worldUnitsPerTexel) * worldUnitsPerTexel;
+      const targetY = camPos.y * 0.2;
+
+      // Słońce podąża za kamerą w krokach siatki tekseli mapy cieni
       lightRef.current.position.set(
-        camPos.x + SKY_CONFIG.sunPosition[0],
-        camPos.y + SKY_CONFIG.sunPosition[1],
-        camPos.z + SKY_CONFIG.sunPosition[2]
+        snappedX + sunPos[0],
+        camPos.y + sunPos[1],
+        snappedZ + sunPos[2]
       );
       
-      // Cel światła (target) to punkt na ziemi bezpośrednio pod/przed kamerą
-      lightRef.current.target.position.set(camPos.x, 0, camPos.z);
+      // Cel światła (target) to punkt na ziemi bezpośrednio pod kamerą
+      lightRef.current.target.position.set(snappedX, targetY, snappedZ);
       lightRef.current.target.updateMatrixWorld();
     }
   });

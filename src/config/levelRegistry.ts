@@ -17,6 +17,22 @@ export const LEVEL_PRESET_ISLAND: LevelPreset = {
   spawnPosition: [-3.5, 11.0, 2.0],
   spawnRotationY: Math.atan2(130 - (-70), -70 - (-35)), // Aligned with start straight
   fallResetY: -8.25,
+  environment: {
+    sky: {
+      sunPosition: [80, 100, 60],
+      inclination: 0,
+      azimuth: 0.25,
+      turbidity: 3.5,
+      rayleigh: 1.2,
+      mieCoefficient: 0.005,
+      mieDirectionalG: 0.8,
+    },
+    fog: {
+      color: '#a4bccc',
+      near: 100,
+      far: 800,
+    },
+  },
 };
 
 /**
@@ -39,6 +55,10 @@ export const LEVEL_PRESET_DESERT: LevelPreset = {
       sunPosition: [100, 30, -50],
       inclination: 0.6,
       azimuth: 0.3,
+      turbidity: 8.0,
+      rayleigh: 2.2,
+      mieCoefficient: 0.015,
+      mieDirectionalG: 0.75,
     },
     fog: {
       color: '#d4b483',

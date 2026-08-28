@@ -96,6 +96,10 @@ function generateLevel1Props(_mapWidth: number, _mapDepth: number): PropData[] {
       // Keep start gantry and spawn grid clear
       if (Math.hypot(x, z) < 42) continue;
 
+      // Keep cabin clearings free of dense trees
+      if (Math.hypot(x - 70, z - (-175)) < 26) continue;
+      if (Math.hypot(x - (-80), z - 485) < 26) continue;
+
       // Check distance to road
       const distToTrack = getMinDistToTrack(x, z);
       if (distToTrack < 6.8) continue; // Keep driving lane clear
@@ -105,23 +109,95 @@ function generateLevel1Props(_mapWidth: number, _mapDepth: number): PropData[] {
       const treeProb = distToTrack < 25 ? 0.96 : (groveNoise > -0.6 ? 0.88 : 0.40);
       if (random(seed + 2) > treeProb) continue;
 
-      const isTree = random(seed + 3) < 0.94;
-      const scaleBase = isTree
-        ? 2.2 + random(seed + 4) * 2.6 // Tall majestic Finnish pines (2.2m to 4.8m)
-        : 0.9 + random(seed + 4) * 1.8; // Boulders
+      const propRoll = random(seed + 3);
+      let propType: 'tree_pine' | 'tree_birch' | 'rock' = 'tree_pine';
+      let scaleBase = 1.0;
+      let heightScale = 1.0;
+
+      if (propRoll < 0.80) {
+        // Nordic Conifers & Pines (Dominant majestic forest)
+        propType = 'tree_pine';
+        scaleBase = 1.6 + random(seed + 4) * 3.2; // 1.6m to 4.8m
+        heightScale = scaleBase * (1.15 + random(seed + 6) * 0.4);
+      } else if (propRoll < 0.92) {
+        // European Hardwood & Broadleaf Trees
+        propType = 'tree_birch';
+        scaleBase = 1.8 + random(seed + 4) * 2.0; // 1.8m to 3.8m
+        heightScale = scaleBase * (1.0 + random(seed + 6) * 0.25);
+      } else {
+        // Granite & Glacial Boulders
+        propType = 'rock';
+        scaleBase = 0.9 + random(seed + 4) * 1.8;
+        heightScale = scaleBase * 0.85;
+      }
 
       const yRot = random(seed + 5) * Math.PI * 2;
-      const heightScale = isTree ? scaleBase * (1.2 + random(seed + 6) * 0.4) : scaleBase * 0.9;
 
       props.push({
-        id: `fin_tree_${propId++}`,
-        type: isTree ? 'tree' : 'rock',
+        id: `isl_prop_${propId++}`,
+        type: propType,
         position: [x, 0, z],
         rotation: [0, yRot, 0],
         scale: [scaleBase, heightScale, scaleBase],
       });
     }
   }
+
+  // ─── Scenic Rustic Countryside Cabins (Deep in Forest Clearings) ───
+  // Cabin 1: Start Valley Mountain Chalet (55m north of straight in open meadow)
+  props.push({
+    id: `cabin_start_valley`,
+    type: 'cabin',
+    position: [70, 0, -175],
+    rotation: [0, -0.3, 0],
+    scale: [1.3, 1.3, 1.3],
+  });
+
+  // Cabin 2: Southern Basin Farmstead (50m off the southern S-bend)
+  props.push({
+    id: `cabin_southern_farm`,
+    type: 'cabin',
+    position: [-80, 0, 485],
+    rotation: [0, 3.1, 0],
+    scale: [1.3, 1.3, 1.3],
+  });
+
+  // ─── Scenic Village Wooden Fences ──────────────────────────────────
+  // Fence Run 1: Start Valley Cabin Meadow Boundary
+  const fenceRun1 = [
+    { x: 55, z: -152, rotY: -0.1 },
+    { x: 62, z: -153, rotY: -0.1 },
+    { x: 69, z: -154, rotY: -0.1 },
+    { x: 76, z: -155, rotY: -0.1 },
+    { x: 83, z: -156, rotY: -0.1 },
+  ];
+  fenceRun1.forEach((f, idx) => {
+    props.push({
+      id: `fence_run1_${idx}`,
+      type: 'fence',
+      position: [f.x, 0, f.z],
+      rotation: [0, f.rotY, 0],
+      scale: [1.0, 1.0, 1.0],
+    });
+  });
+
+  // Fence Run 2: Southern Farmstead Meadow Boundary
+  const fenceRun2 = [
+    { x: -95, z: 462, rotY: -0.15 },
+    { x: -88, z: 463, rotY: -0.15 },
+    { x: -81, z: 464, rotY: -0.15 },
+    { x: -74, z: 465, rotY: -0.15 },
+    { x: -67, z: 466, rotY: -0.15 },
+  ];
+  fenceRun2.forEach((f, idx) => {
+    props.push({
+      id: `fence_run2_${idx}`,
+      type: 'fence',
+      position: [f.x, 0, f.z],
+      rotation: [0, f.rotY, 0],
+      scale: [1.0, 1.0, 1.0],
+    });
+  });
 
   return props;
 }

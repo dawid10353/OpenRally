@@ -1,11 +1,24 @@
 import type { TrackConfig } from './terrain';
 
 /**
+ * Prop archetypes for realistic environmental scattering.
+ */
+export type PropType =
+  | 'tree'
+  | 'tree_pine'
+  | 'tree_birch'
+  | 'tree_desert'
+  | 'rock'
+  | 'rock_sandstone'
+  | 'cabin'
+  | 'fence';
+
+/**
  * Represents a single instance of a prop (tree, rock) in the level.
  */
 export interface PropData {
   id: string;
-  type: 'tree' | 'rock';
+  type: PropType;
   position: [number, number, number];
   rotation: [number, number, number];
   scale: [number, number, number];
@@ -82,6 +95,10 @@ export interface LevelPreset {
       sunPosition?: [number, number, number];
       inclination?: number;
       azimuth?: number;
+      turbidity?: number;
+      rayleigh?: number;
+      mieCoefficient?: number;
+      mieDirectionalG?: number;
     };
     fog?: {
       color?: string;

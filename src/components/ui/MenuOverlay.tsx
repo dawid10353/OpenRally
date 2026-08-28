@@ -83,11 +83,14 @@ export function MenuOverlay() {
   const bestLapTimes = useRacingStore((s) => s.bestLapTimes);
   const getBestLapForLevel = useRacingStore((s) => s.getBestLapForLevel);
   const syncBestLapForLevel = useRacingStore((s) => s.syncBestLapForLevel);
+  const resetAllTrackRecords = useRacingStore((s) => s.resetAllTrackRecords);
 
   const [view, setViewInternal] = useState<'main' | 'start_mode' | 'options' | 'controls' | 'garage' | 'tracks'>('main');
   const [previewVehicleId, setPreviewVehicleIdInternal] = useState(selectedVehicleId);
   const [controlsTab, setControlsTabInternal] = useState<'dualsense' | 'xbox' | 'keyboard'>('dualsense');
   const [focusedIndex, setFocusedIndexInternal] = useState(0);
+  const [resetConfirmState, setResetConfirmState] = useState<'idle' | 'confirming' | 'done'>('idle');
+  const resetConfirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -106,6 +109,7 @@ export function MenuOverlay() {
     focusedIndexRef.current = 0;
     setViewInternal(nextView);
     setFocusedIndexInternal(0);
+    setResetConfirmState('idle');
   }, []);
 
   const setFocusedIndex = useCallback((index: number) => {
@@ -260,6 +264,36 @@ export function MenuOverlay() {
     setGameState('menu');
   }, [currentLevelPreset, selectedLevelId, setGameState, setView, syncBestLapForLevel]);
 
+  // Clean up confirmation timer on unmount
+  useEffect(() => {
+    return () => {
+      if (resetConfirmTimerRef.current) {
+        clearTimeout(resetConfirmTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleResetRecordsAction = useCallback(() => {
+    if (resetConfirmState === 'idle') {
+      setResetConfirmState('confirming');
+      if (resetConfirmTimerRef.current) {
+        clearTimeout(resetConfirmTimerRef.current);
+      }
+      resetConfirmTimerRef.current = setTimeout(() => {
+        setResetConfirmState('idle');
+      }, 4000);
+    } else if (resetConfirmState === 'confirming') {
+      if (resetConfirmTimerRef.current) {
+        clearTimeout(resetConfirmTimerRef.current);
+      }
+      resetAllTrackRecords();
+      setResetConfirmState('done');
+      resetConfirmTimerRef.current = setTimeout(() => {
+        setResetConfirmState('idle');
+      }, 2500);
+    }
+  }, [resetAllTrackRecords, resetConfirmState]);
+
   const getItemCount = useCallback((): number => {
     const curView = viewRef.current;
     if (curView === 'main') return 5;
@@ -268,7 +302,7 @@ export function MenuOverlay() {
     if (curView === 'tracks') return availableLevels.length + 1;
     if (curView === 'options') {
       const isVib = useSettingsStore.getState().vibrationEnabled;
-      return isVib ? 10 : 9;
+      return isVib ? 11 : 10;
     }
     if (curView === 'controls') return 1;
     return 1;
@@ -412,13 +446,16 @@ export function MenuOverlay() {
       }
     } else if (curView === 'options') {
       const isVib = useSettingsStore.getState().vibrationEnabled;
-      const optionsCount = isVib ? 10 : 9;
+      const optionsCount = isVib ? 11 : 10;
+      const resetIdx = isVib ? 9 : 8;
       if (curIdx === 1) {
         useSettingsStore.getState().toggleShadows();
       } else if (curIdx === 2) {
         useSettingsStore.getState().togglePostProcessing();
       } else if (curIdx === 4) {
         useSettingsStore.getState().toggleVibration();
+      } else if (curIdx === resetIdx) {
+        handleResetRecordsAction();
       } else if (curIdx === optionsCount - 1) {
         setView('main');
       }
@@ -429,6 +466,7 @@ export function MenuOverlay() {
     availableLevels,
     handleLaunchMode,
     handleReset,
+    handleResetRecordsAction,
     handleReturnToMainMenu,
     handleSelectTrack,
     selectedVehicleId,
@@ -1025,6 +1063,7 @@ export function MenuOverlay() {
     const mmIdx = optIdx++;
     const gmIdx = optIdx++;
     const sfxIdx = optIdx++;
+    const resetIdx = optIdx++;
     const backIdx = optIdx++;
 
     return (
@@ -1167,6 +1206,58 @@ export function MenuOverlay() {
             onChange={(e) => setSfxVolume(parseFloat(e.target.value))}
             style={{ cursor: 'pointer' }}
           />
+        </div>
+
+        <div 
+          style={{ 
+            ...styles.optionRow, 
+            justifyContent: 'space-between',
+            border: resetConfirmState === 'confirming' 
+              ? '1px solid #E31837' 
+              : resetConfirmState === 'done' 
+                ? '1px solid #10b981' 
+                : '1px solid transparent',
+            background: resetConfirmState === 'confirming' 
+              ? 'rgba(227, 24, 55, 0.08)' 
+              : resetConfirmState === 'done' 
+                ? 'rgba(16, 185, 129, 0.08)' 
+                : 'rgba(0,0,0,0.1)',
+            ...getFocusStyle(focusedIndex === resetIdx),
+          }}
+          onPointerMove={(e) => handlePointerMoveItem(resetIdx, e)}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }}>
+            <span>Reset Track Records</span>
+            <span style={{ fontSize: '11px', color: '#666666', fontWeight: 400 }}>
+              Wipe all saved best lap times across all stages
+            </span>
+          </div>
+          <button
+            type="button"
+            style={{
+              padding: '6px 14px',
+              borderRadius: '6px',
+              border: resetConfirmState === 'confirming' ? '1px solid #E31837' : 'none',
+              background: resetConfirmState === 'confirming'
+                ? '#E31837'
+                : resetConfirmState === 'done'
+                  ? '#10b981'
+                  : 'rgba(227, 24, 55, 0.12)',
+              color: resetConfirmState === 'confirming' || resetConfirmState === 'done' ? '#ffffff' : '#E31837',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+            onClick={handleResetRecordsAction}
+          >
+            {resetConfirmState === 'confirming' && '⚠️ Click to Confirm'}
+            {resetConfirmState === 'done' && '✓ Records Cleared!'}
+            {resetConfirmState === 'idle' && '🗑️ Reset Records'}
+          </button>
         </div>
 
         <button 

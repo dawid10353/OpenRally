@@ -54,60 +54,63 @@ function generateDesertProps(mapWidth: number, mapDepth: number): PropData[] {
 
     const sideOffsets = [10.0, 20.0];
     for (const offset of sideOffsets) {
-      // Left side boulder / shrub
-      const isLeftTree = random(propId * 5) < 0.15;
+      // Left side canyon feature
+      const leftRoll = random(propId * 5);
+      const isLeftTree = leftRoll < 0.35;
       const leftDist = offset + (random(propId * 5 + 1) - 0.5) * 4.0;
-      const leftScale = isLeftTree ? 1.6 + random(propId * 5 + 2) * 1.8 : 1.2 + random(propId * 5 + 2) * 2.8;
+      const leftScale = isLeftTree ? 1.4 + random(propId * 5 + 2) * 2.0 : 1.2 + random(propId * 5 + 2) * 2.8;
       
       props.push({
         id: `desert_corridor_L_${propId++}`,
-        type: isLeftTree ? 'tree' : 'rock',
+        type: isLeftTree ? 'tree_desert' : (leftRoll < 0.85 ? 'rock_sandstone' : 'rock'),
         position: [
           pt.x + normalX * leftDist + tangent.x * (random(propId * 5 + 3) - 0.5) * 4.0,
           0,
           pt.z + normalZ * leftDist + tangent.z * (random(propId * 5 + 3) - 0.5) * 4.0,
         ],
         rotation: [0, random(propId * 5 + 4) * Math.PI * 2, 0],
-        scale: [leftScale, isLeftTree ? leftScale * 1.2 : leftScale * 0.9, leftScale],
+        scale: [leftScale, isLeftTree ? leftScale * 1.1 : leftScale * 0.9, leftScale],
       });
 
-      // Right side boulder / shrub
-      const isRightTree = random(propId * 5) < 0.15;
+      // Right side canyon feature
+      const rightRoll = random(propId * 5);
+      const isRightTree = rightRoll < 0.35;
       const rightDist = offset + (random(propId * 5 + 1) - 0.5) * 4.0;
-      const rightScale = isRightTree ? 1.6 + random(propId * 5 + 2) * 1.8 : 1.2 + random(propId * 5 + 2) * 2.8;
+      const rightScale = isRightTree ? 1.4 + random(propId * 5 + 2) * 2.0 : 1.2 + random(propId * 5 + 2) * 2.8;
 
       props.push({
         id: `desert_corridor_R_${propId++}`,
-        type: isRightTree ? 'tree' : 'rock',
+        type: isRightTree ? 'tree_desert' : (rightRoll < 0.85 ? 'rock_sandstone' : 'rock'),
         position: [
           pt.x - normalX * rightDist + tangent.x * (random(propId * 5 + 3) - 0.5) * 4.0,
           0,
           pt.z - normalZ * rightDist + tangent.z * (random(propId * 5 + 3) - 0.5) * 4.0,
         ],
         rotation: [0, random(propId * 5 + 4) * Math.PI * 2, 0],
-        scale: [rightScale, isRightTree ? rightScale * 1.2 : rightScale * 0.9, rightScale],
+        scale: [rightScale, isRightTree ? rightScale * 1.1 : rightScale * 0.9, rightScale],
       });
     }
   }
 
-  // 2. Wide Desert Basin Boulders & Shrubs
+  // 2. Wide Desert Basin Boulders & Desert Trees
   const NUM_BG_PROPS = 1000;
   for (let i = 0; i < NUM_BG_PROPS; i++) {
-    const isTree = random(propId * 5) < 0.12;
+    const bgRoll = random(propId * 5);
+    const isTree = bgRoll < 0.30;
     const x = (random(propId * 5 + 1) - 0.5) * mapWidth * 0.75;
     const z = (random(propId * 5 + 2) - 0.5) * mapDepth * 0.75;
 
     if (Math.hypot(x, z) < 45) continue;
 
     const yRot = random(propId * 5 + 3) * Math.PI * 2;
-    const scaleBase = isTree ? 1.4 + random(propId * 5 + 4) * 1.8 : 1.0 + random(propId * 5 + 4) * 3.2;
+    const scaleBase = isTree ? 1.4 + random(propId * 5 + 4) * 2.0 : 1.0 + random(propId * 5 + 4) * 3.2;
 
     props.push({
       id: `desert_bg_${propId++}`,
-      type: isTree ? 'tree' : 'rock',
+      type: isTree ? 'tree_desert' : (bgRoll < 0.85 ? 'rock_sandstone' : 'rock'),
       position: [x, 0, z],
       rotation: [0, yRot, 0],
-      scale: [scaleBase, isTree ? scaleBase * 1.2 : scaleBase * 0.9, scaleBase],
+      scale: [scaleBase, isTree ? scaleBase * 1.1 : scaleBase * 0.9, scaleBase],
     });
   }
 
