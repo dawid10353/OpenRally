@@ -220,8 +220,16 @@ export function GrassField() {
     const chunkWidth = mapWidth / GRASS_CHUNKS;
     const chunkDepth = mapDepth / GRASS_CHUNKS;
 
-    const darkColor = isDesert ? DESERT_GRASS_COLOR_DARK : GRASS_COLOR_DARK;
-    const lightColor = isDesert ? DESERT_GRASS_COLOR_LIGHT : GRASS_COLOR_LIGHT;
+    const isBritain = levelId.includes('britain') || levelId.includes('highland');
+
+    const BRITAIN_GRASS_DARK = new Color('#2a4519');
+    const BRITAIN_GRASS_LIGHT = new Color('#637f2c');
+    const BRITAIN_HEATHER_1 = new Color('#8e3c7d');
+    const BRITAIN_HEATHER_2 = new Color('#682b5e');
+    const BRITAIN_HEATHER_3 = new Color('#a25191');
+
+    const darkColor = isDesert ? DESERT_GRASS_COLOR_DARK : isBritain ? BRITAIN_GRASS_DARK : GRASS_COLOR_DARK;
+    const lightColor = isDesert ? DESERT_GRASS_COLOR_LIGHT : isBritain ? BRITAIN_GRASS_LIGHT : GRASS_COLOR_LIGHT;
 
     // Initialize chunks
     const chunks: GrassChunkData[] = Array.from({ length: GRASS_CHUNKS * GRASS_CHUNKS }, () => ({
@@ -233,7 +241,7 @@ export function GrassField() {
     let placed = 0;
     let attempt = 0;
 
-    const targetGrassCount =
+    const baseCount =
       isSnow
         ? 0
         : graphicsQuality === 'low'
@@ -243,6 +251,8 @@ export function GrassField() {
         : graphicsQuality === 'high'
         ? 72000
         : 105000;
+
+    const targetGrassCount = isBritain ? Math.floor(baseCount * 1.3) : baseCount;
     const maxAttempts = targetGrassCount * 8;
 
     while (placed < targetGrassCount && attempt < maxAttempts) {
@@ -272,7 +282,11 @@ export function GrassField() {
       if (y < -5) continue;
 
       const patchScale = mapRange(noiseVal, -0.18, 1.0, 0.7, 1.4);
-      const scaleY = (GRASS_HEIGHT_MIN + seededRandom(seed + 2) * (GRASS_HEIGHT_MAX - GRASS_HEIGHT_MIN)) * patchScale;
+      const heightBonus = isBritain ? 1.25 : 1.0;
+      const scaleY =
+        (GRASS_HEIGHT_MIN + seededRandom(seed + 2) * (GRASS_HEIGHT_MAX - GRASS_HEIGHT_MIN)) *
+        patchScale *
+        heightBonus;
       const scaleXZ = (0.8 + seededRandom(seed + 3) * 0.6) * patchScale;
       const rotY = seededRandom(seed + 4) * Math.PI * 2;
 
@@ -282,7 +296,19 @@ export function GrassField() {
       dummy.updateMatrix();
 
       const colorT = seededRandom(seed + 5);
-      tempColor.lerpColors(darkColor, lightColor, colorT);
+      if (isBritain && seededRandom(seed + 6) < 0.28) {
+        // Scottish heather purple flower clusters
+        const heatherSeed = seededRandom(seed + 7);
+        if (heatherSeed < 0.4) {
+          tempColor.copy(BRITAIN_HEATHER_1);
+        } else if (heatherSeed < 0.75) {
+          tempColor.copy(BRITAIN_HEATHER_2);
+        } else {
+          tempColor.copy(BRITAIN_HEATHER_3);
+        }
+      } else {
+        tempColor.lerpColors(darkColor, lightColor, colorT);
+      }
 
       // Determine chunk
       let cx = Math.floor((x + mapWidth / 2) / chunkWidth);
@@ -312,7 +338,7 @@ export function GrassField() {
     const geo = createGrassTuftGeometry();
 
     return { chunksData: chunks, geometry: geo };
-  }, [heightmapData, levelData, graphicsQuality, isDesert, isSnow]);
+  }, [heightmapData, levelData, graphicsQuality, isDesert, isSnow, levelId]);
 
   // Create shared custom grass material with photorealistic texture & wind shader
   const material = useMemo(() => {

@@ -1,6 +1,6 @@
 import { memo, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Text, useTexture } from '@react-three/drei';
+import { useTexture } from '@react-three/drei';
 import { RigidBody, CuboidCollider } from '@react-three/rapier';
 import {
   RepeatWrapping,
@@ -409,6 +409,84 @@ function getStartFinishPillarGeometry(height: number): BufferGeometry {
   return merged;
 }
 
+function createStartFinishBannerTexture(isFront: boolean): CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return new CanvasTexture(canvas);
+
+  // Background: Deep dark slate / carbon racing tone
+  ctx.fillStyle = '#0e1520';
+  ctx.fillRect(0, 0, 1024, 256);
+
+  // High-performance rally carbon grid pattern
+  ctx.fillStyle = '#141d2a';
+  for (let y = 0; y < 256; y += 6) {
+    ctx.fillRect(0, y, 1024, 3);
+  }
+
+  // Championship accent color
+  const accentColor = isFront ? '#ffb700' : '#00e5ff';
+
+  // Top & bottom framing borders
+  ctx.fillStyle = accentColor;
+  ctx.fillRect(0, 0, 1024, 10);
+  ctx.fillRect(0, 246, 1024, 10);
+
+  // Flanking angled rally chevron graphics (Left & Right)
+  const drawChevron = (xCenter: number, isLeft: boolean) => {
+    ctx.save();
+    ctx.translate(xCenter, 128);
+    // Background block
+    ctx.fillStyle = accentColor;
+    ctx.fillRect(-45, -95, 90, 190);
+
+    // Dark angled stripe cut
+    ctx.beginPath();
+    const dir = isLeft ? 1 : -1;
+    ctx.moveTo(-dir * 20, -95);
+    ctx.lineTo(dir * 25, 0);
+    ctx.lineTo(-dir * 20, 95);
+    ctx.lineTo(-dir * 45, 95);
+    ctx.lineTo(0, 0);
+    ctx.lineTo(-dir * 45, -95);
+    ctx.closePath();
+    ctx.fillStyle = '#0e1520';
+    ctx.fill();
+    ctx.restore();
+  };
+
+  drawChevron(65, true);
+  drawChevron(1024 - 65, false);
+
+  // Main Header Text: "START / FINISH" / "FINISH / TIMING"
+  ctx.font = '900 78px "Impact", "Arial Black", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = accentColor;
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetY = 4;
+  ctx.fillText(isFront ? 'START / FINISH' : 'FINISH / TIMING', 512, 92);
+
+  // Subtitle: "★ OPEN RALLY CHAMPIONSHIP ★"
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.font = 'bold 30px "Arial", "Helvetica", sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(isFront ? '★ OPEN RALLY CHAMPIONSHIP ★' : '★ OFFICIAL TIMING GATE ★', 512, 172);
+
+  // Subtle separator line
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+  ctx.fillRect(240, 206, 544, 2);
+
+  const texture = new CanvasTexture(canvas);
+  texture.anisotropy = 4;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 /**
  * 3D Rally Start/Finish Gantry & Starting Area Scenery with Adaptive Ground Anchoring.
  * Renders metallic truss architecture, start lights, digital timing screen,
@@ -434,22 +512,16 @@ export const StartFinishGantry = memo(function StartFinishGantry({ data }: Start
   const leftPillarGeo = useMemo(() => getStartFinishPillarGeometry(leftColHeight), [leftColHeight]);
   const rightPillarGeo = useMemo(() => getStartFinishPillarGeometry(rightColHeight), [rightColHeight]);
 
-  // Load realistic AI-generated textures
-  const carbonTexture = useTexture('/textures/race/carbon_fiber.jpg');
-  const sponsorTexture = useTexture('/textures/race/sponsor_strip.jpg');
+  const frontBannerTexture = useMemo(() => createStartFinishBannerTexture(true), []);
+  const rearBannerTexture = useMemo(() => createStartFinishBannerTexture(false), []);
   const hazardTexture = useTexture('/textures/race/hazard_pad.jpg');
 
   useMemo(() => {
-    carbonTexture.wrapS = RepeatWrapping;
-    carbonTexture.wrapT = RepeatWrapping;
-    carbonTexture.repeat.set(6, 1);
-    carbonTexture.needsUpdate = true;
-
     hazardTexture.wrapS = RepeatWrapping;
     hazardTexture.wrapT = RepeatWrapping;
     hazardTexture.repeat.set(2, 1);
     hazardTexture.needsUpdate = true;
-  }, [carbonTexture, hazardTexture]);
+  }, [hazardTexture]);
 
   const leftColliderHeight = Math.max(1.0, topBarY - leftOffset);
   const rightColliderHeight = Math.max(1.0, topBarY - rightOffset);
@@ -536,7 +608,7 @@ export const StartFinishGantry = memo(function StartFinishGantry({ data }: Start
         </mesh>
       </group>
 
-      {/* ─── 4. STATIC WRC HEADER BANNER ─── */}
+      {/* ─── 4. STATIC RALLY HEADER BANNER (Zero Z-Fighting, Single Quad) ─── */}
       <group position={[0, bannerCenterY, 0]}>
         {/* Main Banner Board Chassis */}
         <mesh castShadow>
@@ -545,112 +617,16 @@ export const StartFinishGantry = memo(function StartFinishGantry({ data }: Start
         </mesh>
 
         {/* Front Banner Face (facing oncoming vehicles approaching from -Z) */}
-        <group position={[0, 0, -0.215]} rotation={[0, Math.PI, 0]}>
-          <mesh>
-            <planeGeometry args={[bannerWidth - 0.1, bannerHeight - 0.1]} />
-            <meshStandardMaterial map={carbonTexture} roughness={0.4} metalness={0.2} />
-          </mesh>
+        <mesh position={[0, 0, -0.215]} rotation={[0, Math.PI, 0]}>
+          <planeGeometry args={[bannerWidth - 0.1, bannerHeight - 0.1]} />
+          <meshBasicMaterial map={frontBannerTexture} />
+        </mesh>
 
-          {/* Yellow Framing Borders */}
-          <mesh position={[0, (bannerHeight - 0.1) / 2 - 0.035, 0.005]}>
-            <planeGeometry args={[bannerWidth - 0.1, 0.06]} />
-            <meshBasicMaterial color="#ffb700" />
-          </mesh>
-          <mesh position={[0, -(bannerHeight - 0.1) / 2 + 0.035, 0.005]}>
-            <planeGeometry args={[bannerWidth - 0.1, 0.06]} />
-            <meshBasicMaterial color="#ffb700" />
-          </mesh>
-
-          {/* Left & Right Chevron Accents */}
-          {([-1, 1] as const).map((side) => (
-            <group key={`sf_chev_${side}`} position={[side * (bannerWidth * 0.44), 0, 0.006]}>
-              <mesh>
-                <planeGeometry args={[1.1, bannerHeight - 0.2]} />
-                <meshBasicMaterial color="#ffb700" />
-              </mesh>
-              <mesh position={[-side * 0.18, 0, 0.001]} rotation={[0, 0, side * 0.35]}>
-                <planeGeometry args={[0.4, bannerHeight * 0.8]} />
-                <meshBasicMaterial color="#14181f" />
-              </mesh>
-            </group>
-          ))}
-
-          {/* Rally Sponsor Ribbon across bottom */}
-          <mesh position={[0, -0.44, 0.006]}>
-            <planeGeometry args={[bannerWidth * 0.78, 0.38]} />
-            <meshStandardMaterial map={sponsorTexture} roughness={0.5} />
-          </mesh>
-
-          {/* Static Crisp 3D Vector Typography */}
-          <Text
-            position={[0, 0.34, 0.01]}
-            fontSize={0.65}
-            color="#ffb700"
-            anchorX="center"
-            anchorY="middle"
-            outlineWidth={0.035}
-            outlineColor="#000000"
-            letterSpacing={0.08}
-          >
-            START / FINISH
-          </Text>
-
-          <Text
-            position={[0, -0.04, 0.01]}
-            fontSize={0.30}
-            color="#ffffff"
-            anchorX="center"
-            anchorY="middle"
-            letterSpacing={0.06}
-          >
-            ★ OPEN RALLY CHAMPIONSHIP ★
-          </Text>
-        </group>
-
-        {/* Rear Banner Face */}
-        <group position={[0, 0, 0.215]} rotation={[0, 0, 0]}>
-          <mesh>
-            <planeGeometry args={[bannerWidth - 0.1, bannerHeight - 0.1]} />
-            <meshStandardMaterial map={carbonTexture} roughness={0.4} metalness={0.2} />
-          </mesh>
-
-          <mesh position={[0, (bannerHeight - 0.1) / 2 - 0.035, 0.005]}>
-            <planeGeometry args={[bannerWidth - 0.1, 0.06]} />
-            <meshBasicMaterial color="#ffb700" />
-          </mesh>
-          <mesh position={[0, -(bannerHeight - 0.1) / 2 + 0.035, 0.005]}>
-            <planeGeometry args={[bannerWidth - 0.1, 0.06]} />
-            <meshBasicMaterial color="#ffb700" />
-          </mesh>
-
-          <mesh position={[0, -0.44, 0.006]}>
-            <planeGeometry args={[bannerWidth * 0.78, 0.38]} />
-            <meshStandardMaterial map={sponsorTexture} roughness={0.5} />
-          </mesh>
-
-          <Text
-            position={[0, 0.34, 0.01]}
-            fontSize={0.65}
-            color="#ffb700"
-            anchorX="center"
-            anchorY="middle"
-            outlineWidth={0.035}
-            outlineColor="#000000"
-            letterSpacing={0.08}
-          >
-            FINISH / TIMING
-          </Text>
-          <Text
-            position={[0, -0.04, 0.01]}
-            fontSize={0.30}
-            color="#00d4ff"
-            anchorX="center"
-            anchorY="middle"
-            letterSpacing={0.06}
-          >
-            ★ OPEN RALLY CHAMPIONSHIP ★
-          </Text>
-        </group>
+        {/* Rear Banner Face (facing departing vehicles facing +Z) */}
+        <mesh position={[0, 0, 0.215]} rotation={[0, 0, 0]}>
+          <planeGeometry args={[bannerWidth - 0.1, bannerHeight - 0.1]} />
+          <meshBasicMaterial map={rearBannerTexture} />
+        </mesh>
       </group>
 
       {/* ─── 5. HIGH-PERFORMANCE DIGITAL TIMING LED SCREEN ─── */}

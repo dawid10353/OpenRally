@@ -1,6 +1,6 @@
 import { useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Vector3, CatmullRomCurve3 } from 'three';
+import { Vector3 } from 'three';
 import { useTerrainData } from '@/components/terrain/TerrainContext';
 import { useGameStore } from '@/store/gameStore';
 import { useRacingStore } from '@/store/racingStore';
@@ -32,24 +32,22 @@ export function Checkpoints() {
     const mapDepth = levelData.terrainBase.depth;
     const points = levelData.track.points;
 
-    // Construct smooth CatmullRom curve identical to terrain carving
-    const trackPoints3D = points.map((p) => new Vector3(p.x, 0, p.z));
-    const trackCurve = new CatmullRomCurve3(trackPoints3D, true, 'catmullrom', 0.5);
-
     const cps: CheckpointData[] = [];
     const count = points.length;
 
     for (let i = 0; i < count; i++) {
       const p = points[i];
-      const u = i / count;
-      const tangent = trackCurve.getTangentAt(u).normalize();
-      
-      // Exact heading along track spline direction
-      const rotY = Math.atan2(tangent.x, tangent.z);
+      const prevP = points[(i - 1 + count) % count];
+      const nextP = points[(i + 1) % count];
+
+      // Exact tangent direction between neighbor track waypoints
+      const tangentX = nextP.x - prevP.x;
+      const tangentZ = nextP.z - prevP.z;
+      const rotY = Math.atan2(tangentX, tangentZ);
       const cosY = Math.cos(rotY);
       const sinY = Math.sin(rotY);
 
-      const gateWidth = levelData.track.width + 5.5;
+      const gateWidth = Math.max(9.5, levelData.track.width + 4.5);
       const halfWidth = gateWidth / 2;
       const roadHalfWidth = levelData.track.width / 2;
 

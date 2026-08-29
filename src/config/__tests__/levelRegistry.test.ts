@@ -41,6 +41,12 @@ describe('Level Registry', () => {
     const sweden = getLevelPreset('level3_sweden');
     expect(sweden.id).toBe('level3_sweden');
     expect(sweden.surfaceDescription).toContain('Snow');
+
+    const britain = getLevelPreset('level4_britain');
+    expect(britain.id).toBe('level4_britain');
+    expect(britain.surfaceDescription).toContain('Stone');
+    expect(britain.data.terrainBase.width).toBe(2600);
+    expect(britain.data.terrainBase.depth).toBe(2600);
   });
 
   it('ensures spawn position Y is above the terrain ground height for all levels', () => {

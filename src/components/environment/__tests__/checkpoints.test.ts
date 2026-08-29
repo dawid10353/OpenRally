@@ -112,6 +112,27 @@ describe('Checkpoints & Track Alignment System', () => {
     expect(normalizedDiff).toBeLessThan(0.15);
   });
 
+  it('aligns spawn position and spawn heading with Checkpoint 0 on Highland Castle Rally', async () => {
+    const { LEVEL_PRESET_BRITAIN } = await import('@/config/levelRegistry');
+    const level = LEVEL_PRESET_BRITAIN;
+    const cp0 = level.data.track.points[0];
+
+    expect(cp0.x).toBe(0);
+    expect(cp0.z).toBe(0);
+
+    const distToCp0 = Math.hypot(level.spawnPosition[0] - cp0.x, level.spawnPosition[2] - cp0.z);
+    expect(distToCp0).toBeLessThan(8.0);
+    expect(distToCp0).toBeGreaterThan(1.0);
+
+    const prevCp = level.data.track.points[level.data.track.points.length - 1];
+    const nextCp = level.data.track.points[1];
+    const expectedRotY = Math.atan2(nextCp.x - prevCp.x, nextCp.z - prevCp.z);
+
+    const diff = Math.abs(level.spawnRotationY - expectedRotY);
+    const normalizedDiff = Math.min(diff, Math.PI * 2 - diff);
+    expect(normalizedDiff).toBeLessThan(0.15);
+  });
+
   it('computes realistic cross-slope transversal offsets for all levels without levitation', async () => {
     const { compileTerrain, getInterpolatedHeight } = await import('@/utils/terrainCompiler');
     const levels = getAvailableLevels();
@@ -119,18 +140,19 @@ describe('Checkpoints & Track Alignment System', () => {
     for (const level of levels) {
       const { heights, rows, cols } = compileTerrain(level.data);
       const points = level.data.track.points;
-      const trackPoints3D = points.map((p) => new Vector3(p.x, 0, p.z));
-      const trackCurve = new CatmullRomCurve3(trackPoints3D, true, 'catmullrom', 0.5);
       const count = points.length;
 
       for (let i = 0; i < count; i++) {
         const p = points[i];
-        const u = i / count;
-        const tangent = trackCurve.getTangentAt(u).normalize();
-        const rotY = Math.atan2(tangent.x, tangent.z);
+        const prevP = points[(i - 1 + count) % count];
+        const nextP = points[(i + 1) % count];
+        const tangentX = nextP.x - prevP.x;
+        const tangentZ = nextP.z - prevP.z;
+        const rotY = Math.atan2(tangentX, tangentZ);
         const cosY = Math.cos(rotY);
         const sinY = Math.sin(rotY);
-        const halfWidth = (level.data.track.width + 5.5) / 2;
+        const gateWidth = Math.max(8.5, level.data.track.width + 4.0);
+        const halfWidth = gateWidth / 2;
 
         const leftX = p.x - halfWidth * cosY;
         const leftZ = p.z + halfWidth * sinY;
@@ -150,6 +172,9 @@ describe('Checkpoints & Track Alignment System', () => {
         // Foundation depth (12m) is greater than maximum possible cross-slope drop
         expect(Math.abs(leftGroundOffset)).toBeLessThan(12.0);
         expect(Math.abs(rightGroundOffset)).toBeLessThan(12.0);
+
+        // Every checkpoint road ground elevation must be safely above the water level (WATER_POSITION_Y = -8)
+        expect(centerGroundY).toBeGreaterThan(-4.0);
       }
     }
   });

@@ -17,6 +17,19 @@ import {
   createCabinWindowGeometry,
   createCabinRoofGeometry,
   createFenceGeometry,
+  createCastleTowerGeometry,
+  createCastleWallGeometry,
+  createCastleGateGeometry,
+  createCastleKeepGeometry,
+  createCastleArchGeometry,
+  createStoneWallGeometry,
+  createStandingStoneGeometry,
+  createHighlandCottageWallGeometry,
+  createHighlandCottageRoofGeometry,
+  createStoneCairnGeometry,
+  createHayBaleGeometry,
+  createRallySignGeometry,
+  createStoneBridgeGeometry,
 } from '@/components/terrain/PropsInstancer';
 
 describe('Terrain Materials and Procedural Geometries', () => {
@@ -190,5 +203,119 @@ describe('Terrain Materials and Procedural Geometries', () => {
     expect(fence.attributes.normal).toBeDefined();
     expect(fence.attributes.uv).toBeDefined();
     expect(fence.attributes.position.count).toBeGreaterThan(30);
+  });
+
+  it('creates monumental round castle tower geometry with battlements and foundation', () => {
+    const tower = createCastleTowerGeometry();
+
+    expect(tower.attributes.position).toBeDefined();
+    expect(tower.attributes.normal).toBeDefined();
+    expect(tower.attributes.uv).toBeDefined();
+    expect(tower.attributes.position.count).toBeGreaterThan(50);
+  });
+
+  it('creates medieval fortress curtain wall geometry with crenellations', () => {
+    const wall = createCastleWallGeometry();
+
+    expect(wall.attributes.position).toBeDefined();
+    expect(wall.attributes.normal).toBeDefined();
+    expect(wall.attributes.uv).toBeDefined();
+    expect(wall.attributes.position.count).toBeGreaterThan(40);
+  });
+
+  it('creates Gothic arched castle barbican gatehouse geometry', () => {
+    const gate = createCastleGateGeometry();
+
+    expect(gate.attributes.position).toBeDefined();
+    expect(gate.attributes.normal).toBeDefined();
+    expect(gate.attributes.uv).toBeDefined();
+    expect(gate.attributes.position.count).toBeGreaterThan(60);
+  });
+
+  it('creates British countryside dry-stone wall geometry', () => {
+    const stoneWall = createStoneWallGeometry();
+
+    expect(stoneWall.attributes.position).toBeDefined();
+    expect(stoneWall.attributes.normal).toBeDefined();
+    expect(stoneWall.attributes.uv).toBeDefined();
+    expect(stoneWall.attributes.position.count).toBeGreaterThan(20);
+  });
+
+  it('creates grand medieval donjon keep citadel geometry with corner turrets', () => {
+    const keep = createCastleKeepGeometry();
+
+    expect(keep.attributes.position).toBeDefined();
+    expect(keep.attributes.normal).toBeDefined();
+    expect(keep.attributes.uv).toBeDefined();
+    expect(keep.attributes.position.count).toBeGreaterThan(80);
+  });
+
+  it('creates ruined Gothic stone pointed archway and arcade geometry', () => {
+    const arch = createCastleArchGeometry();
+
+    expect(arch.attributes.position).toBeDefined();
+    expect(arch.attributes.normal).toBeDefined();
+    expect(arch.attributes.uv).toBeDefined();
+    expect(arch.attributes.position.count).toBeGreaterThan(40);
+  });
+
+  it('creates ancient Celtic standing megalith stone geometry', () => {
+    const stone = createStandingStoneGeometry();
+
+    expect(stone.attributes.position).toBeDefined();
+    expect(stone.attributes.normal).toBeDefined();
+    expect(stone.attributes.uv).toBeDefined();
+    expect(stone.attributes.position.count).toBeGreaterThan(30);
+  });
+
+  it('creates Scottish highland croft cottage walls and thatched roof geometries', () => {
+    const walls = createHighlandCottageWallGeometry();
+    const roof = createHighlandCottageRoofGeometry();
+
+    expect(walls.attributes.position).toBeDefined();
+    expect(walls.attributes.normal).toBeDefined();
+    expect(walls.attributes.uv).toBeDefined();
+    expect(walls.attributes.position.count).toBeGreaterThan(40);
+
+    expect(roof.attributes.position).toBeDefined();
+    expect(roof.attributes.normal).toBeDefined();
+    expect(roof.attributes.uv).toBeDefined();
+    expect(roof.attributes.position.count).toBeGreaterThan(10);
+  });
+
+  it('creates mountain stone cairn with Celtic cross geometry', () => {
+    const cairn = createStoneCairnGeometry();
+
+    expect(cairn.attributes.position).toBeDefined();
+    expect(cairn.attributes.normal).toBeDefined();
+    expect(cairn.attributes.uv).toBeDefined();
+    expect(cairn.attributes.position.count).toBeGreaterThan(50);
+  });
+
+  it('creates agricultural straw hay bale geometry', () => {
+    const bale = createHayBaleGeometry();
+
+    expect(bale.attributes.position).toBeDefined();
+    expect(bale.attributes.normal).toBeDefined();
+    expect(bale.attributes.uv).toBeDefined();
+    expect(bale.attributes.position.count).toBeGreaterThan(20);
+  });
+
+  it('creates rally warning chevron sign geometry', () => {
+    const sign = createRallySignGeometry();
+
+    expect(sign.attributes.position).toBeDefined();
+    expect(sign.attributes.normal).toBeDefined();
+    expect(sign.attributes.uv).toBeDefined();
+    expect(sign.attributes.position.count).toBeGreaterThan(15);
+  });
+
+  it('creates ancient arched stone bridge geometry', () => {
+    const bridge = createStoneBridgeGeometry();
+
+    expect(bridge.attributes.position).toBeDefined();
+    expect(bridge.attributes.normal).toBeDefined();
+    expect(bridge.attributes.uv).toBeDefined();
+    expect(bridge.attributes.position.count).toBeGreaterThan(20);
   });
 });

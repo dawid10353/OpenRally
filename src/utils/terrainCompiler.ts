@@ -78,8 +78,8 @@ export function compileTerrain(level: LevelData): HeightmapData {
       const coastNoise2 = noise2D(Math.cos(theta * 2.0) * 3.5 + 4.1, Math.sin(theta * 2.0) * 3.5 + 1.9) * (45.0 * coastScale);
       const effectiveRadius = distFromCenter + coastNoise1 + coastNoise2;
 
-      const islandRadius = width * 0.28; // ~560m main island landmass
-      const deepRadius = width * 0.38;   // ~760m deep ocean seabed transition
+      const islandRadius = width * 0.38; // Mainland plateau coverage
+      const deepRadius = width * 0.47;   // Deep ocean perimeter transition
 
       let baseElevation = -65.0;
       let noiseScale = 0.0;
@@ -128,6 +128,8 @@ export function compileTerrain(level: LevelData): HeightmapData {
                const profile = Math.pow(t, 1.5);
                if (mod.heightDelta !== undefined) {
                  value += profile * mod.heightDelta;
+               } else if (mod.absoluteHeight !== undefined) {
+                 value = value * (1.0 - profile) + mod.absoluteHeight * profile;
                }
             }
           }

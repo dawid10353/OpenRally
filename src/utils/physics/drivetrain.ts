@@ -14,10 +14,10 @@ export function applyDrivetrain(
   const steerAmount = input.steering ? Math.abs(input.steering) : 0;
   const slipAmount = slipAngle ? Math.min(1.0, Math.abs(slipAngle) / (Math.PI / 4)) : 0;
 
-  // Active AWD Differential & Drift Power Compensation:
-  // When cornering or holding a high-angle drift under throttle, compensate for lateral scrub drag
-  // and maintain full AWD propulsion so the car accelerates and glides dynamically through slides.
-  const driftPowerBoost = 1.0 + steerAmount * 0.25 + slipAmount * 0.45;
+  // Continuous Symmetrical AWD Differential & Drift Power Compensation:
+  // When cornering or sliding under throttle, overcome lateral tire scrub drag
+  // and deliver robust continuous 4-wheel pull so the car powers dynamically through slides.
+  const driftPowerBoost = 1.0 + steerAmount * 0.35 + slipAmount * 0.65;
 
   for (let i = 0; i < config.wheels.length; i++) {
     const wheel = config.wheels[i];

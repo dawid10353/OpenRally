@@ -2,6 +2,7 @@ import type { LevelPreset } from '@/types/level';
 import { LEVEL1_DATA } from './level1';
 import { LEVEL2_DESERT_DATA } from './levels/desertCanyon';
 import { LEVEL3_SWEDEN_DATA } from './levels/swedenSnow';
+import { LEVEL4_BRITAIN_DATA } from './levels/highlandCastle';
 
 /**
  * Stage 1 / Default Level: Island Circuit.
@@ -103,12 +104,47 @@ export const LEVEL_PRESET_SWEDEN: LevelPreset = {
 };
 
 /**
+ * Stage 4 Level: Highland Castle Rally (Great Britain).
+ * Largest rally stage in OpenRally (2600m x 2600m) with ancient medieval castle ruins,
+ * narrow country lane stone walls, steep hairpin switchbacks, loch shoreline vistas, and misty moors.
+ * Vehicle spawns directly on the marked start grid facing the Start/Finish Gantry.
+ */
+export const LEVEL_PRESET_BRITAIN: LevelPreset = {
+  id: 'level4_britain',
+  name: 'Highland Castle Rally',
+  description: 'Epic British highlands stage through medieval castle ruins, stone wall corridors, and tight technical hairpins.',
+  difficulty: 'hard',
+  surfaceDescription: 'Mud, Gravel & Stone',
+  data: LEVEL4_BRITAIN_DATA,
+  spawnPosition: [-3.13, 11.0, -1.57],
+  spawnRotationY: Math.atan2(45 - (-65), 20 - (-35)), // Aligned with CP0 track heading
+  fallResetY: -10.0,
+  environment: {
+    sky: {
+      sunPosition: [160, 55, -120],
+      inclination: 0.62,
+      azimuth: 0.28,
+      turbidity: 3.2,
+      rayleigh: 2.2,
+      mieCoefficient: 0.008,
+      mieDirectionalG: 0.82,
+    },
+    fog: {
+      color: '#a8bbcc',
+      near: 140,
+      far: 2200,
+    },
+  },
+};
+
+/**
  * Registry of all available levels in OpenRally.
  */
 export const LEVEL_REGISTRY: Record<string, LevelPreset> = {
   level1_island: LEVEL_PRESET_ISLAND,
   level2_desert: LEVEL_PRESET_DESERT,
   level3_sweden: LEVEL_PRESET_SWEDEN,
+  level4_britain: LEVEL_PRESET_BRITAIN,
 };
 
 /** Default active level ID */
@@ -127,4 +163,5 @@ export function getLevelPreset(id: string): LevelPreset {
 export function getAvailableLevels(): LevelPreset[] {
   return Object.values(LEVEL_REGISTRY);
 }
+
 

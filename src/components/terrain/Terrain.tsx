@@ -190,30 +190,32 @@ export function Terrain() {
   const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
 
   // Load AI-generated terrain textures
-  const [grassTexture, trackTexture, rockTexture, sandTexture, snowTexture, snowTrackTexture] = useTexture([
+  const [grassTexture, trackTexture, rockTexture, sandTexture, snowTexture, snowTrackTexture, highlandHeatherTexture] = useTexture([
     '/textures/terrain/grass.jpg',
     '/textures/terrain/dirt_track.jpg',
     '/textures/terrain/rock_cliff.jpg',
     '/textures/terrain/desert_sand.jpg',
     '/textures/terrain/snow.jpg',
     '/textures/terrain/snow_track.jpg',
+    '/textures/terrain/highland_heather.jpg',
   ]);
 
   // Set repeat wrapping and SRGB color space on all terrain textures
   useMemo(() => {
     const anisotropy = graphicsQuality === 'very_high' ? 16 : graphicsQuality === 'high' ? 8 : 4;
-    [grassTexture, trackTexture, rockTexture, sandTexture, snowTexture, snowTrackTexture].forEach((tex) => {
+    [grassTexture, trackTexture, rockTexture, sandTexture, snowTexture, snowTrackTexture, highlandHeatherTexture].forEach((tex) => {
       tex.wrapS = RepeatWrapping;
       tex.wrapT = RepeatWrapping;
       tex.colorSpace = SRGBColorSpace;
       tex.anisotropy = anisotropy;
       tex.needsUpdate = true;
     });
-  }, [grassTexture, trackTexture, rockTexture, sandTexture, snowTexture, snowTrackTexture, graphicsQuality]);
+  }, [grassTexture, trackTexture, rockTexture, sandTexture, snowTexture, snowTrackTexture, highlandHeatherTexture, graphicsQuality]);
 
   const levelId = levelData.id.toLowerCase();
   const isDesert = levelId.includes('desert');
   const isSnow = levelId.includes('sweden') || levelId.includes('snow') || levelId.includes('winter');
+  const isBritain = levelId.includes('britain') || levelId.includes('highland');
 
   const geometry = useMemo(() => {
     // Create plane geometry matching heightmap dimensions
@@ -234,11 +236,15 @@ export function Terrain() {
     const trackMaskArray = new Float32Array(vertexCount);
 
     const tempColor = new Color();
-    const MUD_COLOR = new Color('#3b2818');
+    const MUD_COLOR = isBritain ? new Color('#2c221a') : new Color('#3b2818');
     const SNOW_COLOR_LOW = new Color('#e6f0fa');
     const SNOW_COLOR_MID = new Color('#f4f9ff');
     const SNOW_COLOR_HIGH = new Color('#ffffff');
     const SNOW_TRACK_COLOR = new Color('#d2e3f0');
+
+    const BRITAIN_COLOR_LOW = new Color('#2e4222');
+    const BRITAIN_COLOR_MID = new Color('#4c5438');
+    const BRITAIN_COLOR_HIGH = new Color('#625f54');
 
     for (let i = 0; i < vertexCount; i++) {
       const height = heightmapData.heights[i];
@@ -269,6 +275,20 @@ export function Terrain() {
         if (trackMask > 0) {
           tempColor.lerp(SNOW_TRACK_COLOR, trackMask * 0.8);
         }
+      } else if (isBritain) {
+        if (normalizedHeight < BIOME_MID_THRESHOLD) {
+          tempColor.lerpColors(BRITAIN_COLOR_LOW, BRITAIN_COLOR_MID, normalizedHeight / BIOME_MID_THRESHOLD);
+        } else {
+          tempColor.lerpColors(
+            BRITAIN_COLOR_MID,
+            BRITAIN_COLOR_HIGH,
+            (normalizedHeight - BIOME_MID_THRESHOLD) / (1 - BIOME_MID_THRESHOLD),
+          );
+        }
+
+        if (trackMask > 0) {
+          tempColor.lerp(MUD_COLOR, trackMask * 0.8);
+        }
       } else {
         if (normalizedHeight < BIOME_MID_THRESHOLD) {
           tempColor.lerpColors(BIOME_COLOR_LOW, BIOME_COLOR_MID, normalizedHeight / BIOME_MID_THRESHOLD);
@@ -296,13 +316,13 @@ export function Terrain() {
     geo.computeVertexNormals();
 
     return geo;
-  }, [heightmapData, levelData, isSnow]);
+  }, [heightmapData, levelData, isSnow, isBritain]);
 
   // Create custom multi-texture material
   const material = useMemo(
     () =>
       createDetailedTerrainMaterial({
-        grassTexture,
+        grassTexture: isBritain ? highlandHeatherTexture : grassTexture,
         trackTexture,
         rockTexture,
         sandTexture,
@@ -311,7 +331,7 @@ export function Terrain() {
         isDesert,
         isSnow,
       }),
-    [grassTexture, trackTexture, rockTexture, sandTexture, snowTexture, snowTrackTexture, isDesert, isSnow],
+    [grassTexture, highlandHeatherTexture, trackTexture, rockTexture, sandTexture, snowTexture, snowTrackTexture, isDesert, isSnow, isBritain],
   );
 
   // Prepare heights for Rapier HeightfieldCollider

@@ -11,7 +11,19 @@ export type PropType =
   | 'rock'
   | 'rock_sandstone'
   | 'cabin'
-  | 'fence';
+  | 'fence'
+  | 'castle_tower'
+  | 'castle_wall'
+  | 'castle_gate'
+  | 'castle_keep'
+  | 'castle_arch'
+  | 'stone_wall'
+  | 'standing_stone'
+  | 'highland_cottage'
+  | 'stone_bridge'
+  | 'stone_cairn'
+  | 'hay_bale'
+  | 'rally_sign';
 
 /**
  * Represents a single instance of a prop (tree, rock) in the level.

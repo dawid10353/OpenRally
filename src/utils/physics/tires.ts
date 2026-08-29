@@ -102,6 +102,9 @@ export function applyTireFrictionAndBrakes(
 
   const throttle = input.throttle ?? 0;
 
+  const maxSteerAngle = getInterpolatedSteeringAngle(speedKmh, config.handling.steeringCurve);
+  const steerAngle = input.steering * maxSteerAngle;
+
   for (let i = 0; i < config.wheels.length; i++) {
     const wheel = config.wheels[i];
 
@@ -116,23 +119,28 @@ export function applyTireFrictionAndBrakes(
       brakeForce = config.brakes.maxForce * input.brake * brakeMultiplier;
     }
 
-    // Base friction with simplified slip curve (Pacejka-lite)
+    // Calculate local slip angle relative to wheel heading:
+    // Front steered wheels are aligned with steerAngle, so their tire slip is (slipAngle - steerAngle).
+    // Rear non-steerable wheels experience the chassis slipAngle directly.
+    const localSlipAngle = wheel.steerable ? Math.abs(slipAngle - steerAngle) : Math.abs(slipAngle);
+
+    // Base friction with smooth slip curve (Pacejka-lite)
     const gripCurve = wheel.steerable ? tireModel.front : tireModel.rear;
     let currentFriction = gripCurve.baseGrip;
     
     // Decrease grip if we exceed peak slip angle
-    const absSlipAngle = Math.abs(slipAngle);
-    if (absSlipAngle > gripCurve.peakSlipAngle) {
-      // Linear drop-off to slideGrip over 45 degrees
-      const overSlip = Math.min(1.0, (absSlipAngle - gripCurve.peakSlipAngle) / (Math.PI / 4));
-      currentFriction = gripCurve.baseGrip - (gripCurve.baseGrip - gripCurve.slideGrip) * overSlip;
+    if (localSlipAngle > gripCurve.peakSlipAngle) {
+      // Smooth cubic drop-off to slideGrip over slip angle range
+      const overSlip = Math.min(1.0, (localSlipAngle - gripCurve.peakSlipAngle) / (Math.PI / 4.5));
+      const smoothDrop = overSlip * overSlip * (3.0 - 2.0 * overSlip);
+      currentFriction = gripCurve.baseGrip - (gripCurve.baseGrip - gripCurve.slideGrip) * smoothDrop;
     }
 
     // Dynamic loose surface traction loss under throttle (AWD wheelspin & power slide)
     if (throttle > 0.15 && surfaceDef.looseSurfaceTractionLoss && wheel.powered) {
-      // In AWD rally drivetrains, all driven wheels break loose and spin synchronously under throttle
+      // In AWD rally drivetrains, all driven wheels break loose synchronously under throttle
       const tractionLoss = surfaceDef.looseSurfaceTractionLoss * throttle;
-      currentFriction *= Math.max(0.35, 1.0 - tractionLoss);
+      currentFriction *= Math.max(0.40, 1.0 - tractionLoss);
     }
 
     // Handbrake — drift assist grip multiplier
@@ -147,8 +155,6 @@ export function applyTireFrictionAndBrakes(
 
     // Steering
     if (wheel.steerable) {
-      const maxSteerAngle = getInterpolatedSteeringAngle(speedKmh, config.handling.steeringCurve);
-      const steerAngle = input.steering * maxSteerAngle;
       controller.setWheelSteering(i, steerAngle);
     }
   }

@@ -18,6 +18,7 @@ import {
   CylinderGeometry,
   BoxGeometry,
   Float32BufferAttribute,
+  TorusGeometry,
   MeshStandardMaterial,
   MeshLambertMaterial,
   DoubleSide,
@@ -891,6 +892,571 @@ export function createFenceGeometry(): BufferGeometry {
   return merged;
 }
 
+/**
+ * Creates a monumental medieval round castle keep / ruined bastion tower.
+ * Features deep subterranean foundation (from Y = -3.5m to guarantee zero floating on any slope),
+ * thick defensive stone cylinder (Y = -3.5m to 8.5m), crumbling battlements / crenellations (Y = 8.5m to 10.2m),
+ * arrow loops, and weathered stone corbels.
+ */
+export function createCastleTowerGeometry(): BufferGeometry {
+  const parts: BufferGeometry[] = [];
+
+  // Main tower cylinder (radius 3.2m, height 12.0m from Y = -3.5m to +8.5m)
+  const tower = new CylinderGeometry(3.1, 3.4, 12.0, 16, 6);
+  tower.translate(0, 2.5, 0);
+  const tUvs = tower.attributes.uv;
+  for (let i = 0; i < tUvs.count; i++) {
+    tUvs.setXY(i, tUvs.getX(i) * 3.5, tUvs.getY(i) * 3.5);
+  }
+  parts.push(tower);
+
+  // Upper projecting parapet corbel ring
+  const corbelRing = new CylinderGeometry(3.45, 3.1, 0.6, 16, 1);
+  corbelRing.translate(0, 8.4, 0);
+  parts.push(corbelRing);
+
+  // Parapet floor deck
+  const deck = new CylinderGeometry(3.3, 3.3, 0.3, 16, 1);
+  deck.translate(0, 8.7, 0);
+  parts.push(deck);
+
+  // Battlement merlons (crenellations) around the rim, with one side broken/ruined
+  const numMerlons = 8;
+  for (let i = 0; i < numMerlons; i++) {
+    // Leave 2 merlons missing on the ruined side
+    if (i === 4 || i === 5) continue;
+    const angle = (i / numMerlons) * Math.PI * 2;
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+
+    const merlon = new BoxGeometry(1.2, 1.2, 0.5);
+    merlon.rotateY(-angle);
+    merlon.translate(c * 3.15, 9.4, s * 3.15);
+    parts.push(merlon);
+  }
+
+  // Ruined fallen debris / stone pile at the base on one side
+  const debris1 = new BoxGeometry(1.6, 0.9, 1.4);
+  debris1.rotateY(0.4);
+  debris1.translate(2.4, 0.45, 2.1);
+  parts.push(debris1);
+
+  const debris2 = new BoxGeometry(1.2, 0.7, 1.1);
+  debris2.rotateY(-0.6);
+  debris2.translate(2.8, 0.35, 1.1);
+  parts.push(debris2);
+
+  const merged = BufferGeometryUtils.mergeGeometries(parts);
+  return merged;
+}
+
+/**
+ * Creates a weathered medieval fortress curtain wall segment.
+ * Extends from Y = -3.5m deep foundation to Y = +5.2m walkway with battlements,
+ * structural buttresses, and crenellated stone parapet.
+ */
+export function createCastleWallGeometry(): BufferGeometry {
+  const parts: BufferGeometry[] = [];
+
+  // Main thick curtain wall (Length 8.0m, Height 8.5m from Y = -3.5m to +5.0m, Width 1.6m)
+  const wall = new BoxGeometry(8.0, 8.5, 1.6);
+  wall.translate(0, 0.75, 0);
+  const wUvs = wall.attributes.uv;
+  for (let i = 0; i < wUvs.count; i++) {
+    wUvs.setXY(i, wUvs.getX(i) * 3.0, wUvs.getY(i) * 2.5);
+  }
+  parts.push(wall);
+
+  // Walkway parapet merlons on outer edge (Z = +0.65m)
+  for (let x = -3.2; x <= 3.2; x += 1.8) {
+    const merlon = new BoxGeometry(1.1, 1.0, 0.35);
+    merlon.translate(x, 5.5, 0.65);
+    parts.push(merlon);
+  }
+
+  // Supporting stone wall buttresses on exterior face
+  const buttressL = new BoxGeometry(0.8, 6.0, 0.7);
+  buttressL.translate(-2.5, 0.5, 1.0);
+  parts.push(buttressL);
+
+  const buttressR = new BoxGeometry(0.8, 6.0, 0.7);
+  buttressR.translate(2.5, 0.5, 1.0);
+  parts.push(buttressR);
+
+  const merged = BufferGeometryUtils.mergeGeometries(parts);
+  return merged;
+}
+
+/**
+ * Creates a monumental Gothic castle gatehouse / barbican archway.
+ * Features two flanking round watchtowers and a grand stone arch spanning 5.4m,
+ * allowing vehicles to pass underneath into the castle courtyard.
+ */
+export function createCastleGateGeometry(): BufferGeometry {
+  const parts: BufferGeometry[] = [];
+
+  // Left flanking gate tower (from Y = -3.5m to +8.5m, radius 1.7m)
+  const towerL = new CylinderGeometry(1.6, 1.8, 12.0, 12, 4);
+  towerL.translate(-3.6, 2.5, 0);
+  parts.push(towerL);
+
+  // Right flanking gate tower
+  const towerR = new CylinderGeometry(1.6, 1.8, 12.0, 12, 4);
+  towerR.translate(3.6, 2.5, 0);
+  parts.push(towerR);
+
+  // Tower battlements (left & right)
+  const capL = new CylinderGeometry(1.85, 1.6, 0.4, 12, 1);
+  capL.translate(-3.6, 8.4, 0);
+  parts.push(capL);
+
+  const capR = new CylinderGeometry(1.85, 1.6, 0.4, 12, 1);
+  capR.translate(3.6, 8.4, 0);
+  parts.push(capR);
+
+  for (let a = 0; a < 4; a++) {
+    const angle = (a / 4) * Math.PI * 2;
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+
+    const mL = new BoxGeometry(0.7, 0.8, 0.35);
+    mL.rotateY(-angle);
+    mL.translate(-3.6 + c * 1.6, 9.0, s * 1.6);
+    parts.push(mL);
+
+    const mR = new BoxGeometry(0.7, 0.8, 0.35);
+    mR.rotateY(-angle);
+    mR.translate(3.6 + c * 1.6, 9.0, s * 1.6);
+    parts.push(mR);
+  }
+
+  // Stone archway span header connecting the towers above the road (Y = 4.0m to 6.8m)
+  const archHeader = new BoxGeometry(4.4, 2.8, 1.8);
+  archHeader.translate(0, 5.4, 0);
+  parts.push(archHeader);
+
+  // Top parapet above arch
+  for (let x = -1.4; x <= 1.4; x += 1.4) {
+    const merlon = new BoxGeometry(0.9, 0.8, 0.35);
+    merlon.translate(x, 7.2, 0.75);
+    parts.push(merlon);
+  }
+
+  const merged = BufferGeometryUtils.mergeGeometries(parts);
+  return merged;
+}
+
+/**
+ * Creates a traditional British / Scottish dry-stone dyke wall segment.
+ * Deep subterranean foundation (Y = -2.0m) with rough fieldstone profile.
+ */
+export function createStoneWallGeometry(): BufferGeometry {
+  const parts: BufferGeometry[] = [];
+
+  // Main stone wall body (Length 6.2m, Height 3.2m from Y = -2.0m to +1.2m, Thickness 0.55m)
+  const wall = new BoxGeometry(6.2, 3.2, 0.55);
+  wall.translate(0, -0.4, 0);
+  const uvs = wall.attributes.uv;
+  for (let i = 0; i < uvs.count; i++) {
+    uvs.setXY(i, uvs.getX(i) * 2.5, uvs.getY(i) * 1.5);
+  }
+  parts.push(wall);
+
+  // Rounded top stone coping
+  const coping = new BoxGeometry(6.3, 0.22, 0.65);
+  coping.translate(0, 1.25, 0);
+  parts.push(coping);
+
+  // Vertical stone pier posts on ends
+  const postL = new BoxGeometry(0.7, 3.5, 0.7);
+  postL.translate(-3.0, -0.3, 0);
+  parts.push(postL);
+
+  const postR = new BoxGeometry(0.7, 3.5, 0.7);
+  postR.translate(3.0, -0.3, 0);
+  parts.push(postR);
+
+  const merged = BufferGeometryUtils.mergeGeometries(parts);
+  return merged;
+}
+
+/**
+ * Creates a monumental 4-story rectangular medieval donjon keep / castle citadel.
+ * Features 4 corner defensive turrets, crenellated roof battlements, arched windows,
+ * and deep subterranean foundation anchoring.
+ */
+export function createCastleKeepGeometry(): BufferGeometry {
+  const parts: BufferGeometry[] = [];
+
+  // Main square keep block (Width 14m, Depth 14m, Height 18m from Y = -3.5m to +14.5m)
+  const mainKeep = new BoxGeometry(14.0, 18.0, 14.0);
+  mainKeep.translate(0, 5.5, 0);
+  const kUvs = mainKeep.attributes.uv;
+  for (let i = 0; i < kUvs.count; i++) {
+    kUvs.setXY(i, kUvs.getX(i) * 3.5, kUvs.getY(i) * 3.5);
+  }
+  parts.push(mainKeep);
+
+  // 4 Corner round bastion turrets (extending up to Y = +17.2m)
+  const turretOffsets = [
+    [-6.8, -6.8],
+    [6.8, -6.8],
+    [-6.8, 6.8],
+    [6.8, 6.8],
+  ];
+
+  for (const [tx, tz] of turretOffsets) {
+    const turret = new CylinderGeometry(2.1, 2.3, 21.0, 12, 4);
+    turret.translate(tx, 7.0, tz);
+    const tUvs = turret.attributes.uv;
+    for (let i = 0; i < tUvs.count; i++) {
+      tUvs.setXY(i, tUvs.getX(i) * 2.5, tUvs.getY(i) * 3.5);
+    }
+    parts.push(turret);
+
+    // Turret crenellations
+    const tCap = new CylinderGeometry(2.35, 2.1, 0.4, 12, 1);
+    tCap.translate(tx, 17.2, tz);
+    parts.push(tCap);
+
+    for (let a = 0; a < 4; a++) {
+      const angle = (a / 4) * Math.PI * 2;
+      const c = Math.cos(angle);
+      const s = Math.sin(angle);
+
+      const merlon = new BoxGeometry(0.85, 0.9, 0.4);
+      merlon.rotateY(-angle);
+      merlon.translate(tx + c * 2.1, 17.8, tz + s * 2.1);
+      parts.push(merlon);
+    }
+  }
+
+  // Parapet roof merlons along all 4 main walls
+  for (let x = -5.0; x <= 5.0; x += 2.5) {
+    const mNorth = new BoxGeometry(1.4, 1.2, 0.5);
+    mNorth.translate(x, 15.1, 6.8);
+    parts.push(mNorth);
+
+    const mSouth = new BoxGeometry(1.4, 1.2, 0.5);
+    mSouth.translate(x, 15.1, -6.8);
+    parts.push(mSouth);
+
+    const mWest = new BoxGeometry(0.5, 1.2, 1.4);
+    mWest.translate(-6.8, 15.1, x);
+    parts.push(mWest);
+
+    const mEast = new BoxGeometry(0.5, 1.2, 1.4);
+    mEast.translate(6.8, 15.1, x);
+    parts.push(mEast);
+  }
+
+  const merged = BufferGeometryUtils.mergeGeometries(parts);
+  return merged;
+}
+
+/**
+ * Creates a ruined Gothic stone pointed archway and arcade partition.
+ */
+export function createCastleArchGeometry(): BufferGeometry {
+  const parts: BufferGeometry[] = [];
+
+  // Left column pillar
+  const pillarL = new CylinderGeometry(0.5, 0.6, 6.5, 8, 2);
+  pillarL.translate(-2.6, 0.75, 0);
+  parts.push(pillarL);
+
+  // Right column pillar
+  const pillarR = new CylinderGeometry(0.5, 0.6, 6.5, 8, 2);
+  pillarR.translate(2.6, 0.75, 0);
+  parts.push(pillarR);
+
+  // Arch span header
+  const archTop = new BoxGeometry(6.2, 1.2, 0.9);
+  archTop.translate(0, 4.2, 0);
+  const aUvs = archTop.attributes.uv;
+  for (let i = 0; i < aUvs.count; i++) {
+    aUvs.setXY(i, aUvs.getX(i) * 2.0, aUvs.getY(i) * 1.0);
+  }
+  parts.push(archTop);
+
+  // Weathered broken crest stones
+  const crest1 = new BoxGeometry(1.2, 0.8, 0.7);
+  crest1.translate(-1.0, 5.0, 0);
+  parts.push(crest1);
+
+  const merged = BufferGeometryUtils.mergeGeometries(parts);
+  return merged;
+}
+
+/**
+ * Creates an ancient Scottish Celtic standing stone megalith / menhir.
+ * Monolithic pillar (Width 1.6m, Depth 1.0m, Height 5.5m from Y = -2.0m to +3.5m)
+ * with carved Celtic spiral triskele runes on the face.
+ */
+export function createStandingStoneGeometry(): BufferGeometry {
+  const parts: BufferGeometry[] = [];
+
+  const pillar = new BoxGeometry(1.6, 5.5, 0.9, 2, 4, 2);
+  pillar.translate(0, 0.75, 0);
+
+  const pos = pillar.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i);
+    const taper = Math.max(0.65, 1.0 - (y / 5.5) * 0.35);
+    pos.setX(i, pos.getX(i) * taper);
+    pos.setZ(i, pos.getZ(i) * taper);
+  }
+  pillar.computeVertexNormals();
+
+  const uvs = pillar.attributes.uv;
+  for (let i = 0; i < uvs.count; i++) {
+    uvs.setXY(i, uvs.getX(i) * 1.5, uvs.getY(i) * 2.0);
+  }
+  parts.push(pillar);
+
+  const baseRock = new CylinderGeometry(0.8, 1.3, 0.8, 8, 1);
+  baseRock.scale(1.4, 0.7, 1.2);
+  baseRock.translate(0, 0.2, 0);
+  parts.push(baseRock);
+
+  const merged = BufferGeometryUtils.mergeGeometries(parts);
+  return merged;
+}
+
+/**
+ * Creates the stone walls, front & rear gables, twin chimneys, door, and windows
+ * for a traditional Scottish highland croft cottage.
+ * Width across X: 6.0m (from X = -3.0m to +3.0m)
+ * Length along Z: 8.0m (from Z = -4.0m to +4.0m)
+ * Ground wall height: Y = -1.8m (deep foundation plinth) to Y = +3.0m
+ * Peak height: Y = +5.2m
+ */
+export function createHighlandCottageWallGeometry(): BufferGeometry {
+  const parts: BufferGeometry[] = [];
+
+  // 1. Main stone body (Width 6.0m, Height 4.8m from Y = -1.8m to +3.0m, Length 8.0m)
+  const walls = new BoxGeometry(6.0, 4.8, 8.0);
+  walls.translate(0, 0.6, 0);
+  const uvs = walls.attributes.uv;
+  for (let i = 0; i < uvs.count; i++) {
+    uvs.setXY(i, uvs.getX(i) * 2.0, uvs.getY(i) * 2.0);
+  }
+  parts.push(walls);
+
+  // 2. Front triangular gable wall (at Z = +4.0m, closes space from Y = 3.0m to 5.2m, across X from -3.0m to +3.0m)
+  const frontGable = createGablePrismGeometry(3.0, 3.0, 5.2, 4.0, 3.75);
+  parts.push(frontGable);
+
+  // 3. Rear triangular gable wall (at Z = -4.0m, closes space from Y = 3.0m to 5.2m, across X from -3.0m to +3.0m)
+  const rearGable = createGablePrismGeometry(3.0, 3.0, 5.2, -3.75, -4.0);
+  parts.push(rearGable);
+
+  // 4. Front stone chimney on gable wall (Z = +4.0m, Y = 1.0m to 6.0m)
+  const chimneyF = new BoxGeometry(0.9, 5.8, 0.9);
+  chimneyF.translate(0, 3.1, 4.05);
+  parts.push(chimneyF);
+
+  const potF = new CylinderGeometry(0.2, 0.22, 0.6, 8, 1);
+  potF.translate(0, 6.2, 4.05);
+  parts.push(potF);
+
+  // 5. Rear stone chimney on gable wall (Z = -4.0m, Y = 1.0m to 6.0m)
+  const chimneyR = new BoxGeometry(0.9, 5.8, 0.9);
+  chimneyR.translate(0, 3.1, -4.05);
+  parts.push(chimneyR);
+
+  const potR = new CylinderGeometry(0.2, 0.22, 0.6, 8, 1);
+  potR.translate(0, 6.2, -4.05);
+  parts.push(potR);
+
+  // 6. Side entrance wooden door (on +X side, X = +3.02m, Z = 0)
+  const door = new BoxGeometry(0.12, 2.2, 1.3);
+  door.translate(3.05, 1.4, 0);
+  parts.push(door);
+
+  const doorFrame = new BoxGeometry(0.16, 2.35, 1.5);
+  doorFrame.translate(3.04, 1.45, 0);
+  parts.push(doorFrame);
+
+  // 7. Multi-pane side windows with stone sills & timber frames (on +X side)
+  const winF = new BoxGeometry(0.12, 1.2, 1.1);
+  winF.translate(3.05, 1.8, 2.2);
+  parts.push(winF);
+
+  const sillF = new BoxGeometry(0.22, 0.12, 1.3);
+  sillF.translate(3.08, 1.15, 2.2);
+  parts.push(sillF);
+
+  const winB = new BoxGeometry(0.12, 1.2, 1.1);
+  winB.translate(3.05, 1.8, -2.2);
+  parts.push(winB);
+
+  const sillB = new BoxGeometry(0.22, 0.12, 1.3);
+  sillB.translate(3.08, 1.15, -2.2);
+  parts.push(sillB);
+
+  // 8. Multi-pane side windows on (-X side)
+  const winL1 = new BoxGeometry(0.12, 1.2, 1.1);
+  winL1.translate(-3.05, 1.8, 2.0);
+  parts.push(winL1);
+
+  const winL2 = new BoxGeometry(0.12, 1.2, 1.1);
+  winL2.translate(-3.05, 1.8, -2.0);
+  parts.push(winL2);
+
+  const merged = BufferGeometryUtils.mergeGeometries(parts);
+  return merged;
+}
+
+/**
+ * Creates the traditional Scottish double-pitched thatch / slate roof
+ * with overhanging eaves, ridge roll, and timber eave trim.
+ */
+export function createHighlandCottageRoofGeometry(): BufferGeometry {
+  const parts: BufferGeometry[] = [];
+
+  // 1. Left Roof Slope (rotated around Z by +0.58 rad, sloping from ridge X=0 down to left eave X=-3.5m)
+  const leftPitch = new BoxGeometry(4.3, 0.22, 9.2);
+  leftPitch.rotateZ(0.58);
+  leftPitch.translate(-1.7, 4.15, 0);
+  const lUvs = leftPitch.attributes.uv;
+  for (let i = 0; i < lUvs.count; i++) {
+    lUvs.setXY(i, lUvs.getX(i) * 2.5, lUvs.getY(i) * 3.5);
+  }
+  parts.push(leftPitch);
+
+  // 2. Right Roof Slope (rotated around Z by -0.58 rad, sloping from ridge X=0 down to right eave X=+3.5m)
+  const rightPitch = new BoxGeometry(4.3, 0.22, 9.2);
+  rightPitch.rotateZ(-0.58);
+  rightPitch.translate(1.7, 4.15, 0);
+  const rUvs = rightPitch.attributes.uv;
+  for (let i = 0; i < rUvs.count; i++) {
+    rUvs.setXY(i, rUvs.getX(i) * 2.5, rUvs.getY(i) * 3.5);
+  }
+  parts.push(rightPitch);
+
+  // 3. Thick Heather Thatch Ridge Turf Roll along apex (X = 0, Y = 5.35m, Z = -4.7m to +4.7m)
+  const ridge = new BoxGeometry(0.42, 0.28, 9.4);
+  ridge.translate(0, 5.35, 0);
+  parts.push(ridge);
+
+  // 4. Eave Fascia Trim Boards
+  const fasciaL = new BoxGeometry(0.12, 0.2, 9.2);
+  fasciaL.translate(-3.45, 2.95, 0);
+  parts.push(fasciaL);
+
+  const fasciaR = new BoxGeometry(0.12, 0.2, 9.2);
+  fasciaR.translate(3.45, 2.95, 0);
+  parts.push(fasciaR);
+
+  const merged = BufferGeometryUtils.mergeGeometries(parts);
+  return merged;
+}
+
+/**
+ * Creates a Scottish highland stone cairn mound with Celtic high cross atop.
+ */
+export function createStoneCairnGeometry(): BufferGeometry {
+  const parts: BufferGeometry[] = [];
+
+  const mound = new CylinderGeometry(0.4, 2.2, 2.4, 7, 3);
+  mound.translate(0, 0.7, 0);
+  parts.push(mound);
+
+  const crossShaft = new BoxGeometry(0.32, 2.2, 0.22);
+  crossShaft.translate(0, 2.7, 0);
+  parts.push(crossShaft);
+
+  const crossBar = new BoxGeometry(1.1, 0.28, 0.22);
+  crossBar.translate(0, 3.2, 0);
+  parts.push(crossBar);
+
+  const ring = new TorusGeometry(0.42, 0.08, 6, 12);
+  ring.translate(0, 3.2, 0);
+  parts.push(ring);
+
+  const merged = BufferGeometryUtils.mergeGeometries(parts);
+  return merged;
+}
+
+/**
+ * Creates a round agricultural golden straw hay bale.
+ * Cylinder (Radius 0.75m, Length 1.4m) lying horizontally on its side with binder cords.
+ */
+export function createHayBaleGeometry(): BufferGeometry {
+  const parts: BufferGeometry[] = [];
+
+  const bale = new CylinderGeometry(0.75, 0.75, 1.4, 12, 1);
+  bale.rotateZ(Math.PI / 2);
+  bale.translate(0, 0.72, 0);
+  const uvs = bale.attributes.uv;
+  for (let i = 0; i < uvs.count; i++) {
+    uvs.setXY(i, uvs.getX(i) * 2.0, uvs.getY(i) * 2.0);
+  }
+  parts.push(bale);
+
+  const cordL = new TorusGeometry(0.76, 0.02, 6, 12);
+  cordL.rotateY(Math.PI / 2);
+  cordL.translate(-0.4, 0.72, 0);
+  parts.push(cordL);
+
+  const cordR = new TorusGeometry(0.76, 0.02, 6, 12);
+  cordR.rotateY(Math.PI / 2);
+  cordR.translate(0.4, 0.72, 0);
+  parts.push(cordR);
+
+  const merged = BufferGeometryUtils.mergeGeometries(parts);
+  return merged;
+}
+
+/**
+ * Creates a roadside rally directional warning arrow signboard.
+ */
+export function createRallySignGeometry(): BufferGeometry {
+  const parts: BufferGeometry[] = [];
+
+  const post = new BoxGeometry(0.1, 1.8, 0.1);
+  post.translate(0, 0.7, 0);
+  parts.push(post);
+
+  const board = new BoxGeometry(1.2, 0.65, 0.06);
+  board.translate(0, 1.35, 0.06);
+  parts.push(board);
+
+  const border = new BoxGeometry(1.26, 0.71, 0.04);
+  border.translate(0, 1.35, 0.04);
+  parts.push(border);
+
+  const merged = BufferGeometryUtils.mergeGeometries(parts);
+  return merged;
+}
+
+/**
+ * Creates an ancient arched stone packhorse bridge with double parapets.
+ */
+export function createStoneBridgeGeometry(): BufferGeometry {
+  const parts: BufferGeometry[] = [];
+
+  const deck = new BoxGeometry(6.8, 1.4, 12.0);
+  deck.translate(0, 0.5, 0);
+  const uvs = deck.attributes.uv;
+  for (let i = 0; i < uvs.count; i++) {
+    uvs.setXY(i, uvs.getX(i) * 2.0, uvs.getY(i) * 3.0);
+  }
+  parts.push(deck);
+
+  const parapetL = new BoxGeometry(0.55, 1.1, 12.2);
+  parapetL.translate(-3.1, 1.7, 0);
+  parts.push(parapetL);
+
+  const parapetR = new BoxGeometry(0.55, 1.1, 12.2);
+  parapetR.translate(3.1, 1.7, 0);
+  parts.push(parapetR);
+
+  const merged = BufferGeometryUtils.mergeGeometries(parts);
+  return merged;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // PROPS INSTANCER COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
@@ -910,6 +1476,18 @@ interface ProximityCollidersProps {
   initialRocks: PropItem[];
   initialCabins: PropItem[];
   initialFences: PropItem[];
+  initialCastleTowers: PropItem[];
+  initialCastleWalls: PropItem[];
+  initialCastleGates: PropItem[];
+  initialCastleKeeps: PropItem[];
+  initialCastleArches: PropItem[];
+  initialStoneWalls: PropItem[];
+  initialStandingStones: PropItem[];
+  initialHighlandCottages: PropItem[];
+  initialStoneCairns: PropItem[];
+  initialHayBales: PropItem[];
+  initialRallySigns: PropItem[];
+  initialStoneBridges: PropItem[];
 }
 
 function ProximityColliders({
@@ -918,6 +1496,18 @@ function ProximityColliders({
   initialRocks,
   initialCabins,
   initialFences,
+  initialCastleTowers,
+  initialCastleWalls,
+  initialCastleGates,
+  initialCastleKeeps,
+  initialCastleArches,
+  initialStoneWalls,
+  initialStandingStones,
+  initialHighlandCottages,
+  initialStoneCairns,
+  initialHayBales,
+  initialRallySigns,
+  initialStoneBridges,
 }: ProximityCollidersProps) {
   const lastCarPosRef = useRef<[number, number]>([-9999, -9999]);
   const activeCollidersRef = useRef<{
@@ -925,11 +1515,35 @@ function ProximityColliders({
     rocks: PropItem[];
     cabins: PropItem[];
     fences: PropItem[];
+    castleTowers: PropItem[];
+    castleWalls: PropItem[];
+    castleGates: PropItem[];
+    castleKeeps: PropItem[];
+    castleArches: PropItem[];
+    stoneWalls: PropItem[];
+    standingStones: PropItem[];
+    highlandCottages: PropItem[];
+    stoneCairns: PropItem[];
+    hayBales: PropItem[];
+    rallySigns: PropItem[];
+    stoneBridges: PropItem[];
   }>({
     trees: initialTrees,
     rocks: initialRocks,
     cabins: initialCabins,
     fences: initialFences,
+    castleTowers: initialCastleTowers,
+    castleWalls: initialCastleWalls,
+    castleGates: initialCastleGates,
+    castleKeeps: initialCastleKeeps,
+    castleArches: initialCastleArches,
+    stoneWalls: initialStoneWalls,
+    standingStones: initialStandingStones,
+    highlandCottages: initialHighlandCottages,
+    stoneCairns: initialStoneCairns,
+    hayBales: initialHayBales,
+    rallySigns: initialRallySigns,
+    stoneBridges: initialStoneBridges,
   });
   const [activeColliders, setActiveColliders] = useState(activeCollidersRef.current);
   const lastCellKeyRef = useRef('');
@@ -953,6 +1567,18 @@ function ProximityColliders({
       const nearbyRocks: PropItem[] = [];
       const nearbyCabins: PropItem[] = [];
       const nearbyFences: PropItem[] = [];
+      const nearbyCastleTowers: PropItem[] = [];
+      const nearbyCastleWalls: PropItem[] = [];
+      const nearbyCastleGates: PropItem[] = [];
+      const nearbyCastleKeeps: PropItem[] = [];
+      const nearbyCastleArches: PropItem[] = [];
+      const nearbyStoneWalls: PropItem[] = [];
+      const nearbyStandingStones: PropItem[] = [];
+      const nearbyHighlandCottages: PropItem[] = [];
+      const nearbyStoneCairns: PropItem[] = [];
+      const nearbyHayBales: PropItem[] = [];
+      const nearbyRallySigns: PropItem[] = [];
+      const nearbyStoneBridges: PropItem[] = [];
 
       for (let ox = -1; ox <= 1; ox++) {
         for (let oz = -1; oz <= 1; oz++) {
@@ -962,11 +1588,35 @@ function ProximityColliders({
             for (let i = 0; i < cell.length; i++) {
               const item = cell[i];
               const distSq = (item.position[0] - carPos[0]) ** 2 + (item.position[2] - carPos[2]) ** 2;
-              if (distSq < 85 * 85) {
+              if (distSq < 95 * 95) {
                 if (item.type === 'cabin') {
                   nearbyCabins.push(item);
                 } else if (item.type === 'fence') {
                   nearbyFences.push(item);
+                } else if (item.type === 'castle_tower') {
+                  nearbyCastleTowers.push(item);
+                } else if (item.type === 'castle_wall') {
+                  nearbyCastleWalls.push(item);
+                } else if (item.type === 'castle_gate') {
+                  nearbyCastleGates.push(item);
+                } else if (item.type === 'castle_keep') {
+                  nearbyCastleKeeps.push(item);
+                } else if (item.type === 'castle_arch') {
+                  nearbyCastleArches.push(item);
+                } else if (item.type === 'stone_wall') {
+                  nearbyStoneWalls.push(item);
+                } else if (item.type === 'standing_stone') {
+                  nearbyStandingStones.push(item);
+                } else if (item.type === 'highland_cottage') {
+                  nearbyHighlandCottages.push(item);
+                } else if (item.type === 'stone_cairn') {
+                  nearbyStoneCairns.push(item);
+                } else if (item.type === 'hay_bale') {
+                  nearbyHayBales.push(item);
+                } else if (item.type === 'rally_sign') {
+                  nearbyRallySigns.push(item);
+                } else if (item.type === 'stone_bridge') {
+                  nearbyStoneBridges.push(item);
                 } else if (item.type.startsWith('tree')) {
                   nearbyTrees.push(item);
                 } else {
@@ -983,7 +1633,19 @@ function ProximityColliders({
         prev.trees.length !== nearbyTrees.length ||
         prev.rocks.length !== nearbyRocks.length ||
         prev.cabins.length !== nearbyCabins.length ||
-        prev.fences.length !== nearbyFences.length;
+        prev.fences.length !== nearbyFences.length ||
+        prev.castleTowers.length !== nearbyCastleTowers.length ||
+        prev.castleWalls.length !== nearbyCastleWalls.length ||
+        prev.castleGates.length !== nearbyCastleGates.length ||
+        prev.castleKeeps.length !== nearbyCastleKeeps.length ||
+        prev.castleArches.length !== nearbyCastleArches.length ||
+        prev.stoneWalls.length !== nearbyStoneWalls.length ||
+        prev.standingStones.length !== nearbyStandingStones.length ||
+        prev.highlandCottages.length !== nearbyHighlandCottages.length ||
+        prev.stoneCairns.length !== nearbyStoneCairns.length ||
+        prev.hayBales.length !== nearbyHayBales.length ||
+        prev.rallySigns.length !== nearbyRallySigns.length ||
+        prev.stoneBridges.length !== nearbyStoneBridges.length;
 
       let changed = countChanged;
       if (!changed && nearbyTrees.length > 0 && nearbyTrees[0].id !== prev.trees[0]?.id) {
@@ -996,6 +1658,18 @@ function ProximityColliders({
           rocks: nearbyRocks,
           cabins: nearbyCabins,
           fences: nearbyFences,
+          castleTowers: nearbyCastleTowers,
+          castleWalls: nearbyCastleWalls,
+          castleGates: nearbyCastleGates,
+          castleKeeps: nearbyCastleKeeps,
+          castleArches: nearbyCastleArches,
+          stoneWalls: nearbyStoneWalls,
+          standingStones: nearbyStandingStones,
+          highlandCottages: nearbyHighlandCottages,
+          stoneCairns: nearbyStoneCairns,
+          hayBales: nearbyHayBales,
+          rallySigns: nearbyRallySigns,
+          stoneBridges: nearbyStoneBridges,
         };
         activeCollidersRef.current = nextColliders;
         setActiveColliders(nextColliders);
@@ -1045,6 +1719,170 @@ function ProximityColliders({
           restitution={0.05}
         />
       ))}
+      {activeColliders.castleTowers.map((t) => (
+        <CylinderCollider
+          key={t.id}
+          args={[4.5 * t.scale[1], 3.2 * t.scale[0]]}
+          position={[t.position[0], t.position[1] + 4.5 * t.scale[1], t.position[2]]}
+          rotation={t.rotation}
+          friction={0.9}
+          restitution={0.05}
+        />
+      ))}
+      {activeColliders.castleWalls.map((w) => (
+        <CuboidCollider
+          key={w.id}
+          args={[4.0 * w.scale[0], 2.8 * w.scale[1], 0.8 * w.scale[2]]}
+          position={[w.position[0], w.position[1] + 2.8 * w.scale[1], w.position[2]]}
+          rotation={w.rotation}
+          friction={0.9}
+          restitution={0.05}
+        />
+      ))}
+      {activeColliders.castleGates.map((g) => {
+        const rotY = g.rotation[1];
+        const cosY = Math.cos(rotY);
+        const sinY = Math.sin(rotY);
+        const offset = 3.6 * g.scale[0];
+        return (
+          <group key={g.id}>
+            <CylinderCollider
+              args={[4.5 * g.scale[1], 1.7 * g.scale[0]]}
+              position={[
+                g.position[0] - cosY * offset,
+                g.position[1] + 4.5 * g.scale[1],
+                g.position[2] + sinY * offset,
+              ]}
+              rotation={g.rotation}
+              friction={0.9}
+              restitution={0.05}
+            />
+            <CylinderCollider
+              args={[4.5 * g.scale[1], 1.7 * g.scale[0]]}
+              position={[
+                g.position[0] + cosY * offset,
+                g.position[1] + 4.5 * g.scale[1],
+                g.position[2] - sinY * offset,
+              ]}
+              rotation={g.rotation}
+              friction={0.9}
+              restitution={0.05}
+            />
+          </group>
+        );
+      })}
+      {activeColliders.castleKeeps.map((k) => (
+        <CuboidCollider
+          key={k.id}
+          args={[7.2 * k.scale[0], 9.0 * k.scale[1], 7.2 * k.scale[2]]}
+          position={[k.position[0], k.position[1] + 9.0 * k.scale[1], k.position[2]]}
+          rotation={k.rotation}
+          friction={0.9}
+          restitution={0.05}
+        />
+      ))}
+      {activeColliders.castleArches.map((a) => {
+        const rotY = a.rotation[1];
+        const cosY = Math.cos(rotY);
+        const sinY = Math.sin(rotY);
+        const offset = 2.6 * a.scale[0];
+        return (
+          <group key={a.id}>
+            <CylinderCollider
+              args={[2.8 * a.scale[1], 0.6 * a.scale[0]]}
+              position={[
+                a.position[0] - cosY * offset,
+                a.position[1] + 2.8 * a.scale[1],
+                a.position[2] + sinY * offset,
+              ]}
+              rotation={a.rotation}
+              friction={0.9}
+              restitution={0.05}
+            />
+            <CylinderCollider
+              args={[2.8 * a.scale[1], 0.6 * a.scale[0]]}
+              position={[
+                a.position[0] + cosY * offset,
+                a.position[1] + 2.8 * a.scale[1],
+                a.position[2] - sinY * offset,
+              ]}
+              rotation={a.rotation}
+              friction={0.9}
+              restitution={0.05}
+            />
+          </group>
+        );
+      })}
+      {activeColliders.stoneWalls.map((sw) => (
+        <CuboidCollider
+          key={sw.id}
+          args={[3.1 * sw.scale[0], 0.65 * sw.scale[1], 0.3 * sw.scale[2]]}
+          position={[sw.position[0], sw.position[1] + 0.65 * sw.scale[1], sw.position[2]]}
+          rotation={sw.rotation}
+          friction={0.8}
+          restitution={0.05}
+        />
+      ))}
+      {activeColliders.standingStones.map((ss) => (
+        <CuboidCollider
+          key={ss.id}
+          args={[0.8 * ss.scale[0], 2.7 * ss.scale[1], 0.5 * ss.scale[2]]}
+          position={[ss.position[0], ss.position[1] + 2.7 * ss.scale[1], ss.position[2]]}
+          rotation={ss.rotation}
+          friction={0.9}
+          restitution={0.05}
+        />
+      ))}
+      {activeColliders.highlandCottages.map((hc) => (
+        <CuboidCollider
+          key={hc.id}
+          args={[3.2 * hc.scale[0], 2.2 * hc.scale[1], 2.2 * hc.scale[2]]}
+          position={[hc.position[0], hc.position[1] + 2.2 * hc.scale[1], hc.position[2]]}
+          rotation={hc.rotation}
+          friction={0.8}
+          restitution={0.05}
+        />
+      ))}
+      {activeColliders.stoneCairns.map((sc) => (
+        <BallCollider
+          key={sc.id}
+          args={[1.6 * sc.scale[0]]}
+          position={[sc.position[0], sc.position[1] + 1.2 * sc.scale[1], sc.position[2]]}
+          rotation={sc.rotation}
+          friction={0.8}
+          restitution={0.05}
+        />
+      ))}
+      {activeColliders.hayBales.map((hb) => (
+        <CylinderCollider
+          key={hb.id}
+          args={[0.75 * hb.scale[1], 0.75 * hb.scale[0]]}
+          position={[hb.position[0], hb.position[1] + 0.72 * hb.scale[1], hb.position[2]]}
+          rotation={hb.rotation}
+          friction={0.85}
+          restitution={0.05}
+        />
+      ))}
+      {activeColliders.rallySigns.map((rs) => (
+        <CylinderCollider
+          key={rs.id}
+          args={[0.8 * rs.scale[1], 0.15 * rs.scale[0]]}
+          position={[rs.position[0], rs.position[1] + 0.8 * rs.scale[1], rs.position[2]]}
+          rotation={rs.rotation}
+          friction={0.5}
+          restitution={0.05}
+        />
+      ))}
+      {activeColliders.stoneBridges.map((sb) => (
+        <CuboidCollider
+          key={sb.id}
+          args={[3.4 * sb.scale[0], 0.7 * sb.scale[1], 6.0 * sb.scale[2]]}
+          position={[sb.position[0], sb.position[1] + 0.5 * sb.scale[1], sb.position[2]]}
+          rotation={sb.rotation}
+          friction={0.9}
+          restitution={0.05}
+        />
+      ))}
     </RigidBody>
   );
 }
@@ -1064,6 +1902,19 @@ export function PropsInstancer() {
   const cabinWindowRef = useRef<InstancedMesh>(null);
   const cabinRoofRef = useRef<InstancedMesh>(null);
   const fenceRef = useRef<InstancedMesh>(null);
+  const castleTowerRef = useRef<InstancedMesh>(null);
+  const castleWallRef = useRef<InstancedMesh>(null);
+  const castleGateRef = useRef<InstancedMesh>(null);
+  const castleKeepRef = useRef<InstancedMesh>(null);
+  const castleArchRef = useRef<InstancedMesh>(null);
+  const stoneWallRef = useRef<InstancedMesh>(null);
+  const standingStoneRef = useRef<InstancedMesh>(null);
+  const cottageWallRef = useRef<InstancedMesh>(null);
+  const cottageRoofRef = useRef<InstancedMesh>(null);
+  const stoneCairnRef = useRef<InstancedMesh>(null);
+  const hayBaleRef = useRef<InstancedMesh>(null);
+  const rallySignRef = useRef<InstancedMesh>(null);
+  const stoneBridgeRef = useRef<InstancedMesh>(null);
 
   const { heightmapData, levelData } = useTerrainData();
   const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
@@ -1086,6 +1937,12 @@ export function PropsInstancer() {
     cabinRoofTexture,
     cabinRoofSnowTexture,
     fenceTexture,
+    castleStoneTexture,
+    castleCobblestoneTexture,
+    britishDrystoneTexture,
+    celticStandingStoneTexture,
+    highlandCottageWallTexture,
+    highlandCottageThatchTexture,
   ] = useTexture([
     '/textures/foliage/tree_bark.jpg',
     '/textures/foliage/pine_branch.jpg',
@@ -1103,6 +1960,12 @@ export function PropsInstancer() {
     '/textures/props/cabin_roof.jpg',
     '/textures/props/cabin_roof_snow.jpg',
     '/textures/props/rustic_fence.jpg',
+    '/textures/props/castle_stone_wall.jpg',
+    '/textures/props/castle_cobblestone.jpg',
+    '/textures/props/british_drystone_wall.jpg',
+    '/textures/props/celtic_standing_stone.jpg',
+    '/textures/props/highland_cottage_wall.jpg',
+    '/textures/props/highland_cottage_thatch.jpg',
   ]);
 
   useMemo(() => {
@@ -1123,6 +1986,12 @@ export function PropsInstancer() {
       cabinRoofTexture,
       cabinRoofSnowTexture,
       fenceTexture,
+      castleStoneTexture,
+      castleCobblestoneTexture,
+      britishDrystoneTexture,
+      celticStandingStoneTexture,
+      highlandCottageWallTexture,
+      highlandCottageThatchTexture,
     ].forEach((tex) => {
       tex.wrapS = RepeatWrapping;
       tex.wrapT = RepeatWrapping;
@@ -1147,6 +2016,12 @@ export function PropsInstancer() {
     cabinRoofTexture,
     cabinRoofSnowTexture,
     fenceTexture,
+    castleStoneTexture,
+    castleCobblestoneTexture,
+    britishDrystoneTexture,
+    celticStandingStoneTexture,
+    highlandCottageWallTexture,
+    highlandCottageThatchTexture,
   ]);
 
   const levelId = levelData.id.toLowerCase();
@@ -1234,6 +2109,84 @@ export function PropsInstancer() {
 
   const fenceGeo = useMemo(() => {
     const geo = createFenceGeometry();
+    geo.boundingSphere = GLOBAL_BOUNDING_SPHERE.clone();
+    return geo;
+  }, []);
+
+  const castleTowerGeo = useMemo(() => {
+    const geo = createCastleTowerGeometry();
+    geo.boundingSphere = GLOBAL_BOUNDING_SPHERE.clone();
+    return geo;
+  }, []);
+
+  const castleWallGeo = useMemo(() => {
+    const geo = createCastleWallGeometry();
+    geo.boundingSphere = GLOBAL_BOUNDING_SPHERE.clone();
+    return geo;
+  }, []);
+
+  const castleGateGeo = useMemo(() => {
+    const geo = createCastleGateGeometry();
+    geo.boundingSphere = GLOBAL_BOUNDING_SPHERE.clone();
+    return geo;
+  }, []);
+
+  const castleKeepGeo = useMemo(() => {
+    const geo = createCastleKeepGeometry();
+    geo.boundingSphere = GLOBAL_BOUNDING_SPHERE.clone();
+    return geo;
+  }, []);
+
+  const castleArchGeo = useMemo(() => {
+    const geo = createCastleArchGeometry();
+    geo.boundingSphere = GLOBAL_BOUNDING_SPHERE.clone();
+    return geo;
+  }, []);
+
+  const stoneWallGeo = useMemo(() => {
+    const geo = createStoneWallGeometry();
+    geo.boundingSphere = GLOBAL_BOUNDING_SPHERE.clone();
+    return geo;
+  }, []);
+
+  const standingStoneGeo = useMemo(() => {
+    const geo = createStandingStoneGeometry();
+    geo.boundingSphere = GLOBAL_BOUNDING_SPHERE.clone();
+    return geo;
+  }, []);
+
+  const cottageWallGeo = useMemo(() => {
+    const geo = createHighlandCottageWallGeometry();
+    geo.boundingSphere = GLOBAL_BOUNDING_SPHERE.clone();
+    return geo;
+  }, []);
+
+  const cottageRoofGeo = useMemo(() => {
+    const geo = createHighlandCottageRoofGeometry();
+    geo.boundingSphere = GLOBAL_BOUNDING_SPHERE.clone();
+    return geo;
+  }, []);
+
+  const stoneCairnGeo = useMemo(() => {
+    const geo = createStoneCairnGeometry();
+    geo.boundingSphere = GLOBAL_BOUNDING_SPHERE.clone();
+    return geo;
+  }, []);
+
+  const hayBaleGeo = useMemo(() => {
+    const geo = createHayBaleGeometry();
+    geo.boundingSphere = GLOBAL_BOUNDING_SPHERE.clone();
+    return geo;
+  }, []);
+
+  const rallySignGeo = useMemo(() => {
+    const geo = createRallySignGeometry();
+    geo.boundingSphere = GLOBAL_BOUNDING_SPHERE.clone();
+    return geo;
+  }, []);
+
+  const stoneBridgeGeo = useMemo(() => {
+    const geo = createStoneBridgeGeometry();
     geo.boundingSphere = GLOBAL_BOUNDING_SPHERE.clone();
     return geo;
   }, []);
@@ -1466,6 +2419,106 @@ export function PropsInstancer() {
     [fenceTexture, isSnow],
   );
 
+  // Medieval Castle & Stone Wall Materials with Dedicated High-Res Textures
+  const castleStoneMaterial = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        map: castleStoneTexture,
+        roughness: 0.86,
+        metalness: 0.02,
+        color: new Color('#ffffff'),
+      }),
+    [castleStoneTexture],
+  );
+
+  const stoneWallMaterial = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        map: britishDrystoneTexture,
+        roughness: 0.88,
+        metalness: 0.01,
+        color: new Color('#ffffff'),
+      }),
+    [britishDrystoneTexture],
+  );
+
+  const standingStoneMaterial = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        map: celticStandingStoneTexture,
+        roughness: 0.88,
+        metalness: 0.02,
+        color: new Color('#ffffff'),
+      }),
+    [celticStandingStoneTexture],
+  );
+
+  const cottageWallMaterial = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        map: britishDrystoneTexture,
+        roughness: 0.88,
+        metalness: 0.01,
+        color: new Color('#eae6dc'),
+      }),
+    [britishDrystoneTexture],
+  );
+
+  const cottageRoofMaterial = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        map: highlandCottageThatchTexture,
+        roughness: 0.92,
+        metalness: 0.01,
+        color: new Color('#ffffff'),
+      }),
+    [highlandCottageThatchTexture],
+  );
+
+  const stoneCairnMaterial = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        map: celticStandingStoneTexture,
+        roughness: 0.90,
+        metalness: 0.02,
+        color: new Color('#c0c6cc'),
+      }),
+    [celticStandingStoneTexture],
+  );
+
+  const hayBaleMaterial = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        map: highlandCottageThatchTexture,
+        roughness: 0.94,
+        metalness: 0.01,
+        color: new Color('#e5c26b'),
+      }),
+    [highlandCottageThatchTexture],
+  );
+
+  const rallySignMaterial = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        map: cabinRedWallTexture,
+        roughness: 0.60,
+        metalness: 0.08,
+        color: new Color('#ff3322'),
+      }),
+    [cabinRedWallTexture],
+  );
+
+  const stoneBridgeMaterial = useMemo(
+    () =>
+      new MeshStandardMaterial({
+        map: britishDrystoneTexture,
+        roughness: 0.88,
+        metalness: 0.01,
+        color: new Color('#ded9ce'),
+      }),
+    [britishDrystoneTexture],
+  );
+
   // Categorize props and compute exact ground anchoring for zero floating
   const {
     pineTrees,
@@ -1475,6 +2528,18 @@ export function PropsInstancer() {
     sandstoneRocks,
     cabins,
     fences,
+    castleTowers,
+    castleWalls,
+    castleGates,
+    castleKeeps,
+    castleArches,
+    stoneWalls,
+    standingStones,
+    highlandCottages,
+    stoneCairns,
+    hayBales,
+    rallySigns,
+    stoneBridges,
     spatialGrid,
   } = useMemo(() => {
     foliageShaderUniformsRef.current = [];
@@ -1501,6 +2566,18 @@ export function PropsInstancer() {
     const sandstones: PropItem[] = [];
     const cabinList: PropItem[] = [];
     const fenceList: PropItem[] = [];
+    const castleTowerList: PropItem[] = [];
+    const castleWallList: PropItem[] = [];
+    const castleGateList: PropItem[] = [];
+    const castleKeepList: PropItem[] = [];
+    const castleArchList: PropItem[] = [];
+    const stoneWallList: PropItem[] = [];
+    const standingStoneList: PropItem[] = [];
+    const highlandCottageList: PropItem[] = [];
+    const stoneCairnList: PropItem[] = [];
+    const hayBaleList: PropItem[] = [];
+    const rallySignList: PropItem[] = [];
+    const stoneBridgeList: PropItem[] = [];
 
     const grid = new Map<string, PropItem[]>();
     const CELL_SIZE = 50;
@@ -1508,14 +2585,30 @@ export function PropsInstancer() {
 
     for (const prop of levelData.props) {
       const [x, originalY, z] = prop.position;
-      if (prop.type !== 'fence' && prop.type !== 'cabin' && getTrackMaskAt(x, z) > 0.1) continue;
+      const isRoadExempt =
+        prop.type === 'fence' ||
+        prop.type === 'cabin' ||
+        prop.type === 'castle_gate' ||
+        prop.type === 'castle_wall' ||
+        prop.type === 'castle_tower' ||
+        prop.type === 'castle_keep' ||
+        prop.type === 'castle_arch' ||
+        prop.type === 'stone_wall' ||
+        prop.type === 'standing_stone' ||
+        prop.type === 'highland_cottage' ||
+        prop.type === 'stone_cairn' ||
+        prop.type === 'hay_bale' ||
+        prop.type === 'rally_sign' ||
+        prop.type === 'stone_bridge';
+
+      if (!isRoadExempt && getTrackMaskAt(x, z) > 0.1) continue;
 
       const terrainY = getInterpolatedHeight(x, z, heights, rows, cols, mapWidth, mapDepth);
       if (terrainY < -6.0) continue;
 
       let finalY = terrainY;
 
-      if (prop.type === 'cabin') {
+      if (prop.type === 'cabin' || prop.type === 'highland_cottage') {
         const cornerOffsets = [
           [-3.0, -4.0],
           [3.0, -4.0],
@@ -1529,6 +2622,60 @@ export function PropsInstancer() {
           if (gy < minGroundY) minGroundY = gy;
         }
         finalY = originalY !== 0 ? originalY : minGroundY;
+      } else if (prop.type === 'castle_keep') {
+        const offsets = [
+          [-6.5, -6.5],
+          [6.5, -6.5],
+          [-6.5, 6.5],
+          [6.5, 6.5],
+          [0, 0],
+        ];
+        let minGroundY = Infinity;
+        for (const [ox, oz] of offsets) {
+          const gy = getInterpolatedHeight(x + ox, z + oz, heights, rows, cols, mapWidth, mapDepth);
+          if (gy < minGroundY) minGroundY = gy;
+        }
+        finalY = originalY !== 0 ? originalY : minGroundY;
+      } else if (prop.type === 'castle_tower') {
+        const offsets = [
+          [-2.5, -2.5],
+          [2.5, -2.5],
+          [-2.5, 2.5],
+          [2.5, 2.5],
+          [0, 0],
+        ];
+        let minGroundY = Infinity;
+        for (const [ox, oz] of offsets) {
+          const gy = getInterpolatedHeight(x + ox, z + oz, heights, rows, cols, mapWidth, mapDepth);
+          if (gy < minGroundY) minGroundY = gy;
+        }
+        finalY = originalY !== 0 ? originalY : minGroundY;
+      } else if (prop.type === 'castle_wall') {
+        const leftY = getInterpolatedHeight(x - 3.5, z, heights, rows, cols, mapWidth, mapDepth);
+        const rightY = getInterpolatedHeight(x + 3.5, z, heights, rows, cols, mapWidth, mapDepth);
+        finalY = originalY !== 0 ? originalY : Math.min(leftY, rightY);
+      } else if (prop.type === 'castle_gate') {
+        const leftY = getInterpolatedHeight(x - 3.6, z, heights, rows, cols, mapWidth, mapDepth);
+        const rightY = getInterpolatedHeight(x + 3.6, z, heights, rows, cols, mapWidth, mapDepth);
+        finalY = originalY !== 0 ? originalY : Math.min(leftY, rightY);
+      } else if (prop.type === 'castle_arch') {
+        const leftY = getInterpolatedHeight(x - 2.6, z, heights, rows, cols, mapWidth, mapDepth);
+        const rightY = getInterpolatedHeight(x + 2.6, z, heights, rows, cols, mapWidth, mapDepth);
+        finalY = originalY !== 0 ? originalY : Math.min(leftY, rightY);
+      } else if (prop.type === 'stone_wall') {
+        const leftY = getInterpolatedHeight(x - 2.8, z, heights, rows, cols, mapWidth, mapDepth);
+        const rightY = getInterpolatedHeight(x + 2.8, z, heights, rows, cols, mapWidth, mapDepth);
+        finalY = originalY !== 0 ? originalY : Math.min(leftY, rightY);
+      } else if (prop.type === 'stone_bridge') {
+        const leftY = getInterpolatedHeight(x - 3.0, z, heights, rows, cols, mapWidth, mapDepth);
+        const rightY = getInterpolatedHeight(x + 3.0, z, heights, rows, cols, mapWidth, mapDepth);
+        finalY = originalY !== 0 ? originalY : Math.max(leftY, rightY);
+      } else if (prop.type === 'standing_stone' || prop.type === 'stone_cairn') {
+        finalY = (originalY !== 0 ? originalY : terrainY) - 0.3;
+      } else if (prop.type === 'hay_bale') {
+        finalY = (originalY !== 0 ? originalY : terrainY);
+      } else if (prop.type === 'rally_sign') {
+        finalY = (originalY !== 0 ? originalY : terrainY) - 0.1;
       } else if (prop.type === 'fence') {
         const leftY = getInterpolatedHeight(x - 1.6, z, heights, rows, cols, mapWidth, mapDepth);
         const rightY = getInterpolatedHeight(x + 1.6, z, heights, rows, cols, mapWidth, mapDepth);
@@ -1565,6 +2712,30 @@ export function PropsInstancer() {
         cabinList.push(item);
       } else if (prop.type === 'fence') {
         fenceList.push(item);
+      } else if (prop.type === 'castle_tower') {
+        castleTowerList.push(item);
+      } else if (prop.type === 'castle_wall') {
+        castleWallList.push(item);
+      } else if (prop.type === 'castle_gate') {
+        castleGateList.push(item);
+      } else if (prop.type === 'castle_keep') {
+        castleKeepList.push(item);
+      } else if (prop.type === 'castle_arch') {
+        castleArchList.push(item);
+      } else if (prop.type === 'stone_wall') {
+        stoneWallList.push(item);
+      } else if (prop.type === 'standing_stone') {
+        standingStoneList.push(item);
+      } else if (prop.type === 'highland_cottage') {
+        highlandCottageList.push(item);
+      } else if (prop.type === 'stone_cairn') {
+        stoneCairnList.push(item);
+      } else if (prop.type === 'hay_bale') {
+        hayBaleList.push(item);
+      } else if (prop.type === 'rally_sign') {
+        rallySignList.push(item);
+      } else if (prop.type === 'stone_bridge') {
+        stoneBridgeList.push(item);
       } else {
         pines.push(item);
       }
@@ -1589,6 +2760,18 @@ export function PropsInstancer() {
       sandstoneRocks: sandstones,
       cabins: cabinList,
       fences: fenceList,
+      castleTowers: castleTowerList,
+      castleWalls: castleWallList,
+      castleGates: castleGateList,
+      castleKeeps: castleKeepList,
+      castleArches: castleArchList,
+      stoneWalls: stoneWallList,
+      standingStones: standingStoneList,
+      highlandCottages: highlandCottageList,
+      stoneCairns: stoneCairnList,
+      hayBales: hayBaleList,
+      rallySigns: rallySignList,
+      stoneBridges: stoneBridgeList,
       spatialGrid: grid,
     };
   }, [heightmapData, levelData]);
@@ -1618,7 +2801,40 @@ export function PropsInstancer() {
     uploadBatch(cabinWindowRef.current, cabins);
     uploadBatch(cabinRoofRef.current, cabins);
     uploadBatch(fenceRef.current, fences);
-  }, [pineTrees, birchTrees, desertTrees, rocks, sandstoneRocks, cabins, fences]);
+    uploadBatch(castleTowerRef.current, castleTowers);
+    uploadBatch(castleWallRef.current, castleWalls);
+    uploadBatch(castleGateRef.current, castleGates);
+    uploadBatch(castleKeepRef.current, castleKeeps);
+    uploadBatch(castleArchRef.current, castleArches);
+    uploadBatch(stoneWallRef.current, stoneWalls);
+    uploadBatch(standingStoneRef.current, standingStones);
+    uploadBatch(cottageWallRef.current, highlandCottages);
+    uploadBatch(cottageRoofRef.current, highlandCottages);
+    uploadBatch(stoneCairnRef.current, stoneCairns);
+    uploadBatch(hayBaleRef.current, hayBales);
+    uploadBatch(rallySignRef.current, rallySigns);
+    uploadBatch(stoneBridgeRef.current, stoneBridges);
+  }, [
+    pineTrees,
+    birchTrees,
+    desertTrees,
+    rocks,
+    sandstoneRocks,
+    cabins,
+    fences,
+    castleTowers,
+    castleWalls,
+    castleGates,
+    castleKeeps,
+    castleArches,
+    stoneWalls,
+    standingStones,
+    highlandCottages,
+    stoneCairns,
+    hayBales,
+    rallySigns,
+    stoneBridges,
+  ]);
 
   // Frame loop: update wind shader
   useFrame((state) => {
@@ -1639,6 +2855,18 @@ export function PropsInstancer() {
         initialRocks={[...rocks, ...sandstoneRocks].slice(0, 40)}
         initialCabins={cabins.slice(0, 10)}
         initialFences={fences.slice(0, 40)}
+        initialCastleTowers={castleTowers.slice(0, 16)}
+        initialCastleWalls={castleWalls.slice(0, 30)}
+        initialCastleGates={castleGates.slice(0, 8)}
+        initialCastleKeeps={castleKeeps.slice(0, 4)}
+        initialCastleArches={castleArches.slice(0, 12)}
+        initialStoneWalls={stoneWalls.slice(0, 50)}
+        initialStandingStones={standingStones.slice(0, 30)}
+        initialHighlandCottages={highlandCottages.slice(0, 12)}
+        initialStoneCairns={stoneCairns.slice(0, 12)}
+        initialHayBales={hayBales.slice(0, 20)}
+        initialRallySigns={rallySigns.slice(0, 20)}
+        initialStoneBridges={stoneBridges.slice(0, 4)}
       />
 
       {/* 1. Nordic Pines */}
@@ -1748,6 +2976,121 @@ export function PropsInstancer() {
       <instancedMesh
         ref={fenceRef}
         args={[fenceGeo, fenceMaterial, Math.max(1, fences.length)]}
+        castShadow={canShadow}
+        receiveShadow={canShadow}
+        frustumCulled
+      />
+
+      {/* 8. Medieval Castle Bastion Towers */}
+      <instancedMesh
+        ref={castleTowerRef}
+        args={[castleTowerGeo, castleStoneMaterial, Math.max(1, castleTowers.length)]}
+        castShadow={canShadow}
+        receiveShadow={canShadow}
+        frustumCulled
+      />
+
+      {/* 9. Medieval Fortress Curtain Walls */}
+      <instancedMesh
+        ref={castleWallRef}
+        args={[castleWallGeo, castleStoneMaterial, Math.max(1, castleWalls.length)]}
+        castShadow={canShadow}
+        receiveShadow={canShadow}
+        frustumCulled
+      />
+
+      {/* 10. Gothic Barbican Arched Gateways */}
+      <instancedMesh
+        ref={castleGateRef}
+        args={[castleGateGeo, castleStoneMaterial, Math.max(1, castleGates.length)]}
+        castShadow={canShadow}
+        receiveShadow={canShadow}
+        frustumCulled
+      />
+
+      {/* 11. Grand Medieval Castle Citadel Keep (Donjon) */}
+      <instancedMesh
+        ref={castleKeepRef}
+        args={[castleKeepGeo, castleStoneMaterial, Math.max(1, castleKeeps.length)]}
+        castShadow={canShadow}
+        receiveShadow={canShadow}
+        frustumCulled
+      />
+
+      {/* 12. Ruined Gothic Castle Arches & Arcades */}
+      <instancedMesh
+        ref={castleArchRef}
+        args={[castleArchGeo, castleStoneMaterial, Math.max(1, castleArches.length)]}
+        castShadow={canShadow}
+        receiveShadow={canShadow}
+        frustumCulled
+      />
+
+      {/* 13. British Countryside Dry-Stone Dyke Walls */}
+      <instancedMesh
+        ref={stoneWallRef}
+        args={[stoneWallGeo, stoneWallMaterial, Math.max(1, stoneWalls.length)]}
+        castShadow={canShadow}
+        receiveShadow={canShadow}
+        frustumCulled
+      />
+
+      {/* 14. Ancient Celtic Standing Stones & Megalith Circle */}
+      <instancedMesh
+        ref={standingStoneRef}
+        args={[standingStoneGeo, standingStoneMaterial, Math.max(1, standingStones.length)]}
+        castShadow={canShadow}
+        receiveShadow={canShadow}
+        frustumCulled
+      />
+
+      {/* 15. Scottish Highland Croft Cottages (Walls & Thatch Roof) */}
+      <instancedMesh
+        ref={cottageWallRef}
+        args={[cottageWallGeo, cottageWallMaterial, Math.max(1, highlandCottages.length)]}
+        castShadow={canShadow}
+        receiveShadow={canShadow}
+        frustumCulled
+      />
+      <instancedMesh
+        ref={cottageRoofRef}
+        args={[cottageRoofGeo, cottageRoofMaterial, Math.max(1, highlandCottages.length)]}
+        castShadow={canShadow}
+        receiveShadow={canShadow}
+        frustumCulled
+      />
+
+      {/* 16. Highland Mountain Stone Cairns & Celtic Crosses */}
+      <instancedMesh
+        ref={stoneCairnRef}
+        args={[stoneCairnGeo, stoneCairnMaterial, Math.max(1, stoneCairns.length)]}
+        castShadow={canShadow}
+        receiveShadow={canShadow}
+        frustumCulled
+      />
+
+      {/* 17. Agricultural Golden Straw Hay Bales */}
+      <instancedMesh
+        ref={hayBaleRef}
+        args={[hayBaleGeo, hayBaleMaterial, Math.max(1, hayBales.length)]}
+        castShadow={canShadow}
+        receiveShadow={canShadow}
+        frustumCulled
+      />
+
+      {/* 18. Roadside Rally Directional Warning Chevron Signs */}
+      <instancedMesh
+        ref={rallySignRef}
+        args={[rallySignGeo, rallySignMaterial, Math.max(1, rallySigns.length)]}
+        castShadow={canShadow}
+        receiveShadow={canShadow}
+        frustumCulled
+      />
+
+      {/* 19. Ancient Arched Stone Packhorse Bridges */}
+      <instancedMesh
+        ref={stoneBridgeRef}
+        args={[stoneBridgeGeo, stoneBridgeMaterial, Math.max(1, stoneBridges.length)]}
         castShadow={canShadow}
         receiveShadow={canShadow}
         frustumCulled

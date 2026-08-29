@@ -235,7 +235,10 @@ export function useVehiclePhysics(
 
     // Physical rolling resistance (loose ground deceleration: sand, tall grass, mud)
     if (groundedRatio > 0 && Math.abs(forwardSpeed) > 0.1) {
-      const rollingResistance = surfaceDef.rollingResistance ?? 0.005;
+      // During active throttle drifts, reduce rolling drag to maintain forward momentum
+      const isDriftingUnderPower = Math.abs(slipAngle) > 0.15 && input.throttle > 0.1;
+      const driftDragReduction = isDriftingUnderPower ? 0.35 : 1.0;
+      const rollingResistance = (surfaceDef.rollingResistance ?? 0.005) * driftDragReduction;
       const dragImpulseMagnitude = rollingResistance * body.mass() * 9.81 * groundedRatio * dt;
       const clampedDrag = Math.min(dragImpulseMagnitude, Math.abs(forwardSpeed) * body.mass());
       _dragImpulse.copy(_forward).multiplyScalar(-Math.sign(forwardSpeed) * clampedDrag);
