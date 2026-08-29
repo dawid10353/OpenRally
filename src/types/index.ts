@@ -1,4 +1,4 @@
-export type { GameState, CameraMode, GraphicsQuality, InputState, GamepadType } from './game';
+export type { GameState, CameraMode, GraphicsQuality, AntiAliasingMode, InputState, GamepadType } from './game';
 export type {
   WheelInfo,
   EngineConfig,

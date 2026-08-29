@@ -110,6 +110,50 @@ export function Vehicle() {
               <meshBasicMaterial color="#555" />
             </mesh>
           </Detailed>
+
+          {/* Soft contact ambient occlusion shadow directly beneath the chassis */}
+          <mesh position={[0, -0.42, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[config.chassisSize[0] * 1.3, config.chassisSize[2] * 1.15]} />
+            <meshBasicMaterial
+              transparent
+              opacity={0.42}
+              depthWrite={false}
+              color="#000000"
+              onBeforeCompile={(shader) => {
+                shader.vertexShader = shader.vertexShader.replace(
+                  '#include <common>',
+                  /* glsl */ `
+                  #include <common>
+                  varying vec2 vShadowUv;
+                  `,
+                );
+                shader.vertexShader = shader.vertexShader.replace(
+                  '#include <uv_vertex>',
+                  /* glsl */ `
+                  #include <uv_vertex>
+                  vShadowUv = uv;
+                  `,
+                );
+                shader.fragmentShader = shader.fragmentShader.replace(
+                  '#include <common>',
+                  /* glsl */ `
+                  #include <common>
+                  varying vec2 vShadowUv;
+                  `,
+                );
+                shader.fragmentShader = shader.fragmentShader.replace(
+                  '#include <color_fragment>',
+                  /* glsl */ `
+                  #include <color_fragment>
+                  vec2 uvC = vShadowUv * 2.0 - 1.0;
+                  float d = length(uvC * vec2(1.15, 0.85));
+                  float alpha = smoothstep(1.0, 0.15, d) * 0.45;
+                  diffuseColor.a *= alpha;
+                  `,
+                );
+              }}
+            />
+          </mesh>
         </group>
 
         {/* Wheels — inside RigidBody so their local transform is relative to the chassis */}

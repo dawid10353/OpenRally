@@ -18,7 +18,9 @@ export function createFoliageWindMaterial(
   const mat = new MeshLambertMaterial({
     map: tex,
     side: DoubleSide,
-    transparent: true,
+    alphaTest: 0.12,
+    transparent: false,
+    depthWrite: true,
     color: new Color(baseColor),
   });
 

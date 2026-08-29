@@ -4,7 +4,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { sampleGamepad } from '@/utils/input/gamepad';
 import { getAvailableLevels } from '@/config/levelRegistry';
 import { getAvailableVehicles } from '@/config/vehicleRegistry';
-import type { GraphicsQuality } from '@/types';
+import type { GraphicsQuality, AntiAliasingMode } from '@/types';
 import type { MenuView, ControlsTab, ResetConfirmState } from './types';
 
 export interface MenuNavigationOptions {
@@ -67,7 +67,7 @@ export function useMenuGamepadNavigation({
     if (curView === 'tracks') return availableLevels.length + 1;
     if (curView === 'options') {
       const isVib = useSettingsStore.getState().vibrationEnabled;
-      return isVib ? 11 : 10;
+      return isVib ? 13 : 12;
     }
     if (curView === 'controls') return 1;
     return 1;
@@ -102,21 +102,30 @@ export function useMenuGamepadNavigation({
     } else if (curView === 'options') {
       const settings = useSettingsStore.getState();
       const qualities: GraphicsQuality[] = ['low', 'medium', 'high', 'very_high'];
+      const aaModes: AntiAliasingMode[] = ['off', 'msaa', 'smaa'];
+      const scales = [0.5, 0.75, 1.0, 1.25, 1.5];
+
       if (curIdx === 0) {
         const qIdx = qualities.indexOf(settings.graphicsQuality);
         if (qIdx > 0) settings.setGraphicsQuality(qualities[qIdx - 1]);
       } else if (curIdx === 1) {
-        settings.toggleShadows();
+        const aaIdx = aaModes.indexOf(settings.antiAliasing);
+        if (aaIdx > 0) settings.setAntiAliasing(aaModes[aaIdx - 1]);
       } else if (curIdx === 2) {
-        settings.togglePostProcessing();
+        const sIdx = scales.indexOf(settings.resolutionScale);
+        if (sIdx > 0) settings.setResolutionScale(scales[sIdx - 1]);
       } else if (curIdx === 3) {
-        settings.setSensitivity(Math.max(0.5, Math.min(2.0, settings.sensitivity - 0.1)));
+        settings.toggleShadows();
       } else if (curIdx === 4) {
+        settings.togglePostProcessing();
+      } else if (curIdx === 5) {
+        settings.setSensitivity(Math.max(0.5, Math.min(2.0, settings.sensitivity - 0.1)));
+      } else if (curIdx === 6) {
         settings.toggleVibration();
-      } else if (settings.vibrationEnabled && curIdx === 5) {
+      } else if (settings.vibrationEnabled && curIdx === 7) {
         settings.setVibrationIntensity(Math.max(0.1, Math.min(1.0, settings.vibrationIntensity - 0.05)));
       } else {
-        const musicOffset = settings.vibrationEnabled ? 6 : 5;
+        const musicOffset = settings.vibrationEnabled ? 8 : 7;
         if (curIdx === musicOffset) {
           settings.setMenuMusicVolume(Math.max(0, Math.min(1, settings.menuMusicVolume - 0.05)));
         } else if (curIdx === musicOffset + 1) {
@@ -145,21 +154,30 @@ export function useMenuGamepadNavigation({
     } else if (curView === 'options') {
       const settings = useSettingsStore.getState();
       const qualities: GraphicsQuality[] = ['low', 'medium', 'high', 'very_high'];
+      const aaModes: AntiAliasingMode[] = ['off', 'msaa', 'smaa'];
+      const scales = [0.5, 0.75, 1.0, 1.25, 1.5];
+
       if (curIdx === 0) {
         const qIdx = qualities.indexOf(settings.graphicsQuality);
         if (qIdx < qualities.length - 1) settings.setGraphicsQuality(qualities[qIdx + 1]);
       } else if (curIdx === 1) {
-        settings.toggleShadows();
+        const aaIdx = aaModes.indexOf(settings.antiAliasing);
+        if (aaIdx < aaModes.length - 1) settings.setAntiAliasing(aaModes[aaIdx + 1]);
       } else if (curIdx === 2) {
-        settings.togglePostProcessing();
+        const sIdx = scales.indexOf(settings.resolutionScale);
+        if (sIdx < scales.length - 1) settings.setResolutionScale(scales[sIdx + 1]);
       } else if (curIdx === 3) {
-        settings.setSensitivity(Math.max(0.5, Math.min(2.0, settings.sensitivity + 0.1)));
+        settings.toggleShadows();
       } else if (curIdx === 4) {
+        settings.togglePostProcessing();
+      } else if (curIdx === 5) {
+        settings.setSensitivity(Math.max(0.5, Math.min(2.0, settings.sensitivity + 0.1)));
+      } else if (curIdx === 6) {
         settings.toggleVibration();
-      } else if (settings.vibrationEnabled && curIdx === 5) {
+      } else if (settings.vibrationEnabled && curIdx === 7) {
         settings.setVibrationIntensity(Math.max(0.1, Math.min(1.0, settings.vibrationIntensity + 0.05)));
       } else {
-        const musicOffset = settings.vibrationEnabled ? 6 : 5;
+        const musicOffset = settings.vibrationEnabled ? 8 : 7;
         if (curIdx === musicOffset) {
           settings.setMenuMusicVolume(Math.max(0, Math.min(1, settings.menuMusicVolume + 0.05)));
         } else if (curIdx === musicOffset + 1) {
@@ -211,13 +229,13 @@ export function useMenuGamepadNavigation({
       }
     } else if (curView === 'options') {
       const isVib = useSettingsStore.getState().vibrationEnabled;
-      const optionsCount = isVib ? 11 : 10;
-      const resetIdx = isVib ? 9 : 8;
-      if (curIdx === 1) {
+      const optionsCount = isVib ? 13 : 12;
+      const resetIdx = isVib ? 11 : 10;
+      if (curIdx === 3) {
         useSettingsStore.getState().toggleShadows();
-      } else if (curIdx === 2) {
-        useSettingsStore.getState().togglePostProcessing();
       } else if (curIdx === 4) {
+        useSettingsStore.getState().togglePostProcessing();
+      } else if (curIdx === 6) {
         useSettingsStore.getState().toggleVibration();
       } else if (curIdx === resetIdx) {
         handleResetRecordsAction();

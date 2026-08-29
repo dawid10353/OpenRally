@@ -82,7 +82,7 @@ function generateBritainProps(_mapWidth: number, _mapDepth: number): PropData[] 
     0.5,
   );
 
-  const numSamples = 400;
+  const numSamples = 1200;
   const samplePoints: Vector3[] = [];
   for (let i = 0; i <= numSamples; i++) {
     samplePoints.push(trackCurve.getPointAt(i / numSamples));
@@ -254,43 +254,41 @@ function generateBritainProps(_mapWidth: number, _mapDepth: number): PropData[] 
   // ─────────────────────────────────────────────────────────────────────────────
 
   const cottageSettlements = [
-    // 1. Glen Start Valley Village (near Start / Finish straight)
-    { x: -50, z: 50, rotY: 0.5 },
-    { x: -85, z: 85, rotY: -0.3 },
-    { x: -115, z: 40, rotY: 1.2 },
-    { x: -135, z: -40, rotY: 0.8 },
-    { x: -80, z: -65, rotY: -0.6 },
-    { x: 65, z: -50, rotY: 2.1 },
+    // 1. Glen Start Valley Village (meadows south/north of start gantry)
+    { x: -50, z: 80, rotY: 0.5 },
+    { x: -95, z: 110, rotY: -0.3 },
+    { x: -130, z: 70, rotY: 1.2 },
+    { x: -170, z: -20, rotY: 0.8 },
+    { x: -100, z: -120, rotY: -0.6 },
+    { x: 80, z: -70, rotY: 2.1 },
 
-    // 2. Lochside Fishing Hamlet (along the loch shoreline between CP 25 - 28)
-    { x: 130, z: 505, rotY: 0.4 },
-    { x: 160, z: 535, rotY: -0.8 },
-    { x: 105, z: 460, rotY: 1.1 },
-    { x: 80, z: 420, rotY: 1.7 },
-    { x: 145, z: 465, rotY: -0.2 },
-    { x: 175, z: 430, rotY: 0.9 },
+    // 2. Lochside Fishing Hamlet (along the loch shoreline far from CP 25 - 28)
+    { x: 160, z: 520, rotY: 0.4 },
+    { x: 185, z: 555, rotY: -0.8 },
+    { x: 135, z: 430, rotY: 1.1 },
+    { x: 170, z: 390, rotY: 1.7 },
+    { x: 195, z: 460, rotY: -0.2 },
 
-    // 3. Lower Glen Valley Crofts (near CP 5 - 8)
-    { x: 215, z: 195, rotY: 0.3 },
-    { x: 240, z: 235, rotY: -0.7 },
-    { x: 165, z: 245, rotY: 1.4 },
-    { x: 115, z: 265, rotY: 0.8 },
-    { x: 190, z: 295, rotY: -0.4 },
+    // 3. Lower Glen Valley Crofts (outer valley pastures near CP 5 - 8)
+    { x: 250, z: 180, rotY: 0.3 },
+    { x: 270, z: 240, rotY: -0.7 },
+    { x: 100, z: 170, rotY: 1.4 },
+    { x: 80, z: 270, rotY: 0.8 },
+    { x: 240, z: 280, rotY: -0.4 },
 
-    // 4. Castle Foot Terrace Village (below the castle hill between CP 12 & 21)
-    { x: 300, z: 535, rotY: 0.6 },
-    { x: 275, z: 565, rotY: -0.5 },
-    { x: 340, z: 635, rotY: 1.3 },
-    { x: 280, z: 635, rotY: -0.9 },
-    { x: 355, z: 585, rotY: 0.2 },
+    // 4. Castle Foot Terrace Village (lower terraces below CP 12 & 21)
+    { x: 230, z: 530, rotY: 0.6 },
+    { x: 200, z: 560, rotY: -0.5 },
+    { x: 380, z: 720, rotY: 1.3 },
+    { x: 330, z: 710, rotY: -0.9 },
+    { x: 230, z: 630, rotY: 0.2 },
 
-    // 5. Western Moorland Crofting Farmsteads (between CP 32 - 38)
-    { x: -225, z: 410, rotY: 0.4 },
-    { x: -270, z: 380, rotY: -0.8 },
-    { x: -325, z: 295, rotY: 1.1 },
-    { x: -365, z: 245, rotY: -0.3 },
-    { x: -395, z: 210, rotY: 0.7 },
-    { x: -435, z: 120, rotY: -1.2 },
+    // 5. Western Moorland Crofting Farmsteads (moorland meadows away from CP 32 - 38)
+    { x: -260, z: 350, rotY: 0.4 },
+    { x: -300, z: 250, rotY: -0.8 },
+    { x: -370, z: 290, rotY: 1.1 },
+    { x: -420, z: 230, rotY: -0.3 },
+    { x: -460, z: 160, rotY: 0.7 },
   ];
 
   for (const c of cottageSettlements) {
@@ -301,7 +299,7 @@ function generateBritainProps(_mapWidth: number, _mapDepth: number): PropData[] 
         rotation: [0, c.rotY, 0],
         scale: [1.0, 1.0, 1.0],
       },
-      13.0,
+      20.0,
     );
   }
 
@@ -337,22 +335,16 @@ function generateBritainProps(_mapWidth: number, _mapDepth: number): PropData[] 
   // ─────────────────────────────────────────────────────────────────────────────
 
   const fieldEnclosures = [
-    // North Loch Hamlet Pastures
-    { x: 140, z: 480, rotY: 0.2 },
-    { x: 146, z: 480, rotY: 0.2 },
-    { x: 110, z: 510, rotY: 1.57 },
-    { x: 110, z: 516, rotY: 1.57 },
-    { x: 170, z: 505, rotY: 0.9 },
-    // South Valley Croft Pastures
-    { x: -200, z: -70, rotY: 0.4 },
-    { x: -206, z: -70, rotY: 0.4 },
-    { x: -230, z: -100, rotY: 1.57 },
-    { x: -230, z: -106, rotY: 1.57 },
-    { x: -260, z: -130, rotY: 0.7 },
-    // Mountain Pass Farm Paddocks
-    { x: -245, z: 310, rotY: 0.1 },
-    { x: -275, z: 340, rotY: 1.4 },
-    { x: -305, z: 310, rotY: -0.8 },
+    // North Loch Hamlet Pastures (far back into hills)
+    { x: 180, z: 490, rotY: 0.2 },
+    { x: 186, z: 490, rotY: 0.2 },
+    { x: 210, z: 520, rotY: 1.57 },
+    { x: 210, z: 526, rotY: 1.57 },
+    // South Valley Croft Pastures (deep in valley)
+    { x: -210, z: -60, rotY: 0.4 },
+    { x: -216, z: -60, rotY: 0.4 },
+    { x: -250, z: -90, rotY: 1.57 },
+    { x: -250, z: -96, rotY: 1.57 },
   ];
 
   for (const w of fieldEnclosures) {
@@ -363,20 +355,18 @@ function generateBritainProps(_mapWidth: number, _mapDepth: number): PropData[] 
         rotation: [0, w.rotY, 0],
         scale: [1.0, 1.0, 1.0],
       },
-      12.0,
+      25.0,
     );
   }
 
-  // Village Rustic Wooden Fences
+  // Village Rustic Wooden Fences (around far croft paddocks)
   const villageFences = [
-    { x: -55, z: 62, rotY: 0.5 },
-    { x: -90, z: 98, rotY: -0.3 },
-    { x: -120, z: 52, rotY: 1.2 },
-    { x: 135, z: 518, rotY: 0.4 },
-    { x: 168, z: 545, rotY: -0.8 },
-    { x: 220, z: 208, rotY: 0.3 },
-    { x: 295, z: 548, rotY: 0.6 },
-    { x: -230, z: 422, rotY: 0.4 },
+    { x: -140, z: 80, rotY: 0.5 },
+    { x: -180, z: -30, rotY: -0.3 },
+    { x: 190, z: 535, rotY: 0.4 },
+    { x: 260, z: 195, rotY: 0.3 },
+    { x: 395, z: 735, rotY: 0.6 },
+    { x: -280, z: 360, rotY: 0.4 },
   ];
 
   for (const f of villageFences) {
@@ -387,7 +377,7 @@ function generateBritainProps(_mapWidth: number, _mapDepth: number): PropData[] 
         rotation: [0, f.rotY, 0],
         scale: [1.0, 1.0, 1.0],
       },
-      12.0,
+      25.0,
     );
   }
 
@@ -487,28 +477,7 @@ function generateBritainProps(_mapWidth: number, _mapDepth: number): PropData[] 
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // 8. ANCIENT STONE PACKHORSE BRIDGES
-  // ─────────────────────────────────────────────────────────────────────────────
-
-  const stoneBridges = [
-    { x: 130, z: 220, rotY: 0.65 },  // CP 6 Stream Crossing
-    { x: 170, z: 660, rotY: 2.15 },  // CP 24 Lakeside Glen Crossing
-  ];
-
-  for (const b of stoneBridges) {
-    addPropIfClear(
-      {
-        type: 'stone_bridge',
-        position: [b.x, 0, b.z],
-        rotation: [0, b.rotY, 0],
-        scale: [1.0, 1.0, 1.0],
-      },
-      0,
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // 9. DENSE SCOTTISH HIGHLAND WOODLANDS & FOREST CLUSTERS (2,400+ Props)
+  // 8. DENSE SCOTTISH HIGHLAND WOODLANDS & FOREST CLUSTERS (2,400+ Props)
   // ─────────────────────────────────────────────────────────────────────────────
 
   // Highland Lochs (Water basins far from track)
@@ -547,7 +516,7 @@ function generateBritainProps(_mapWidth: number, _mapDepth: number): PropData[] 
       const px = stand.cx + Math.cos(angle) * dist;
       const pz = stand.cz + Math.sin(angle) * dist;
 
-      if (getMinDistToTrack(px, pz) < 9.5) continue;
+      if (getMinDistToTrack(px, pz) < 11.5) continue;
 
       const distToCastle = Math.sqrt((px - 480) ** 2 + (pz - 670) ** 2);
       if (distToCastle < 52) continue;
@@ -603,7 +572,7 @@ function generateBritainProps(_mapWidth: number, _mapDepth: number): PropData[] 
       const px = lake.x + Math.cos(angle) * r;
       const pz = lake.z + Math.sin(angle) * r;
 
-      if (getMinDistToTrack(px, pz) < 9.5) continue;
+      if (getMinDistToTrack(px, pz) < 11.5) continue;
 
       const isBirch = random(s + 2) > 0.4;
       const isRock = random(s + 3) > 0.65;
@@ -629,11 +598,11 @@ function generateBritainProps(_mapWidth: number, _mapDepth: number): PropData[] 
     const normal = new Vector3(-tangent.z, 0, tangent.x).normalize();
 
     const side = i % 2 === 0 ? 1 : -1;
-    const offset = 8.8 + random(i * 19.3) * 3.5;
+    const offset = 12.0 + random(i * 19.3) * 4.5;
     const px = pt.x + normal.x * side * offset;
     const pz = pt.z + normal.z * side * offset;
 
-    if (getMinDistToTrack(px, pz) < 8.5) continue;
+    if (getMinDistToTrack(px, pz) < 11.5) continue;
 
     const distToCastle = Math.sqrt((px - 480) ** 2 + (pz - 670) ** 2);
     if (distToCastle < 45) continue;
@@ -664,7 +633,7 @@ function generateBritainProps(_mapWidth: number, _mapDepth: number): PropData[] 
     const px = Math.cos(rAngle) * rDist;
     const pz = Math.sin(rAngle) * rDist;
 
-    if (getMinDistToTrack(px, pz) < 9.5) continue;
+    if (getMinDistToTrack(px, pz) < 11.5) continue;
 
     const distToCastle = Math.sqrt((px - 480) ** 2 + (pz - 670) ** 2);
     if (distToCastle < 50) continue;

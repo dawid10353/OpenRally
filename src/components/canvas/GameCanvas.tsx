@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
-import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
+import { EffectComposer, Bloom, Vignette, SMAA } from '@react-three/postprocessing';
 import { ACESFilmicToneMapping } from 'three';
 import { Terrain } from '@/components/terrain/Terrain';
 import { GrassField } from '@/components/terrain/GrassField';
@@ -29,6 +29,8 @@ export function GameCanvas() {
   const shadowsEnabled = useSettingsStore((s) => s.shadowsEnabled);
   const debugPhysics = useSettingsStore((s) => s.debugPhysics);
   const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
+  const antiAliasing = useSettingsStore((s) => s.antiAliasing);
+  const resolutionScale = useSettingsStore((s) => s.resolutionScale);
   const gameState = useGameStore((s) => s.gameState);
   const selectedLevelId = useGameStore((s) => s.selectedLevelId);
 
@@ -58,14 +60,17 @@ export function GameCanvas() {
   const mieCoefficient = levelPreset.environment?.sky?.mieCoefficient ?? SKY_CONFIG.mieCoefficient;
   const mieDirectionalG = levelPreset.environment?.sky?.mieDirectionalG ?? SKY_CONFIG.mieDirectionalG;
 
-  const dpr: [number, number] =
-    graphicsQuality === 'low'
-      ? [0.5, 0.75]
-      : graphicsQuality === 'medium'
-      ? [0.75, 1.0]
+  const baseDpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+  const qualityMaxDpr =
+    graphicsQuality === 'very_high'
+      ? 2.0
       : graphicsQuality === 'high'
-      ? [1.0, 1.5]
-      : [1.0, 2.0];
+      ? 1.5
+      : graphicsQuality === 'medium'
+      ? 1.0
+      : 0.75;
+  const targetDpr = Math.min(baseDpr, qualityMaxDpr) * resolutionScale;
+  const dpr: [number, number] = [0.5 * resolutionScale, Math.max(0.5, targetDpr)];
 
   return (
     <Canvas
@@ -73,18 +78,18 @@ export function GameCanvas() {
       shadows={shadowsEnabled}
       camera={{ fov: 60, near: 0.1, far: cameraFar, position: [0, 10, -15] }}
       gl={{
-        antialias: false,
+        antialias: antiAliasing !== 'off',
         powerPreference: 'high-performance',
         stencil: false,
         depth: true,
         toneMapping: ACESFilmicToneMapping,
-        toneMappingExposure: 1.02,
+        toneMappingExposure: 0.98,
       }}
-      performance={{ min: 0.5 }}
+      performance={{ min: 0.6 }}
       style={{ width: '100%', height: '100%' }}
     >
       <Suspense fallback={null}>
-        <AdaptiveDpr pixelated />
+        <AdaptiveDpr />
         <AdaptiveEvents />
         {/* Fog for atmosphere and distance culling */}
         <fog attach="fog" args={[fogColor, fogNear, fogFar]} />
@@ -145,7 +150,8 @@ export function GameCanvas() {
 
         {/* Post-processing effects */}
         {postProcessingEnabled && (
-          <EffectComposer multisampling={0}>
+          <EffectComposer multisampling={antiAliasing === 'msaa' ? 4 : 0}>
+            {antiAliasing === 'smaa' && <SMAA />}
             <Bloom
               luminanceThreshold={POSTPROCESSING_CONFIG.bloom.luminanceThreshold}
               luminanceSmoothing={POSTPROCESSING_CONFIG.bloom.luminanceSmoothing}

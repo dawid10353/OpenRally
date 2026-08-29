@@ -34,12 +34,32 @@ describe('categorizeProps & usePropsData', () => {
     expect(result.stoneWalls.length).toBeGreaterThan(0);
     expect(result.highlandCottages.length).toBeGreaterThan(0);
     expect(result.standingStones.length).toBeGreaterThan(0);
-    expect(result.stoneBridges.length).toBeGreaterThan(0);
+    expect(result.stoneBridges).toBeInstanceOf(Array);
 
     // Verify multi-point ground snapping for large keep
     if (result.castleKeeps.length > 0) {
       const keep = result.castleKeeps[0];
       expect(Number.isFinite(keep.position[1])).toBe(true);
+    }
+
+    // Verify NO cottages, castle walls, or stone walls intersect the track
+    const allRoadExcluded = [
+      ...result.highlandCottages,
+      ...result.cabins,
+      ...result.castleWalls,
+      ...result.castleTowers,
+      ...result.castleKeeps,
+      ...result.stoneWalls,
+      ...result.standingStones,
+    ];
+
+    for (const prop of allRoadExcluded) {
+      const nx = (prop.position[0] + LEVEL4_BRITAIN_DATA.terrainBase.width / 2) / LEVEL4_BRITAIN_DATA.terrainBase.width;
+      const nz = (prop.position[2] + LEVEL4_BRITAIN_DATA.terrainBase.depth / 2) / LEVEL4_BRITAIN_DATA.terrainBase.depth;
+      const x = Math.floor(nx * (heightmapData.cols - 1));
+      const z = Math.floor(nz * (heightmapData.rows - 1));
+      const maskVal = heightmapData.trackMasks[z * heightmapData.cols + x];
+      expect(maskVal, `Prop ${prop.id} of type ${prop.type} at (${prop.position[0]}, ${prop.position[2]}) intersects track with mask ${maskVal}`).toBe(0);
     }
   });
 

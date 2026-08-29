@@ -92,6 +92,8 @@ export function MenuOverlay() {
 
   const { 
     graphicsQuality, setGraphicsQuality, 
+    antiAliasing, setAntiAliasing,
+    resolutionScale, setResolutionScale,
     shadowsEnabled, toggleShadows, 
     postProcessingEnabled, togglePostProcessing,
     sfxVolume, setSfxVolume,
@@ -347,6 +349,8 @@ export function MenuOverlay() {
         {view === 'options' && (
           <SettingsView
             graphicsQuality={graphicsQuality}
+            antiAliasing={antiAliasing}
+            resolutionScale={resolutionScale}
             shadowsEnabled={shadowsEnabled}
             postProcessingEnabled={postProcessingEnabled}
             sensitivity={sensitivity}
@@ -360,6 +364,8 @@ export function MenuOverlay() {
             textColor={textColor}
             onPointerMoveItem={handlePointerMoveItem}
             onSetGraphicsQuality={setGraphicsQuality}
+            onSetAntiAliasing={setAntiAliasing}
+            onSetResolutionScale={setResolutionScale}
             onToggleShadows={toggleShadows}
             onTogglePostProcessing={togglePostProcessing}
             onSetSensitivity={setSensitivity}

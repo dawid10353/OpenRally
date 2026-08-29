@@ -38,8 +38,35 @@ function generateDesertProps(mapWidth: number, mapDepth: number): PropData[] {
     LEVEL2_TRACK_POINTS.map((p) => new Vector3(p.x, 0, p.z)),
     true,
     'catmullrom',
-    0.5
+    0.5,
   );
+
+  const numSamples = 600;
+  const samplePoints: Vector3[] = [];
+  for (let i = 0; i <= numSamples; i++) {
+    samplePoints.push(trackCurve.getPointAt(i / numSamples));
+  }
+
+  const getMinDistToTrack = (px: number, pz: number): number => {
+    let minDistSq = Infinity;
+    for (let i = 0; i < samplePoints.length - 1; i++) {
+      const v = samplePoints[i];
+      const w = samplePoints[i + 1];
+      const l2 = (w.x - v.x) ** 2 + (w.z - v.z) ** 2;
+      let distSq: number;
+      if (l2 === 0) {
+        distSq = (px - v.x) ** 2 + (pz - v.z) ** 2;
+      } else {
+        let t = ((px - v.x) * (w.x - v.x) + (pz - v.z) * (w.z - v.z)) / l2;
+        t = Math.max(0, Math.min(1, t));
+        const projX = v.x + t * (w.x - v.x);
+        const projZ = v.z + t * (w.z - v.z);
+        distSq = (px - projX) ** 2 + (pz - projZ) ** 2;
+      }
+      if (distSq < minDistSq) minDistSq = distSq;
+    }
+    return Math.sqrt(minDistSq);
+  };
 
   const numTrackSamples = 120;
   for (let i = 0; i < numTrackSamples; i++) {
@@ -52,7 +79,7 @@ function generateDesertProps(mapWidth: number, mapDepth: number): PropData[] {
 
     if (Math.hypot(pt.x, pt.z) < 45) continue;
 
-    const sideOffsets = [10.0, 20.0];
+    const sideOffsets = [26.0, 40.0];
     for (const offset of sideOffsets) {
       // Left side canyon feature
       const leftRoll = random(propId * 5);
@@ -60,17 +87,18 @@ function generateDesertProps(mapWidth: number, mapDepth: number): PropData[] {
       const leftDist = offset + (random(propId * 5 + 1) - 0.5) * 4.0;
       const leftScale = isLeftTree ? 1.4 + random(propId * 5 + 2) * 2.0 : 1.2 + random(propId * 5 + 2) * 2.8;
       
-      props.push({
-        id: `desert_corridor_L_${propId++}`,
-        type: isLeftTree ? 'tree_desert' : (leftRoll < 0.85 ? 'rock_sandstone' : 'rock'),
-        position: [
-          pt.x + normalX * leftDist + tangent.x * (random(propId * 5 + 3) - 0.5) * 4.0,
-          0,
-          pt.z + normalZ * leftDist + tangent.z * (random(propId * 5 + 3) - 0.5) * 4.0,
-        ],
-        rotation: [0, random(propId * 5 + 4) * Math.PI * 2, 0],
-        scale: [leftScale, isLeftTree ? leftScale * 1.1 : leftScale * 0.9, leftScale],
-      });
+      const pxL = pt.x + normalX * leftDist + tangent.x * (random(propId * 5 + 3) - 0.5) * 4.0;
+      const pzL = pt.z + normalZ * leftDist + tangent.z * (random(propId * 5 + 3) - 0.5) * 4.0;
+
+      if (getMinDistToTrack(pxL, pzL) >= 25.5) {
+        props.push({
+          id: `desert_corridor_L_${propId++}`,
+          type: isLeftTree ? 'tree_desert' : (leftRoll < 0.85 ? 'rock_sandstone' : 'rock'),
+          position: [pxL, 0, pzL],
+          rotation: [0, random(propId * 5 + 4) * Math.PI * 2, 0],
+          scale: [leftScale, isLeftTree ? leftScale * 1.1 : leftScale * 0.9, leftScale],
+        });
+      }
 
       // Right side canyon feature
       const rightRoll = random(propId * 5);
@@ -78,17 +106,18 @@ function generateDesertProps(mapWidth: number, mapDepth: number): PropData[] {
       const rightDist = offset + (random(propId * 5 + 1) - 0.5) * 4.0;
       const rightScale = isRightTree ? 1.4 + random(propId * 5 + 2) * 2.0 : 1.2 + random(propId * 5 + 2) * 2.8;
 
-      props.push({
-        id: `desert_corridor_R_${propId++}`,
-        type: isRightTree ? 'tree_desert' : (rightRoll < 0.85 ? 'rock_sandstone' : 'rock'),
-        position: [
-          pt.x - normalX * rightDist + tangent.x * (random(propId * 5 + 3) - 0.5) * 4.0,
-          0,
-          pt.z - normalZ * rightDist + tangent.z * (random(propId * 5 + 3) - 0.5) * 4.0,
-        ],
-        rotation: [0, random(propId * 5 + 4) * Math.PI * 2, 0],
-        scale: [rightScale, isRightTree ? rightScale * 1.1 : rightScale * 0.9, rightScale],
-      });
+      const pxR = pt.x - normalX * rightDist + tangent.x * (random(propId * 5 + 3) - 0.5) * 4.0;
+      const pzR = pt.z - normalZ * rightDist + tangent.z * (random(propId * 5 + 3) - 0.5) * 4.0;
+
+      if (getMinDistToTrack(pxR, pzR) >= 25.5) {
+        props.push({
+          id: `desert_corridor_R_${propId++}`,
+          type: isRightTree ? 'tree_desert' : (rightRoll < 0.85 ? 'rock_sandstone' : 'rock'),
+          position: [pxR, 0, pzR],
+          rotation: [0, random(propId * 5 + 4) * Math.PI * 2, 0],
+          scale: [rightScale, isRightTree ? rightScale * 1.1 : rightScale * 0.9, rightScale],
+        });
+      }
     }
   }
 
@@ -101,6 +130,7 @@ function generateDesertProps(mapWidth: number, mapDepth: number): PropData[] {
     const z = (random(propId * 5 + 2) - 0.5) * mapDepth * 0.75;
 
     if (Math.hypot(x, z) < 45) continue;
+    if (getMinDistToTrack(x, z) < 25.5) continue;
 
     const yRot = random(propId * 5 + 3) * Math.PI * 2;
     const scaleBase = isTree ? 1.4 + random(propId * 5 + 4) * 2.0 : 1.0 + random(propId * 5 + 4) * 3.2;

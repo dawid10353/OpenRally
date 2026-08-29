@@ -1,3 +1,4 @@
+import { Vector3, CatmullRomCurve3 } from 'three';
 import type { LevelData, LevelPreset } from '@/types/level';
 import type { ValidationResult } from './vehicleValidator';
 
@@ -60,6 +61,84 @@ export function validateLevelData(data: LevelData): ValidationResult {
 }
 
 /**
+ * Mathematically validates that all environmental props in a level respect
+ * physical minimum clearance from the track spline so no object blocks the road.
+ */
+export function validateLevelTrackClearance(data: LevelData): ValidationResult {
+  const errors: string[] = [];
+  if (!data || !data.track || !data.track.points || data.track.points.length < 3 || !data.props) {
+    return { valid: true, errors: [] };
+  }
+
+  const trackCurve = new CatmullRomCurve3(
+    data.track.points.map((p) => new Vector3(p.x, 0, p.z)),
+    true,
+    'catmullrom',
+    0.5,
+  );
+  const samplePoints: Vector3[] = [];
+  const numSamples = 1200;
+  for (let i = 0; i <= numSamples; i++) {
+    samplePoints.push(trackCurve.getPointAt(i / numSamples));
+  }
+
+  const getMinDist = (px: number, pz: number): number => {
+    let minDistSq = Infinity;
+    for (let i = 0; i < samplePoints.length - 1; i++) {
+      const v = samplePoints[i];
+      const w = samplePoints[i + 1];
+      const l2 = (w.x - v.x) ** 2 + (w.z - v.z) ** 2;
+      let distSq: number;
+      if (l2 === 0) {
+        distSq = (px - v.x) ** 2 + (pz - v.z) ** 2;
+      } else {
+        let t = ((px - v.x) * (w.x - v.x) + (pz - v.z) * (w.z - v.z)) / l2;
+        t = Math.max(0, Math.min(1, t));
+        const projX = v.x + t * (w.x - v.x);
+        const projZ = v.z + t * (w.z - v.z);
+        distSq = (px - projX) ** 2 + (pz - projZ) ** 2;
+      }
+      if (distSq < minDistSq) minDistSq = distSq;
+    }
+    return Math.sqrt(minDistSq);
+  };
+
+  for (const prop of data.props) {
+    // Exempt road spanning features, roadside signs, and apex hay bales
+    if (prop.type === 'castle_gate' || prop.type === 'rally_sign' || prop.type === 'hay_bale') continue;
+
+    const dist = getMinDist(prop.position[0], prop.position[2]);
+    const roadDrivableRadius = data.track.width;
+    const roadTotalRadius = data.track.width + data.track.falloff;
+
+    let requiredMinDist = roadDrivableRadius + 1.5;
+
+    if (prop.type === 'cabin' || prop.type === 'highland_cottage' || prop.type === 'castle_keep') {
+      requiredMinDist = Math.max(requiredMinDist, roadTotalRadius + 8.0);
+    } else if (
+      prop.type === 'castle_wall' ||
+      prop.type === 'castle_tower' ||
+      prop.type === 'castle_arch' ||
+      prop.type === 'stone_wall' ||
+      prop.type === 'fence'
+    ) {
+      requiredMinDist = Math.max(requiredMinDist, roadTotalRadius + 3.0);
+    }
+
+    if (dist < requiredMinDist) {
+      errors.push(
+        `[TrackClearance] Level '${data.id}': Prop '${prop.id}' (type: '${prop.type}') at (${prop.position[0].toFixed(1)}, ${prop.position[2].toFixed(1)}) is ${dist.toFixed(1)}m from track spline (min required: ${requiredMinDist.toFixed(1)}m).`,
+      );
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}
+
+/**
  * Validates a level preset metadata and spawn properties.
  */
 export function validateLevelPreset(preset: LevelPreset): ValidationResult {
@@ -78,6 +157,11 @@ export function validateLevelPreset(preset: LevelPreset): ValidationResult {
   const dataValidation = validateLevelData(preset.data);
   if (!dataValidation.valid) {
     errors.push(...dataValidation.errors);
+  }
+
+  const clearanceValidation = validateLevelTrackClearance(preset.data);
+  if (!clearanceValidation.valid) {
+    errors.push(...clearanceValidation.errors);
   }
 
   return {

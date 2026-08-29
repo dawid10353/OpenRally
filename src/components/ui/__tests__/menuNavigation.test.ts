@@ -7,7 +7,7 @@ describe('Menu Navigation & Key Indices', () => {
       if (view === 'start_mode') return 3;
       if (view === 'garage') return 2;
       if (view === 'tracks') return levelsCount + 1;
-      if (view === 'options') return vibrationEnabled ? 11 : 10;
+      if (view === 'options') return vibrationEnabled ? 13 : 12;
       if (view === 'controls') return 1;
       return 1;
     };

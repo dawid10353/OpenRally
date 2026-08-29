@@ -174,6 +174,38 @@ export function createDetailedTerrainMaterial(options: TerrainMaterialOptions): 
         diffuseColor.rgb *= slopeFactor;
       `,
     );
+
+    // Modulate roughness: damp mud/packed snow on tracks have glossy specular sheen
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <roughnessmap_fragment>',
+      /* glsl */ `
+        #include <roughnessmap_fragment>
+        float trackGloss = clamp(vTrackMask * 1.25, 0.0, 1.0);
+        roughnessFactor = mix(roughnessFactor, 0.52, trackGloss);
+      `,
+    );
+
+    // Procedural micro-relief normal perturbation from texture luminance gradients
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <normal_fragment_maps>',
+      /* glsl */ `
+        #include <normal_fragment_maps>
+        float microLum = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
+        vec3 dPdx = dFdx(vWorldPosition);
+        vec3 dPdy = dFdy(vWorldPosition);
+        vec3 normCross = cross(dPdx, dPdy);
+        float lenCross = length(normCross);
+        if (lenCross > 0.0001) {
+          vec3 surfNorm = normCross / lenCross;
+          float dhx = dFdx(microLum) * 0.35;
+          float dhy = dFdy(microLum) * 0.35;
+          vec3 grad = dPdx * dhx + dPdy * dhy;
+          vec3 bumpWorld = normalize(surfNorm - grad);
+          vec3 bumpView = normalize((viewMatrix * vec4(bumpWorld, 0.0)).xyz);
+          normal = normalize(mix(normal, bumpView, 0.32));
+        }
+      `,
+    );
   };
 
   return mat;

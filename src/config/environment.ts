@@ -47,12 +47,12 @@ export const LIGHTING_CONFIG = {
 // ─── Post-Processing ────────────────────────────────────────────────
 export const POSTPROCESSING_CONFIG = {
   bloom: {
-    luminanceThreshold: 0.88,
-    luminanceSmoothing: 0.35,
-    intensity: 0.42,
+    luminanceThreshold: 1.15,
+    luminanceSmoothing: 0.25,
+    intensity: 0.55,
   },
   vignette: {
-    offset: 0.32,
-    darkness: 0.52,
+    offset: 0.35,
+    darkness: 0.45,
   },
 };

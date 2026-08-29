@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { GraphicsQuality } from '@/types';
+import type { GraphicsQuality, AntiAliasingMode } from '@/types';
 
 /**
  * Settings store — graphics quality, controls sensitivity, toggles.
@@ -7,6 +7,10 @@ import type { GraphicsQuality } from '@/types';
 interface SettingsStore {
   /** Graphics quality preset */
   graphicsQuality: GraphicsQuality;
+  /** Anti-Aliasing technique */
+  antiAliasing: AntiAliasingMode;
+  /** Internal render resolution scale multiplier (0.5 to 1.5) */
+  resolutionScale: number;
   /** Whether real-time shadows are enabled */
   shadowsEnabled: boolean;
   /** Whether post-processing effects are enabled */
@@ -28,6 +32,8 @@ interface SettingsStore {
 
   // Actions
   setGraphicsQuality: (quality: GraphicsQuality) => void;
+  setAntiAliasing: (antiAliasing: AntiAliasingMode) => void;
+  setResolutionScale: (scale: number) => void;
   toggleShadows: () => void;
   togglePostProcessing: () => void;
   setSensitivity: (sensitivity: number) => void;
@@ -41,6 +47,8 @@ interface SettingsStore {
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
   graphicsQuality: 'very_high',
+  antiAliasing: 'smaa',
+  resolutionScale: 1.0,
   shadowsEnabled: true,
   postProcessingEnabled: true,
   sensitivity: 1.0,
@@ -52,6 +60,8 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   vibrationIntensity: 1.0,
 
   setGraphicsQuality: (graphicsQuality) => set({ graphicsQuality }),
+  setAntiAliasing: (antiAliasing) => set({ antiAliasing }),
+  setResolutionScale: (resolutionScale) => set({ resolutionScale }),
   toggleShadows: () => set((s) => ({ shadowsEnabled: !s.shadowsEnabled })),
   togglePostProcessing: () =>
     set((s) => ({ postProcessingEnabled: !s.postProcessingEnabled })),

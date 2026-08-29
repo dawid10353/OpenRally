@@ -48,7 +48,7 @@ export function generateLevel1Props(_mapWidth: number, _mapDepth: number): PropD
     0.5,
   );
 
-  const numSamples = 160;
+  const numSamples = 600;
   const samplePoints: Vector3[] = [];
   for (let i = 0; i <= numSamples; i++) {
     samplePoints.push(trackCurve.getPointAt(i / numSamples));
@@ -102,11 +102,11 @@ export function generateLevel1Props(_mapWidth: number, _mapDepth: number): PropD
 
       // Check distance to road
       const distToTrack = getMinDistToTrack(x, z);
-      if (distToTrack < 6.8) continue; // Keep driving lane clear
+      if (distToTrack < 19.0) continue; // Keep driving lane & shoulders 100% clear
 
       // Natural forest density modulation (organic groves and clearings)
       const groveNoise = Math.sin(x * 0.015) * Math.cos(z * 0.015);
-      const treeProb = distToTrack < 25 ? 0.96 : (groveNoise > -0.6 ? 0.88 : 0.40);
+      const treeProb = distToTrack < 35 ? 0.96 : (groveNoise > -0.6 ? 0.88 : 0.40);
       if (random(seed + 2) > treeProb) continue;
 
       const propRoll = random(seed + 3);

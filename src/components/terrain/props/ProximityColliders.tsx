@@ -67,6 +67,42 @@ export function ProximityColliders({
   const [activeColliders, setActiveColliders] = useState(activeCollidersRef.current);
   const lastCellKeyRef = useRef('');
 
+  const scratchRef = useRef<{
+    trees: PropItem[];
+    rocks: PropItem[];
+    cabins: PropItem[];
+    fences: PropItem[];
+    castleTowers: PropItem[];
+    castleWalls: PropItem[];
+    castleGates: PropItem[];
+    castleKeeps: PropItem[];
+    castleArches: PropItem[];
+    stoneWalls: PropItem[];
+    standingStones: PropItem[];
+    highlandCottages: PropItem[];
+    stoneCairns: PropItem[];
+    hayBales: PropItem[];
+    rallySigns: PropItem[];
+    stoneBridges: PropItem[];
+  }>({
+    trees: [],
+    rocks: [],
+    cabins: [],
+    fences: [],
+    castleTowers: [],
+    castleWalls: [],
+    castleGates: [],
+    castleKeeps: [],
+    castleArches: [],
+    stoneWalls: [],
+    standingStones: [],
+    highlandCottages: [],
+    stoneCairns: [],
+    hayBales: [],
+    rallySigns: [],
+    stoneBridges: [],
+  });
+
   useFrame(() => {
     const carPos = useGameStore.getState().position;
     const CELL_SIZE = 50;
@@ -82,22 +118,23 @@ export function ProximityColliders({
       lastCarPosRef.current[1] = carPos[2];
       lastCellKeyRef.current = cellKey;
 
-      const nearbyTrees: PropItem[] = [];
-      const nearbyRocks: PropItem[] = [];
-      const nearbyCabins: PropItem[] = [];
-      const nearbyFences: PropItem[] = [];
-      const nearbyCastleTowers: PropItem[] = [];
-      const nearbyCastleWalls: PropItem[] = [];
-      const nearbyCastleGates: PropItem[] = [];
-      const nearbyCastleKeeps: PropItem[] = [];
-      const nearbyCastleArches: PropItem[] = [];
-      const nearbyStoneWalls: PropItem[] = [];
-      const nearbyStandingStones: PropItem[] = [];
-      const nearbyHighlandCottages: PropItem[] = [];
-      const nearbyStoneCairns: PropItem[] = [];
-      const nearbyHayBales: PropItem[] = [];
-      const nearbyRallySigns: PropItem[] = [];
-      const nearbyStoneBridges: PropItem[] = [];
+      const sc = scratchRef.current;
+      sc.trees.length = 0;
+      sc.rocks.length = 0;
+      sc.cabins.length = 0;
+      sc.fences.length = 0;
+      sc.castleTowers.length = 0;
+      sc.castleWalls.length = 0;
+      sc.castleGates.length = 0;
+      sc.castleKeeps.length = 0;
+      sc.castleArches.length = 0;
+      sc.stoneWalls.length = 0;
+      sc.standingStones.length = 0;
+      sc.highlandCottages.length = 0;
+      sc.stoneCairns.length = 0;
+      sc.hayBales.length = 0;
+      sc.rallySigns.length = 0;
+      sc.stoneBridges.length = 0;
 
       for (let ox = -1; ox <= 1; ox++) {
         for (let oz = -1; oz <= 1; oz++) {
@@ -109,43 +146,60 @@ export function ProximityColliders({
               const distSq = (item.position[0] - carPos[0]) ** 2 + (item.position[2] - carPos[2]) ** 2;
               if (distSq < 95 * 95) {
                 if (item.type === 'cabin') {
-                  nearbyCabins.push(item);
+                  sc.cabins.push(item);
                 } else if (item.type === 'fence') {
-                  nearbyFences.push(item);
+                  sc.fences.push(item);
                 } else if (item.type === 'castle_tower') {
-                  nearbyCastleTowers.push(item);
+                  sc.castleTowers.push(item);
                 } else if (item.type === 'castle_wall') {
-                  nearbyCastleWalls.push(item);
+                  sc.castleWalls.push(item);
                 } else if (item.type === 'castle_gate') {
-                  nearbyCastleGates.push(item);
+                  sc.castleGates.push(item);
                 } else if (item.type === 'castle_keep') {
-                  nearbyCastleKeeps.push(item);
+                  sc.castleKeeps.push(item);
                 } else if (item.type === 'castle_arch') {
-                  nearbyCastleArches.push(item);
+                  sc.castleArches.push(item);
                 } else if (item.type === 'stone_wall') {
-                  nearbyStoneWalls.push(item);
+                  sc.stoneWalls.push(item);
                 } else if (item.type === 'standing_stone') {
-                  nearbyStandingStones.push(item);
+                  sc.standingStones.push(item);
                 } else if (item.type === 'highland_cottage') {
-                  nearbyHighlandCottages.push(item);
+                  sc.highlandCottages.push(item);
                 } else if (item.type === 'stone_cairn') {
-                  nearbyStoneCairns.push(item);
+                  sc.stoneCairns.push(item);
                 } else if (item.type === 'hay_bale') {
-                  nearbyHayBales.push(item);
+                  sc.hayBales.push(item);
                 } else if (item.type === 'rally_sign') {
-                  nearbyRallySigns.push(item);
+                  sc.rallySigns.push(item);
                 } else if (item.type === 'stone_bridge') {
-                  nearbyStoneBridges.push(item);
+                  sc.stoneBridges.push(item);
                 } else if (item.type.startsWith('tree')) {
-                  nearbyTrees.push(item);
+                  sc.trees.push(item);
                 } else {
-                  nearbyRocks.push(item);
+                  sc.rocks.push(item);
                 }
               }
             }
           }
         }
       }
+
+      const nearbyTrees = sc.trees;
+      const nearbyRocks = sc.rocks;
+      const nearbyCabins = sc.cabins;
+      const nearbyFences = sc.fences;
+      const nearbyCastleTowers = sc.castleTowers;
+      const nearbyCastleWalls = sc.castleWalls;
+      const nearbyCastleGates = sc.castleGates;
+      const nearbyCastleKeeps = sc.castleKeeps;
+      const nearbyCastleArches = sc.castleArches;
+      const nearbyStoneWalls = sc.stoneWalls;
+      const nearbyStandingStones = sc.standingStones;
+      const nearbyHighlandCottages = sc.highlandCottages;
+      const nearbyStoneCairns = sc.stoneCairns;
+      const nearbyHayBales = sc.hayBales;
+      const nearbyRallySigns = sc.rallySigns;
+      const nearbyStoneBridges = sc.stoneBridges;
 
       const prev = activeCollidersRef.current;
       const countChanged =
@@ -173,22 +227,22 @@ export function ProximityColliders({
 
       if (changed) {
         const nextColliders = {
-          trees: nearbyTrees,
-          rocks: nearbyRocks,
-          cabins: nearbyCabins,
-          fences: nearbyFences,
-          castleTowers: nearbyCastleTowers,
-          castleWalls: nearbyCastleWalls,
-          castleGates: nearbyCastleGates,
-          castleKeeps: nearbyCastleKeeps,
-          castleArches: nearbyCastleArches,
-          stoneWalls: nearbyStoneWalls,
-          standingStones: nearbyStandingStones,
-          highlandCottages: nearbyHighlandCottages,
-          stoneCairns: nearbyStoneCairns,
-          hayBales: nearbyHayBales,
-          rallySigns: nearbyRallySigns,
-          stoneBridges: nearbyStoneBridges,
+          trees: nearbyTrees.slice(),
+          rocks: nearbyRocks.slice(),
+          cabins: nearbyCabins.slice(),
+          fences: nearbyFences.slice(),
+          castleTowers: nearbyCastleTowers.slice(),
+          castleWalls: nearbyCastleWalls.slice(),
+          castleGates: nearbyCastleGates.slice(),
+          castleKeeps: nearbyCastleKeeps.slice(),
+          castleArches: nearbyCastleArches.slice(),
+          stoneWalls: nearbyStoneWalls.slice(),
+          standingStones: nearbyStandingStones.slice(),
+          highlandCottages: nearbyHighlandCottages.slice(),
+          stoneCairns: nearbyStoneCairns.slice(),
+          hayBales: nearbyHayBales.slice(),
+          rallySigns: nearbyRallySigns.slice(),
+          stoneBridges: nearbyStoneBridges.slice(),
         };
         activeCollidersRef.current = nextColliders;
         setActiveColliders(nextColliders);

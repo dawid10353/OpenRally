@@ -19,6 +19,11 @@ export type CameraMode = 'chase_close' | 'chase' | 'bumper' | 'free';
 export type GraphicsQuality = 'low' | 'medium' | 'high' | 'very_high';
 
 /**
+ * Anti-Aliasing techniques for 3D rendering.
+ */
+export type AntiAliasingMode = 'off' | 'smaa' | 'msaa';
+
+/**
  * Supported Gamepad hardware families.
  */
 export type GamepadType = 'xbox' | 'dualsense' | 'generic' | null;

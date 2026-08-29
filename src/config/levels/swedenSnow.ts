@@ -53,7 +53,7 @@ function generateSwedenProps(_mapWidth: number, _mapDepth: number): PropData[] {
     0.5,
   );
 
-  const numSamples = 160;
+  const numSamples = 600;
   const samplePoints: Vector3[] = [];
   for (let i = 0; i <= numSamples; i++) {
     samplePoints.push(trackCurve.getPointAt(i / numSamples));
@@ -83,16 +83,18 @@ function generateSwedenProps(_mapWidth: number, _mapDepth: number): PropData[] {
 
   // 1. Traditional Swedish Village Hamlets (Falu red cottages, rustic split fences, surrounding pine trees)
   const villageHamlets = [
-    { x: 230, z: 320, rotY: 0.35, scale: 1.05 },
-    { x: 260, z: 360, rotY: -0.4, scale: 0.95 },
-    { x: 190, z: 375, rotY: 0.8, scale: 1.0 },
-    { x: -330, z: -240, rotY: -0.6, scale: 1.0 },
-    { x: -360, z: -270, rotY: 0.25, scale: 0.9 },
-    { x: 380, z: -30, rotY: -0.9, scale: 1.05 },
+    { x: 270, z: 310, rotY: 0.35, scale: 1.05 },
+    { x: 290, z: 380, rotY: -0.4, scale: 0.95 },
+    { x: 170, z: 430, rotY: 0.8, scale: 1.0 },
+    { x: -360, z: -210, rotY: -0.6, scale: 1.0 },
+    { x: -405, z: -285, rotY: 0.25, scale: 0.9 },
+    { x: 410, z: -20, rotY: -0.9, scale: 1.05 },
   ];
 
   for (let i = 0; i < villageHamlets.length; i++) {
     const v = villageHamlets[i];
+    if (getMinDistToTrack(v.x, v.z) < 32.5) continue;
+
     props.push({
       id: `sweden_cabin_${propId++}`,
       type: 'cabin',
@@ -108,26 +110,30 @@ function generateSwedenProps(_mapWidth: number, _mapDepth: number): PropData[] {
       { ox: 0, oz: 7.5, rot: v.rotY + Math.PI * 0.5 },
     ];
     for (const fo of fenceOffsets) {
-      props.push({
-        id: `sweden_fence_${propId++}`,
-        type: 'fence',
-        position: [v.x + fo.ox, 0, v.z + fo.oz],
-        rotation: [0, fo.rot, 0],
-        scale: [1.0, 1.0, 1.0],
-      });
+      const fx = v.x + fo.ox;
+      const fz = v.z + fo.oz;
+      if (getMinDistToTrack(fx, fz) >= 27.5) {
+        props.push({
+          id: `sweden_fence_${propId++}`,
+          type: 'fence',
+          position: [fx, 0, fz],
+          rotation: [0, fo.rot, 0],
+          scale: [1.0, 1.0, 1.0],
+        });
+      }
     }
   }
 
   // 2. Trackside Fences & Boulders along dangerous snowbank curves
   const fenceWaypoints = [
-    { u: 0.30, offset: 9.5, side: 1 },
-    { u: 0.32, offset: 9.5, side: 1 },
-    { u: 0.34, offset: 9.5, side: 1 },
-    { u: 0.65, offset: 10.0, side: -1 },
-    { u: 0.67, offset: 10.0, side: -1 },
-    { u: 0.69, offset: 10.0, side: -1 },
-    { u: 0.82, offset: 9.0, side: 1 },
-    { u: 0.84, offset: 9.0, side: 1 },
+    { u: 0.30, offset: 27.5, side: 1 },
+    { u: 0.32, offset: 27.5, side: 1 },
+    { u: 0.34, offset: 27.5, side: 1 },
+    { u: 0.65, offset: 27.5, side: -1 },
+    { u: 0.67, offset: 27.5, side: -1 },
+    { u: 0.69, offset: 27.5, side: -1 },
+    { u: 0.82, offset: 27.5, side: 1 },
+    { u: 0.84, offset: 27.5, side: 1 },
   ];
 
   for (const fw of fenceWaypoints) {
@@ -136,14 +142,18 @@ function generateSwedenProps(_mapWidth: number, _mapDepth: number): PropData[] {
     const normalX = -tangent.z * fw.side;
     const normalZ = tangent.x * fw.side;
     const angle = Math.atan2(tangent.x, tangent.z);
+    const fx = pt.x + normalX * fw.offset;
+    const fz = pt.z + normalZ * fw.offset;
 
-    props.push({
-      id: `sweden_trackside_fence_${propId++}`,
-      type: 'fence',
-      position: [pt.x + normalX * fw.offset, 0, pt.z + normalZ * fw.offset],
-      rotation: [0, angle, 0],
-      scale: [1.0, 1.0, 1.0],
-    });
+    if (getMinDistToTrack(fx, fz) >= 25.0) {
+      props.push({
+        id: `sweden_trackside_fence_${propId++}`,
+        type: 'fence',
+        position: [fx, 0, fz],
+        rotation: [0, angle, 0],
+        scale: [1.0, 1.0, 1.0],
+      });
+    }
   }
 
   // 3. Dense Scandinavian Boreal Pine Forest & Granite Boulders
@@ -167,7 +177,7 @@ function generateSwedenProps(_mapWidth: number, _mapDepth: number): PropData[] {
 
       // Keep track corridor clear
       const distToTrack = getMinDistToTrack(x, z);
-      if (distToTrack < 8.0) continue;
+      if (distToTrack < 25.5) continue;
 
       // Check distance to Swedish cabins
       let nearCabin = false;

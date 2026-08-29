@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Object3D } from 'three';
+import { Object3D, Vector3, CatmullRomCurve3 } from 'three';
 import { useTerrainData } from '@/components/terrain/TerrainContext';
 import { getInterpolatedHeight } from '@/utils/terrainCompiler';
 import type { HeightmapData } from '@/types/terrain';
@@ -18,19 +18,42 @@ export function categorizeProps(
   heightmapData: HeightmapData,
   levelData: LevelData,
 ): CategorizedProps {
-  const { heights, trackMasks, rows, cols } = heightmapData;
+  const { heights, rows, cols } = heightmapData;
   const mapWidth = levelData.terrainBase.width;
   const mapDepth = levelData.terrainBase.depth;
 
-  const getTrackMaskAt = (worldX: number, worldZ: number) => {
-    const nx = (worldX + mapWidth / 2) / mapWidth;
-    const nz = (worldZ + mapDepth / 2) / mapDepth;
-    const x = Math.floor(nx * (cols - 1));
-    const z = Math.floor(nz * (rows - 1));
-    if (x >= 0 && x < cols && z >= 0 && z < rows) {
-      return trackMasks[z * cols + x];
+  // Build exact track curve to calculate true Euclidean distances
+  const trackCurve = new CatmullRomCurve3(
+    levelData.track.points.map((p) => new Vector3(p.x, 0, p.z)),
+    true,
+    'catmullrom',
+    0.5,
+  );
+  const splineSamples: Vector3[] = [];
+  const numSplineSamples = 1500;
+  for (let i = 0; i <= numSplineSamples; i++) {
+    splineSamples.push(trackCurve.getPointAt(i / numSplineSamples));
+  }
+
+  const getMinDistToTrackSpline = (px: number, pz: number): number => {
+    let minDistSq = Infinity;
+    for (let i = 0; i < splineSamples.length - 1; i++) {
+      const v = splineSamples[i];
+      const w = splineSamples[i + 1];
+      const l2 = (w.x - v.x) ** 2 + (w.z - v.z) ** 2;
+      let distSq: number;
+      if (l2 === 0) {
+        distSq = (px - v.x) ** 2 + (pz - v.z) ** 2;
+      } else {
+        let t = ((px - v.x) * (w.x - v.x) + (pz - v.z) * (w.z - v.z)) / l2;
+        t = Math.max(0, Math.min(1, t));
+        const projX = v.x + t * (w.x - v.x);
+        const projZ = v.z + t * (w.z - v.z);
+        distSq = (px - projX) ** 2 + (pz - projZ) ** 2;
+      }
+      if (distSq < minDistSq) minDistSq = distSq;
     }
-    return 0;
+    return Math.sqrt(minDistSq);
   };
 
   const pines: PropItem[] = [];
@@ -57,23 +80,34 @@ export function categorizeProps(
 
   for (const prop of levelData.props) {
     const [x, originalY, z] = prop.position;
-    const isRoadExempt =
-      prop.type === 'fence' ||
+    const distToRoad = getMinDistToTrackSpline(x, z);
+
+    // 1. Large buildings (cottages, cabins, keeps) need absolute clearance
+    if (
       prop.type === 'cabin' ||
-      prop.type === 'castle_gate' ||
-      prop.type === 'castle_wall' ||
+      prop.type === 'highland_cottage' ||
+      prop.type === 'castle_keep'
+    ) {
+      if (distToRoad < 26.0) continue;
+    }
+    // 2. Structural walls, towers, arches, stone walls, fences, standing stones
+    else if (
       prop.type === 'castle_tower' ||
-      prop.type === 'castle_keep' ||
+      prop.type === 'castle_wall' ||
       prop.type === 'castle_arch' ||
       prop.type === 'stone_wall' ||
       prop.type === 'standing_stone' ||
-      prop.type === 'highland_cottage' ||
-      prop.type === 'stone_cairn' ||
-      prop.type === 'hay_bale' ||
-      prop.type === 'rally_sign' ||
-      prop.type === 'stone_bridge';
-
-    if (!isRoadExempt && getTrackMaskAt(x, z) > 0.1) continue;
+      prop.type === 'fence'
+    ) {
+      if (distToRoad < 18.0) continue;
+    }
+    // 3. Trees, boulders, cairns
+    else if (
+      prop.type !== 'castle_gate' &&
+      prop.type !== 'rally_sign'
+    ) {
+      if (distToRoad < 12.0) continue;
+    }
 
     const terrainY = getInterpolatedHeight(x, z, heights, rows, cols, mapWidth, mapDepth);
     if (terrainY < -6.0) continue;

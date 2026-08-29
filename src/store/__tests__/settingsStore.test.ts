@@ -5,6 +5,8 @@ describe('settingsStore', () => {
   beforeEach(() => {
     useSettingsStore.setState({
       graphicsQuality: 'very_high',
+      antiAliasing: 'smaa',
+      resolutionScale: 1.0,
       shadowsEnabled: true,
       postProcessingEnabled: true,
       sensitivity: 1.0,
@@ -15,9 +17,27 @@ describe('settingsStore', () => {
     });
   });
 
-  it('initializes with very_high graphics and post-processing enabled by default', () => {
+  it('initializes with very_high graphics, smaa anti-aliasing, and 1.0 resolution scale by default', () => {
     expect(useSettingsStore.getState().graphicsQuality).toBe('very_high');
+    expect(useSettingsStore.getState().antiAliasing).toBe('smaa');
+    expect(useSettingsStore.getState().resolutionScale).toBe(1.0);
     expect(useSettingsStore.getState().postProcessingEnabled).toBe(true);
+  });
+
+  it('updates anti-aliasing and resolution scale', () => {
+    const { setAntiAliasing, setResolutionScale } = useSettingsStore.getState();
+
+    setAntiAliasing('msaa');
+    expect(useSettingsStore.getState().antiAliasing).toBe('msaa');
+
+    setAntiAliasing('off');
+    expect(useSettingsStore.getState().antiAliasing).toBe('off');
+
+    setResolutionScale(0.75);
+    expect(useSettingsStore.getState().resolutionScale).toBe(0.75);
+
+    setResolutionScale(1.25);
+    expect(useSettingsStore.getState().resolutionScale).toBe(1.25);
   });
 
   it('updates graphics quality preset', () => {

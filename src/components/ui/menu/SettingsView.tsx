@@ -1,9 +1,11 @@
-import type { GraphicsQuality } from '@/types';
+import type { GraphicsQuality, AntiAliasingMode } from '@/types';
 import { menuStyles, getFocusStyle } from './menuStyles';
 import type { MenuView, ResetConfirmState } from './types';
 
 interface SettingsViewProps {
   graphicsQuality: GraphicsQuality;
+  antiAliasing: AntiAliasingMode;
+  resolutionScale: number;
   shadowsEnabled: boolean;
   postProcessingEnabled: boolean;
   sensitivity: number;
@@ -17,6 +19,8 @@ interface SettingsViewProps {
   textColor: string;
   onPointerMoveItem: (index: number, e: React.PointerEvent) => void;
   onSetGraphicsQuality: (quality: GraphicsQuality) => void;
+  onSetAntiAliasing: (mode: AntiAliasingMode) => void;
+  onSetResolutionScale: (scale: number) => void;
   onToggleShadows: () => void;
   onTogglePostProcessing: () => void;
   onSetSensitivity: (val: number) => void;
@@ -31,6 +35,8 @@ interface SettingsViewProps {
 
 export function SettingsView({
   graphicsQuality,
+  antiAliasing,
+  resolutionScale,
   shadowsEnabled,
   postProcessingEnabled,
   sensitivity,
@@ -44,6 +50,8 @@ export function SettingsView({
   textColor,
   onPointerMoveItem,
   onSetGraphicsQuality,
+  onSetAntiAliasing,
+  onSetResolutionScale,
   onToggleShadows,
   onTogglePostProcessing,
   onSetSensitivity,
@@ -57,6 +65,8 @@ export function SettingsView({
 }: SettingsViewProps) {
   let optIdx = 0;
   const gqIdx = optIdx++;
+  const aaIdx = optIdx++;
+  const resIdx = optIdx++;
   const shIdx = optIdx++;
   const ppIdx = optIdx++;
   const sensIdx = optIdx++;
@@ -86,6 +96,40 @@ export function SettingsView({
           <option value="medium">Medium</option>
           <option value="high">High</option>
           <option value="very_high">Very High</option>
+        </select>
+      </div>
+
+      <div 
+        style={{ ...menuStyles.optionRow, ...getFocusStyle(focusedIndex === aaIdx) }}
+        onPointerMove={(e) => onPointerMoveItem(aaIdx, e)}
+      >
+        <span>Anti-Aliasing</span>
+        <select 
+          value={antiAliasing} 
+          onChange={(e) => onSetAntiAliasing(e.target.value as AntiAliasingMode)}
+          style={menuStyles.select}
+        >
+          <option value="smaa">SMAA (Sharp & Fast)</option>
+          <option value="msaa">MSAA 4x (Hardware)</option>
+          <option value="off">Off (Fastest)</option>
+        </select>
+      </div>
+
+      <div 
+        style={{ ...menuStyles.optionRow, ...getFocusStyle(focusedIndex === resIdx) }}
+        onPointerMove={(e) => onPointerMoveItem(resIdx, e)}
+      >
+        <span>Render Resolution</span>
+        <select 
+          value={resolutionScale} 
+          onChange={(e) => onSetResolutionScale(parseFloat(e.target.value))}
+          style={menuStyles.select}
+        >
+          <option value="0.5">50% (Performance)</option>
+          <option value="0.75">75% (Balanced)</option>
+          <option value="1">100% (Native)</option>
+          <option value="1.25">125% (Ultra Sharp)</option>
+          <option value="1.5">150% (Super-Sampling)</option>
         </select>
       </div>
 
