@@ -41,6 +41,12 @@ describe('tire and surface physics', () => {
       name: 'Desert Canyon',
     };
 
+    const mockSwedenLevel: LevelData = {
+      ...mockLevel,
+      id: 'level3_sweden_snow',
+      name: 'Sweden Snow Rally',
+    };
+
     it('returns sand when off track and elevation is below sand threshold', () => {
       expect(getSurfaceAtPosition(-140, -6, -140, mockHeightmap, mockLevel)).toBe('sand');
     });
@@ -65,6 +71,16 @@ describe('tire and surface physics', () => {
     it('returns sand when off track on a desert map', () => {
       const surface = getSurfaceAtPosition(-140, 15, -140, mockHeightmap, mockDesertLevel);
       expect(surface).toBe('sand');
+    });
+
+    it('returns snow when on track on a Sweden snow map', () => {
+      const surface = getSurfaceAtPosition(0, 5, 0, mockHeightmap, mockSwedenLevel);
+      expect(surface).toBe('snow');
+    });
+
+    it('returns snow when off track on a Sweden snow map', () => {
+      const surface = getSurfaceAtPosition(-140, 15, -140, mockHeightmap, mockSwedenLevel);
+      expect(surface).toBe('snow');
     });
 
     it('returns grass when off the track at normal elevation on island', () => {

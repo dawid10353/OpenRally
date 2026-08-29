@@ -9,8 +9,11 @@ import {
   MeshStandardMaterial,
   Mesh,
   LinearFilter,
+  RepeatWrapping,
+  SRGBColorSpace,
   type IUniform,
 } from 'three';
+import { useTexture } from '@react-three/drei';
 import { useTerrainData } from '@/components/terrain/TerrainContext';
 import { useSettingsStore } from '@/store/settingsStore';
 import {
@@ -26,14 +29,27 @@ import {
 } from '@/config/water';
 
 /**
- * Photorealistic PBR Ocean with analytical multi-harmonic wave normals,
- * smooth depth grading (tropical turquoise shore to deep sapphire ocean),
- * soft shoreline foam, and physically balanced sun/sky specular reflections.
+ * Photorealistic PBR Ocean & Frozen Lake with analytical wave/ice normals,
+ * smooth depth grading (tropical turquoise shore to deep sapphire ocean, or glacial blue ice),
+ * soft shoreline foam/frost, and physically balanced sun/sky specular reflections.
  */
 export function Ocean() {
   const waterRef = useRef<Mesh>(null);
   const { heightmapData, levelData } = useTerrainData();
   const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
+
+  const [iceTexture] = useTexture(['/textures/terrain/ice_lake.jpg']);
+
+  useMemo(() => {
+    iceTexture.wrapS = RepeatWrapping;
+    iceTexture.wrapT = RepeatWrapping;
+    iceTexture.colorSpace = SRGBColorSpace;
+    iceTexture.anisotropy = 8;
+    iceTexture.needsUpdate = true;
+  }, [iceTexture]);
+
+  const levelId = levelData.id.toLowerCase();
+  const isSnow = levelId.includes('sweden') || levelId.includes('snow') || levelId.includes('winter');
 
   const segmentsCount = graphicsQuality === 'low' ? 64 : graphicsQuality === 'medium' ? 128 : WATER_SEGMENTS;
 
@@ -68,11 +84,13 @@ export function Ocean() {
       u_shallowColor: { value: WATER_SHALLOW_COLOR },
       u_depthThreshold: { value: WATER_DEPTH_THRESHOLD },
       u_foamThreshold: { value: WATER_FOAM_THRESHOLD },
+      u_iceTexture: { value: iceTexture },
+      u_isSnow: { value: isSnow ? 1.0 : 0.0 },
     };
 
     const material = new MeshStandardMaterial({
-      color: WATER_COLOR,
-      roughness: 0.16,
+      color: isSnow ? '#88b5d3' : WATER_COLOR,
+      roughness: isSnow ? 0.12 : 0.16,
       metalness: 0.0,
       flatShading: false,
     });
@@ -114,6 +132,8 @@ export function Ocean() {
         uniform vec3 u_shallowColor;
         uniform float u_depthThreshold;
         uniform float u_foamThreshold;
+        uniform sampler2D u_iceTexture;
+        uniform float u_isSnow;
         
         varying vec3 vWorldPos;
 
@@ -170,19 +190,24 @@ export function Ocean() {
         `
       );
 
-      // Organic fluid wave normal perturbation with distance anti-aliasing
+      // Organic fluid wave normal perturbation with distance anti-aliasing (frozen ice is smooth plane)
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <normal_fragment_maps>',
         /* glsl */ `
         #include <normal_fragment_maps>
 
-        float viewDist = length(vWorldPos - cameraPosition);
-        vec3 waveNormalWorld = getOrganicWaterNormal(vWorldPos.xz, time * 1.1, viewDist);
+        vec3 waveNormalWorld;
+        if (u_isSnow > 0.5) {
+          waveNormalWorld = vec3(0.0, 1.0, 0.0);
+        } else {
+          float viewDist = length(vWorldPos - cameraPosition);
+          waveNormalWorld = getOrganicWaterNormal(vWorldPos.xz, time * 1.1, viewDist);
+        }
         normal = normalize(mat3(viewMatrix) * waveNormalWorld);
         `
       );
 
-      // Depth gradient and shoreline foam integrated cleanly into PBR diffuse albedo
+      // Depth gradient and shoreline foam / frost integrated cleanly into PBR diffuse albedo
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <color_fragment>',
         /* glsl */ `
@@ -203,40 +228,66 @@ export function Ocean() {
 
         float waterDepth = max(0.0, vWorldPos.y - terrainHeight);
         
-        // Depth gradient: 0 = shallow turquoise shore, 1 = deep sapphire ocean
-        float depthFactor = smoothstep(0.0, u_depthThreshold, waterDepth);
-        vec3 waterAlbedo = mix(u_shallowColor, diffuseColor.rgb, depthFactor);
+        if (u_isSnow > 0.5) {
+          vec2 iceUvMacro = vWorldPos.xz * 0.04;
+          vec2 iceUvMicro = mat2(0.866, -0.5, 0.5, 0.866) * (vWorldPos.xz * 0.18);
+          vec3 iceMacro = texture2D(u_iceTexture, iceUvMacro).rgb;
+          vec3 iceMicro = texture2D(u_iceTexture, iceUvMicro).rgb;
+          vec3 iceTex = mix(iceMacro, iceMicro, 0.5);
 
-        // Realistic Fresnel reflection: glancing angles reflect the sky bright blue
-        vec3 viewDir = normalize(cameraPosition - vWorldPos);
-        float fresnel = pow(clamp(1.0 - max(0.0, dot(vec3(0.0, 1.0, 0.0), viewDir)), 0.0, 1.0), 3.5);
-        vec3 skyReflection = mix(vec3(0.55, 0.75, 0.98), vec3(0.88, 0.95, 1.0), fresnel);
-        waterAlbedo = mix(waterAlbedo, skyReflection, fresnel * 0.42);
+          float depthFactor = smoothstep(0.0, u_depthThreshold * 1.5, waterDepth);
+          vec3 iceAlbedo = mix(vec3(0.72, 0.84, 0.94), iceTex, depthFactor);
 
-        // Soft shoreline foam
-        float foamFactor = 0.0;
-        if (waterDepth < u_foamThreshold) {
-          float shoreDist = waterDepth / u_foamThreshold;
-          foamFactor = smoothstep(0.55, 0.05, shoreDist);
+          vec3 viewDir = normalize(cameraPosition - vWorldPos);
+          float fresnel = pow(clamp(1.0 - max(0.0, dot(vec3(0.0, 1.0, 0.0), viewDir)), 0.0, 1.0), 3.0);
+          vec3 skyReflection = mix(vec3(0.75, 0.88, 1.0), vec3(0.95, 0.98, 1.0), fresnel);
+          iceAlbedo = mix(iceAlbedo, skyReflection, fresnel * 0.55);
+
+          float shoreFrost = 0.0;
+          if (waterDepth < u_foamThreshold * 1.8) {
+            shoreFrost = smoothstep(0.65, 0.0, waterDepth / (u_foamThreshold * 1.8));
+          }
+          diffuseColor.rgb = mix(iceAlbedo, vec3(0.95, 0.98, 1.0), shoreFrost * 0.7);
+        } else {
+          // Depth gradient: 0 = shallow turquoise shore, 1 = deep sapphire ocean
+          float depthFactor = smoothstep(0.0, u_depthThreshold, waterDepth);
+          vec3 waterAlbedo = mix(u_shallowColor, diffuseColor.rgb, depthFactor);
+
+          // Realistic Fresnel reflection: glancing angles reflect the sky bright blue
+          vec3 viewDir = normalize(cameraPosition - vWorldPos);
+          float fresnel = pow(clamp(1.0 - max(0.0, dot(vec3(0.0, 1.0, 0.0), viewDir)), 0.0, 1.0), 3.5);
+          vec3 skyReflection = mix(vec3(0.55, 0.75, 0.98), vec3(0.88, 0.95, 1.0), fresnel);
+          waterAlbedo = mix(waterAlbedo, skyReflection, fresnel * 0.42);
+
+          // Soft shoreline foam
+          float foamFactor = 0.0;
+          if (waterDepth < u_foamThreshold) {
+            float shoreDist = waterDepth / u_foamThreshold;
+            foamFactor = smoothstep(0.55, 0.05, shoreDist);
+          }
+
+          diffuseColor.rgb = mix(waterAlbedo, u_foamColor, foamFactor * 0.55);
         }
-
-        diffuseColor.rgb = mix(waterAlbedo, u_foamColor, foamFactor * 0.55);
         `
       );
 
-      // Toksvig specular anti-aliasing: smooth silky ocean horizon without sparkling grain
+      // Specular roughness: smooth glossy frozen ice lake or silky ocean horizon
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <roughnessmap_fragment>',
         /* glsl */ `
         #include <roughnessmap_fragment>
-        float distToCam = length(vWorldPos - cameraPosition);
-        roughnessFactor = mix(0.16, 0.42, clamp(distToCam / 450.0, 0.0, 1.0));
+        if (u_isSnow > 0.5) {
+          roughnessFactor = 0.10;
+        } else {
+          float distToCam = length(vWorldPos - cameraPosition);
+          roughnessFactor = mix(0.16, 0.42, clamp(distToCam / 450.0, 0.0, 1.0));
+        }
         `
       );
     };
 
     return mesh;
-  }, [terrainHeightmap, levelData, segmentsCount]);
+  }, [terrainHeightmap, levelData, segmentsCount, iceTexture, isSnow]);
 
   useFrame((state, delta) => {
     // Anchor ocean directly under camera to give infinite ocean horizon

@@ -28,19 +28,22 @@ interface TerrainMaterialOptions {
   trackTexture: Texture;
   rockTexture: Texture;
   sandTexture: Texture;
+  snowTexture: Texture;
+  snowTrackTexture: Texture;
   isDesert: boolean;
+  isSnow: boolean;
 }
 
 /**
  * Custom MeshStandardMaterial with photorealistic multi-texture splatting,
- * triplanar slope projection for cliffs, and damp mud track blending.
+ * triplanar slope projection for cliffs, and damp mud / packed snow track blending.
  */
 export function createDetailedTerrainMaterial(options: TerrainMaterialOptions): MeshStandardMaterial {
-  const { grassTexture, trackTexture, rockTexture, sandTexture, isDesert } = options;
+  const { grassTexture, trackTexture, rockTexture, sandTexture, snowTexture, snowTrackTexture, isDesert, isSnow } = options;
 
   const mat = new MeshStandardMaterial({
     vertexColors: true,
-    roughness: 0.88,
+    roughness: isSnow ? 0.92 : 0.88,
     metalness: 0.04,
     flatShading: false,
   });
@@ -52,7 +55,10 @@ export function createDetailedTerrainMaterial(options: TerrainMaterialOptions): 
     shader.uniforms.u_trackTexture = { value: trackTexture };
     shader.uniforms.u_rockTexture = { value: rockTexture };
     shader.uniforms.u_sandTexture = { value: sandTexture };
+    shader.uniforms.u_snowTexture = { value: snowTexture };
+    shader.uniforms.u_snowTrackTexture = { value: snowTrackTexture };
     shader.uniforms.u_isDesert = { value: isDesert ? 1.0 : 0.0 };
+    shader.uniforms.u_isSnow = { value: isSnow ? 1.0 : 0.0 };
 
     // Inject custom attributes and varyings into vertex shader
     shader.vertexShader = shader.vertexShader.replace(
@@ -87,11 +93,14 @@ export function createDetailedTerrainMaterial(options: TerrainMaterialOptions): 
 
         uniform float u_slopeDarkening;
         uniform float u_isDesert;
+        uniform float u_isSnow;
 
         uniform sampler2D u_grassTexture;
         uniform sampler2D u_trackTexture;
         uniform sampler2D u_rockTexture;
         uniform sampler2D u_sandTexture;
+        uniform sampler2D u_snowTexture;
+        uniform sampler2D u_snowTrackTexture;
       `,
     );
 
@@ -107,7 +116,11 @@ export function createDetailedTerrainMaterial(options: TerrainMaterialOptions): 
 
         // Base biome ground texture sampling
         vec3 baseGround;
-        if (u_isDesert > 0.5) {
+        if (u_isSnow > 0.5) {
+          vec3 snowMacro = texture2D(u_snowTexture, uvMacro).rgb;
+          vec3 snowMicro = texture2D(u_snowTexture, uvMicro).rgb;
+          baseGround = mix(snowMacro, snowMicro, 0.5) * 1.08;
+        } else if (u_isDesert > 0.5) {
           vec3 sandMacro = texture2D(u_sandTexture, uvMacro).rgb;
           vec3 sandMicro = texture2D(u_sandTexture, uvMicro).rgb;
           baseGround = mix(sandMacro, sandMicro, 0.5);
@@ -117,12 +130,19 @@ export function createDetailedTerrainMaterial(options: TerrainMaterialOptions): 
           baseGround = mix(grassMacro, grassMicro, 0.5);
         }
 
-        // Rally track dirt/mud texture sampling with subtle color grading
+        // Rally track dirt/mud/packed snow texture sampling with subtle color grading
         vec2 uvTrackMacro = vWorldPosition.xz * 0.08;
         vec2 uvTrackMicro = mat2(0.866, -0.5, 0.5, 0.866) * (vWorldPosition.xz * 0.35);
-        vec3 trackMacro = texture2D(u_trackTexture, uvTrackMacro).rgb;
-        vec3 trackMicro = texture2D(u_trackTexture, uvTrackMicro).rgb;
-        vec3 trackTex = mix(trackMacro, trackMicro, 0.5) * vec3(0.95, 0.90, 0.85);
+        vec3 trackTex;
+        if (u_isSnow > 0.5) {
+          vec3 snowTrkMacro = texture2D(u_snowTrackTexture, uvTrackMacro).rgb;
+          vec3 snowTrkMicro = texture2D(u_snowTrackTexture, uvTrackMicro).rgb;
+          trackTex = mix(snowTrkMacro, snowTrkMicro, 0.5) * vec3(0.92, 0.95, 1.0);
+        } else {
+          vec3 trackMacro = texture2D(u_trackTexture, uvTrackMacro).rgb;
+          vec3 trackMicro = texture2D(u_trackTexture, uvTrackMicro).rgb;
+          trackTex = mix(trackMacro, trackMicro, 0.5) * vec3(0.95, 0.90, 0.85);
+        }
 
         // Blend base ground with track
         vec3 blendedAlbedo = mix(baseGround, trackTex, clamp(vTrackMask * 1.25, 0.0, 1.0));
@@ -135,6 +155,11 @@ export function createDetailedTerrainMaterial(options: TerrainMaterialOptions): 
         vec3 rockTexY = texture2D(u_rockTexture, vWorldPosition.xz * 0.22).rgb;
         vec3 rockTexZ = texture2D(u_rockTexture, vWorldPosition.xy * 0.22).rgb;
         vec3 triplanarRock = rockTexX * normalWeights.x + rockTexY * normalWeights.y + rockTexZ * normalWeights.z;
+
+        // In snow biome, cliff rocks have snow dusting on flatter micro-surfaces
+        if (u_isSnow > 0.5) {
+          triplanarRock = mix(triplanarRock * 0.85, vec3(0.95, 0.98, 1.0), clamp(vWorldNormal.y * 0.6, 0.0, 0.6));
+        }
 
         // Slope calculation: 0 = flat plane, 1 = vertical cliff
         float slope = 1.0 - abs(vWorldNormal.y);
@@ -157,7 +182,7 @@ export function createDetailedTerrainMaterial(options: TerrainMaterialOptions): 
 /**
  * 3D visual and physics terrain component.
  * Displaces a dense plane geometry based on procedural heightmap data,
- * loads PBR textures for grass, gravel tracks, and mountain cliffs,
+ * loads PBR textures for grass, gravel tracks, snow, and mountain cliffs,
  * and attaches a Rapier HeightfieldCollider for rigid-body physics.
  */
 export function Terrain() {
@@ -165,26 +190,30 @@ export function Terrain() {
   const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
 
   // Load AI-generated terrain textures
-  const [grassTexture, trackTexture, rockTexture, sandTexture] = useTexture([
+  const [grassTexture, trackTexture, rockTexture, sandTexture, snowTexture, snowTrackTexture] = useTexture([
     '/textures/terrain/grass.jpg',
     '/textures/terrain/dirt_track.jpg',
     '/textures/terrain/rock_cliff.jpg',
     '/textures/terrain/desert_sand.jpg',
+    '/textures/terrain/snow.jpg',
+    '/textures/terrain/snow_track.jpg',
   ]);
 
   // Set repeat wrapping and SRGB color space on all terrain textures
   useMemo(() => {
     const anisotropy = graphicsQuality === 'very_high' ? 16 : graphicsQuality === 'high' ? 8 : 4;
-    [grassTexture, trackTexture, rockTexture, sandTexture].forEach((tex) => {
+    [grassTexture, trackTexture, rockTexture, sandTexture, snowTexture, snowTrackTexture].forEach((tex) => {
       tex.wrapS = RepeatWrapping;
       tex.wrapT = RepeatWrapping;
       tex.colorSpace = SRGBColorSpace;
       tex.anisotropy = anisotropy;
       tex.needsUpdate = true;
     });
-  }, [grassTexture, trackTexture, rockTexture, sandTexture, graphicsQuality]);
+  }, [grassTexture, trackTexture, rockTexture, sandTexture, snowTexture, snowTrackTexture, graphicsQuality]);
 
-  const isDesert = levelData.id.toLowerCase().includes('desert');
+  const levelId = levelData.id.toLowerCase();
+  const isDesert = levelId.includes('desert');
+  const isSnow = levelId.includes('sweden') || levelId.includes('snow') || levelId.includes('winter');
 
   const geometry = useMemo(() => {
     // Create plane geometry matching heightmap dimensions
@@ -206,6 +235,10 @@ export function Terrain() {
 
     const tempColor = new Color();
     const MUD_COLOR = new Color('#3b2818');
+    const SNOW_COLOR_LOW = new Color('#e6f0fa');
+    const SNOW_COLOR_MID = new Color('#f4f9ff');
+    const SNOW_COLOR_HIGH = new Color('#ffffff');
+    const SNOW_TRACK_COLOR = new Color('#d2e3f0');
 
     for (let i = 0; i < vertexCount; i++) {
       const height = heightmapData.heights[i];
@@ -222,18 +255,34 @@ export function Terrain() {
         1,
       );
 
-      if (normalizedHeight < BIOME_MID_THRESHOLD) {
-        tempColor.lerpColors(BIOME_COLOR_LOW, BIOME_COLOR_MID, normalizedHeight / BIOME_MID_THRESHOLD);
-      } else {
-        tempColor.lerpColors(
-          BIOME_COLOR_MID,
-          BIOME_COLOR_HIGH,
-          (normalizedHeight - BIOME_MID_THRESHOLD) / (1 - BIOME_MID_THRESHOLD),
-        );
-      }
+      if (isSnow) {
+        if (normalizedHeight < BIOME_MID_THRESHOLD) {
+          tempColor.lerpColors(SNOW_COLOR_LOW, SNOW_COLOR_MID, normalizedHeight / BIOME_MID_THRESHOLD);
+        } else {
+          tempColor.lerpColors(
+            SNOW_COLOR_MID,
+            SNOW_COLOR_HIGH,
+            (normalizedHeight - BIOME_MID_THRESHOLD) / (1 - BIOME_MID_THRESHOLD),
+          );
+        }
 
-      if (trackMask > 0) {
-        tempColor.lerp(MUD_COLOR, trackMask * 0.8);
+        if (trackMask > 0) {
+          tempColor.lerp(SNOW_TRACK_COLOR, trackMask * 0.8);
+        }
+      } else {
+        if (normalizedHeight < BIOME_MID_THRESHOLD) {
+          tempColor.lerpColors(BIOME_COLOR_LOW, BIOME_COLOR_MID, normalizedHeight / BIOME_MID_THRESHOLD);
+        } else {
+          tempColor.lerpColors(
+            BIOME_COLOR_MID,
+            BIOME_COLOR_HIGH,
+            (normalizedHeight - BIOME_MID_THRESHOLD) / (1 - BIOME_MID_THRESHOLD),
+          );
+        }
+
+        if (trackMask > 0) {
+          tempColor.lerp(MUD_COLOR, trackMask * 0.8);
+        }
       }
 
       const idx = i * 3;
@@ -247,7 +296,7 @@ export function Terrain() {
     geo.computeVertexNormals();
 
     return geo;
-  }, [heightmapData, levelData]);
+  }, [heightmapData, levelData, isSnow]);
 
   // Create custom multi-texture material
   const material = useMemo(
@@ -257,9 +306,12 @@ export function Terrain() {
         trackTexture,
         rockTexture,
         sandTexture,
+        snowTexture,
+        snowTrackTexture,
         isDesert,
+        isSnow,
       }),
-    [grassTexture, trackTexture, rockTexture, sandTexture, isDesert],
+    [grassTexture, trackTexture, rockTexture, sandTexture, snowTexture, snowTrackTexture, isDesert, isSnow],
   );
 
   // Prepare heights for Rapier HeightfieldCollider

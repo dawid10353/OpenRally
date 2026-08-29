@@ -8,6 +8,7 @@ import {
   CanvasTexture,
   MeshStandardMaterial,
   CylinderGeometry,
+  BoxGeometry,
   SphereGeometry,
   RingGeometry,
   type BufferGeometry,
@@ -335,51 +336,26 @@ function MarshallPodium({
   );
 }
 
-interface GantryMergedGeometries {
-  trussGeo: BufferGeometry;
-  foundationGeo: BufferGeometry;
-}
+const SF_FOUNDATION_GEO = new CylinderGeometry(1.1, 1.2, 12.0, 12);
+SF_FOUNDATION_GEO.translate(0, -6.0, 0);
 
-const gantryGeoCache = new Map<number, GantryMergedGeometries>();
+const SF_HAZARD_PAD_GEO = new BoxGeometry(1.6, 1.5, 1.6);
+SF_HAZARD_PAD_GEO.translate(0, 0.75, 0);
 
-function createMergedGantryGeometries(width: number): GantryMergedGeometries {
-  const cached = gantryGeoCache.get(width);
+const SF_PAD_CAP_GEO = new BoxGeometry(1.64, 0.08, 1.64);
+SF_PAD_CAP_GEO.translate(0, 1.52, 0);
+
+const sfHeaderGeoCache = new Map<number, BufferGeometry>();
+
+function getStartFinishHeaderGeometry(width: number): BufferGeometry {
+  const cached = sfHeaderGeoCache.get(width);
   if (cached) return cached;
 
-  const halfWidth = width / 2;
-  const pillarHeight = 8.6;
   const topBarY = 8.35;
   const botBarY = 6.45;
-
   const trussParts: BufferGeometry[] = [];
 
-  // 1. Upright Truss Chords (4 vertical tubes per pillar)
-  const chordCyl = new CylinderGeometry(0.07, 0.07, pillarHeight, 8);
-  [-halfWidth, halfWidth].forEach((px) => {
-    [-0.4, 0.4].forEach((ox) => {
-      [-0.38, 0.38].forEach((oz) => {
-        const chord = chordCyl.clone();
-        chord.translate(px + ox, pillarHeight / 2, oz);
-        trussParts.push(chord);
-      });
-    });
-  });
-
-  // 2. Diagonal Truss Cross-Braces (6 per pillar)
-  const braceCyl = new CylinderGeometry(0.035, 0.035, 1.2, 6);
-  for (let idx = 0; idx < 6; idx++) {
-    const lBrace = braceCyl.clone();
-    lBrace.rotateX(0.45);
-    lBrace.translate(-halfWidth, 2.0 + idx * 1.0, 0);
-    trussParts.push(lBrace);
-
-    const rBrace = braceCyl.clone();
-    rBrace.rotateX(-0.45);
-    rBrace.translate(halfWidth, 2.0 + idx * 1.0, 0);
-    trussParts.push(rBrace);
-  }
-
-  // 3. Overhead Horizontal Crossbar Tubes (Top & Bottom, Front & Rear)
+  // Overhead Horizontal Crossbar Tubes (Top & Bottom, Front & Rear)
   const crossbarCyl = new CylinderGeometry(0.08, 0.08, width + 1.2, 8);
   [-0.38, 0.38].forEach((oz) => {
     const topBar = crossbarCyl.clone();
@@ -393,41 +369,70 @@ function createMergedGantryGeometries(width: number): GantryMergedGeometries {
     trussParts.push(botBar);
   });
 
-  const mergedTruss = BufferGeometryUtils.mergeGeometries(trussParts, false);
+  const merged = BufferGeometryUtils.mergeGeometries(trussParts, false);
+  sfHeaderGeoCache.set(width, merged);
+  return merged;
+}
 
-  // Concrete foundation anchors
-  const foundCyl = new CylinderGeometry(1.1, 1.2, 3.5, 12);
-  const leftFound = foundCyl.clone();
-  leftFound.translate(-halfWidth, -1.5, 0);
-  const rightFound = foundCyl.clone();
-  rightFound.translate(halfWidth, -1.5, 0);
-  const mergedFound = BufferGeometryUtils.mergeGeometries([leftFound, rightFound], false);
+const sfPillarGeoCache = new Map<number, BufferGeometry>();
 
-  const result: GantryMergedGeometries = {
-    trussGeo: mergedTruss,
-    foundationGeo: mergedFound,
-  };
+function getStartFinishPillarGeometry(height: number): BufferGeometry {
+  const roundedHeight = Math.max(0.5, Math.round(height * 10) / 10);
+  const cached = sfPillarGeoCache.get(roundedHeight);
+  if (cached) return cached;
 
-  gantryGeoCache.set(width, result);
-  return result;
+  const trussParts: BufferGeometry[] = [];
+
+  // Upright Truss Chords (4 vertical tubes per tower)
+  const chordCyl = new CylinderGeometry(0.07, 0.07, roundedHeight, 8);
+  [-0.4, 0.4].forEach((ox) => {
+    [-0.38, 0.38].forEach((oz) => {
+      const chord = chordCyl.clone();
+      chord.translate(ox, roundedHeight / 2, oz);
+      trussParts.push(chord);
+    });
+  });
+
+  // Diagonal Truss Cross-Braces
+  const numBraces = Math.max(1, Math.floor(roundedHeight / 1.0));
+  const braceStep = roundedHeight / numBraces;
+  const braceCyl = new CylinderGeometry(0.035, 0.035, Math.hypot(0.8, braceStep), 6);
+  for (let idx = 0; idx < numBraces; idx++) {
+    const brace = braceCyl.clone();
+    brace.rotateX(0.45 * (idx % 2 === 0 ? 1 : -1));
+    brace.translate(0, (idx + 0.5) * braceStep, 0);
+    trussParts.push(brace);
+  }
+
+  const merged = BufferGeometryUtils.mergeGeometries(trussParts, false);
+  sfPillarGeoCache.set(roundedHeight, merged);
+  return merged;
 }
 
 /**
- * 3D Rally Start/Finish Gantry & Starting Area Scenery.
+ * 3D Rally Start/Finish Gantry & Starting Area Scenery with Adaptive Ground Anchoring.
  * Renders metallic truss architecture, start lights, digital timing screen,
- * sponsor banners, flags, and safety barriers with zero 60 FPS re-renders.
+ * sponsor banners, flags, and safety barriers with deep subterranean anchors and zero levitation.
  */
 export const StartFinishGantry = memo(function StartFinishGantry({ data }: StartFinishGantryProps) {
   const [x, y, z] = data.position;
   const width = data.width;
   const halfWidth = width / 2;
-  const pillarHeight = 8.6;
+  const topBarY = 8.35;
   const bannerCenterY = 7.4;
   const bannerHeight = 1.8;
   const bannerWidth = width * 0.82;
   const botBarY = 6.45;
 
-  const geometries = useMemo(() => createMergedGantryGeometries(width), [width]);
+  const leftOffset = data.leftGroundOffset ?? 0;
+  const rightOffset = data.rightGroundOffset ?? 0;
+
+  const leftColHeight = Math.max(0.5, topBarY - (leftOffset + 1.5));
+  const rightColHeight = Math.max(0.5, topBarY - (rightOffset + 1.5));
+
+  const headerGeo = useMemo(() => getStartFinishHeaderGeometry(width), [width]);
+  const leftPillarGeo = useMemo(() => getStartFinishPillarGeometry(leftColHeight), [leftColHeight]);
+  const rightPillarGeo = useMemo(() => getStartFinishPillarGeometry(rightColHeight), [rightColHeight]);
 
   // Load realistic AI-generated textures
   const carbonTexture = useTexture('/textures/race/carbon_fiber.jpg');
@@ -446,20 +451,23 @@ export const StartFinishGantry = memo(function StartFinishGantry({ data }: Start
     hazardTexture.needsUpdate = true;
   }, [carbonTexture, hazardTexture]);
 
+  const leftColliderHeight = Math.max(1.0, topBarY - leftOffset);
+  const rightColliderHeight = Math.max(1.0, topBarY - rightOffset);
+
   return (
     <group position={[x, y, z]} rotation={[0, data.rotationY, 0]}>
       {/* ─── 0. SOLID PHYSICS COLLIDERS ─── */}
       <RigidBody type="fixed" colliders={false}>
         {/* Left Pillar Base & Column */}
         <CuboidCollider
-          args={[0.8, pillarHeight / 2, 0.8]}
-          position={[-halfWidth, pillarHeight / 2, 0]}
+          args={[0.8, leftColliderHeight / 2, 0.8]}
+          position={[-halfWidth, (leftOffset + topBarY) / 2, 0]}
           friction={0.8}
         />
         {/* Right Pillar Base & Column */}
         <CuboidCollider
-          args={[0.8, pillarHeight / 2, 0.8]}
-          position={[halfWidth, pillarHeight / 2, 0]}
+          args={[0.8, rightColliderHeight / 2, 0.8]}
+          position={[halfWidth, (rightOffset + topBarY) / 2, 0]}
           friction={0.8}
         />
         {/* Overhead Truss & Header Banner */}
@@ -470,44 +478,63 @@ export const StartFinishGantry = memo(function StartFinishGantry({ data }: Start
         />
 
         {/* Left Side Safety Barriers */}
-        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[-halfWidth - 1.2, 0.6, -3.5]} friction={0.8} />
-        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[-halfWidth - 1.2, 0.6, -1.2]} friction={0.8} />
-        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[-halfWidth - 1.2, 0.6, 1.2]} friction={0.8} />
-        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[-halfWidth - 1.2, 0.6, 3.5]} friction={0.8} />
+        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[-halfWidth - 1.2, leftOffset + 0.6, -3.5]} friction={0.8} />
+        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[-halfWidth - 1.2, leftOffset + 0.6, -1.2]} friction={0.8} />
+        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[-halfWidth - 1.2, leftOffset + 0.6, 1.2]} friction={0.8} />
+        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[-halfWidth - 1.2, leftOffset + 0.6, 3.5]} friction={0.8} />
 
         {/* Right Side Safety Barriers */}
-        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[halfWidth + 1.2, 0.6, -3.5]} friction={0.8} />
-        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[halfWidth + 1.2, 0.6, -1.2]} friction={0.8} />
-        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[halfWidth + 1.2, 0.6, 1.2]} friction={0.8} />
-        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[halfWidth + 1.2, 0.6, 3.5]} friction={0.8} />
+        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[halfWidth + 1.2, rightOffset + 0.6, -3.5]} friction={0.8} />
+        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[halfWidth + 1.2, rightOffset + 0.6, -1.2]} friction={0.8} />
+        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[halfWidth + 1.2, rightOffset + 0.6, 1.2]} friction={0.8} />
+        <CuboidCollider args={[1.1, 0.6, 0.35]} position={[halfWidth + 1.2, rightOffset + 0.6, 3.5]} friction={0.8} />
 
         {/* Marshall Timing Podium */}
-        <CuboidCollider args={[1.6, 1.4, 1.2]} position={[halfWidth + 4.8, 1.4, 0]} friction={0.8} />
+        <CuboidCollider args={[1.6, 1.4, 1.2]} position={[halfWidth + 4.8, rightOffset + 1.4, 0]} friction={0.8} />
       </RigidBody>
 
-      {/* ─── 1. PRE-MERGED GANTRY STRUCTURE (1 draw call for all truss tubes) ─── */}
-      <mesh geometry={geometries.trussGeo} castShadow>
+      {/* ─── 1. PRE-MERGED OVERHEAD HORIZONTAL TRUSS ─── */}
+      <mesh geometry={headerGeo} castShadow>
         <meshStandardMaterial color="#cfd8dc" metalness={0.9} roughness={0.25} />
       </mesh>
 
-      {/* ─── 2. PRE-MERGED FOUNDATIONS ─── */}
-      <mesh geometry={geometries.foundationGeo}>
-        <meshStandardMaterial color="#212529" roughness={0.9} />
-      </mesh>
+      {/* ─── 2. ADAPTIVE LEFT TOWER & GROUND ANCHORS ─── */}
+      <group position={[-halfWidth, leftOffset, 0]}>
+        {/* 12m deep concrete subterranean foundation */}
+        <mesh geometry={SF_FOUNDATION_GEO}>
+          <meshStandardMaterial color="#212529" roughness={0.9} />
+        </mesh>
+        {/* Hazard crash pad resting on terrain */}
+        <mesh geometry={SF_HAZARD_PAD_GEO} castShadow receiveShadow>
+          <meshStandardMaterial map={hazardTexture} roughness={0.7} metalness={0.1} />
+        </mesh>
+        <mesh geometry={SF_PAD_CAP_GEO}>
+          <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
+        </mesh>
+        {/* Steel column extending up to overhead crossbeams */}
+        <mesh position={[0, 1.5, 0]} geometry={leftPillarGeo} castShadow>
+          <meshStandardMaterial color="#cfd8dc" metalness={0.9} roughness={0.25} />
+        </mesh>
+      </group>
 
-      {/* ─── 3. HAZARD CRASH PADS (Left & Right) ─── */}
-      {[-halfWidth, halfWidth].map((px) => (
-        <group key={`hazard_pad_${px}`} position={[px, 0, 0]}>
-          <mesh position={[0, 0.75, 0]} castShadow receiveShadow>
-            <boxGeometry args={[1.6, 1.5, 1.6]} />
-            <meshStandardMaterial map={hazardTexture} roughness={0.7} metalness={0.1} />
-          </mesh>
-          <mesh position={[0, 1.52, 0]}>
-            <boxGeometry args={[1.64, 0.08, 1.64]} />
-            <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
-          </mesh>
-        </group>
-      ))}
+      {/* ─── 3. ADAPTIVE RIGHT TOWER & GROUND ANCHORS ─── */}
+      <group position={[halfWidth, rightOffset, 0]}>
+        {/* 12m deep concrete subterranean foundation */}
+        <mesh geometry={SF_FOUNDATION_GEO}>
+          <meshStandardMaterial color="#212529" roughness={0.9} />
+        </mesh>
+        {/* Hazard crash pad resting on terrain */}
+        <mesh geometry={SF_HAZARD_PAD_GEO} castShadow receiveShadow>
+          <meshStandardMaterial map={hazardTexture} roughness={0.7} metalness={0.1} />
+        </mesh>
+        <mesh geometry={SF_PAD_CAP_GEO}>
+          <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
+        </mesh>
+        {/* Steel column extending up to overhead crossbeams */}
+        <mesh position={[0, 1.5, 0]} geometry={rightPillarGeo} castShadow>
+          <meshStandardMaterial color="#cfd8dc" metalness={0.9} roughness={0.25} />
+        </mesh>
+      </group>
 
       {/* ─── 4. STATIC WRC HEADER BANNER ─── */}
       <group position={[0, bannerCenterY, 0]}>
@@ -654,26 +681,26 @@ export const StartFinishGantry = memo(function StartFinishGantry({ data }: Start
 
       {/* ─── 7. FLANKING SCENERY (FLAGS, BARRIERS & PODIUM) ─── */}
       {/* Left Teardrop Flags */}
-      <RallyFlag position={[-halfWidth - 3.2, 0, -4.0]} rotationY={0.3} />
-      <RallyFlag position={[-halfWidth - 3.2, 0, 4.0]} rotationY={-0.2} />
+      <RallyFlag position={[-halfWidth - 3.2, leftOffset, -4.0]} rotationY={0.3} />
+      <RallyFlag position={[-halfWidth - 3.2, leftOffset, 4.0]} rotationY={-0.2} />
 
       {/* Right Teardrop Flags */}
-      <RallyFlag position={[halfWidth + 3.2, 0, -4.0]} rotationY={-0.3} />
-      <RallyFlag position={[halfWidth + 3.2, 0, 4.0]} rotationY={0.2} />
+      <RallyFlag position={[halfWidth + 3.2, rightOffset, -4.0]} rotationY={-0.3} />
+      <RallyFlag position={[halfWidth + 3.2, rightOffset, 4.0]} rotationY={0.2} />
 
       {/* Safety Barriers Channeling the Start Area (Left & Right) */}
-      <SafetyBarrier position={[-halfWidth - 1.2, 0, -3.5]} rotationY={0.08} />
-      <SafetyBarrier position={[-halfWidth - 1.2, 0, -1.2]} rotationY={0} />
-      <SafetyBarrier position={[-halfWidth - 1.2, 0, 1.2]} rotationY={0} />
-      <SafetyBarrier position={[-halfWidth - 1.2, 0, 3.5]} rotationY={-0.08} />
+      <SafetyBarrier position={[-halfWidth - 1.2, leftOffset, -3.5]} rotationY={0.08} />
+      <SafetyBarrier position={[-halfWidth - 1.2, leftOffset, -1.2]} rotationY={0} />
+      <SafetyBarrier position={[-halfWidth - 1.2, leftOffset, 1.2]} rotationY={0} />
+      <SafetyBarrier position={[-halfWidth - 1.2, leftOffset, 3.5]} rotationY={-0.08} />
 
-      <SafetyBarrier position={[halfWidth + 1.2, 0, -3.5]} rotationY={-0.08} />
-      <SafetyBarrier position={[halfWidth + 1.2, 0, -1.2]} rotationY={0} />
-      <SafetyBarrier position={[halfWidth + 1.2, 0, 1.2]} rotationY={0} />
-      <SafetyBarrier position={[halfWidth + 1.2, 0, 3.5]} rotationY={0.08} />
+      <SafetyBarrier position={[halfWidth + 1.2, rightOffset, -3.5]} rotationY={-0.08} />
+      <SafetyBarrier position={[halfWidth + 1.2, rightOffset, -1.2]} rotationY={0} />
+      <SafetyBarrier position={[halfWidth + 1.2, rightOffset, 1.2]} rotationY={0} />
+      <SafetyBarrier position={[halfWidth + 1.2, rightOffset, 3.5]} rotationY={0.08} />
 
       {/* Marshall Timing Podium on Right Side */}
-      <MarshallPodium position={[halfWidth + 5.2, 0, 0]} rotationY={-Math.PI / 2} />
+      <MarshallPodium position={[halfWidth + 5.2, rightOffset, 0]} rotationY={-Math.PI / 2} />
     </group>
   );
 });

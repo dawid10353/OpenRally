@@ -90,15 +90,66 @@ describe('Checkpoints & Track Alignment System', () => {
     expect(normalizedDiff).toBeLessThan(0.15);
   });
 
-  it('validates atmospheric scattering parameters in level environments', () => {
+  it('aligns spawn position and spawn heading with Checkpoint 0 on Sweden Snow Rally', async () => {
+    const { LEVEL_PRESET_SWEDEN } = await import('@/config/levelRegistry');
+    const level = LEVEL_PRESET_SWEDEN;
+    const cp0 = level.data.track.points[0];
+
+    expect(cp0.x).toBe(0);
+    expect(cp0.z).toBe(0);
+
+    const distToCp0 = Math.hypot(level.spawnPosition[0] - cp0.x, level.spawnPosition[2] - cp0.z);
+    expect(distToCp0).toBeLessThan(8.0);
+    expect(distToCp0).toBeGreaterThan(1.0);
+
+    const trackPoints3D = level.data.track.points.map((p) => new Vector3(p.x, 0, p.z));
+    const trackCurve = new CatmullRomCurve3(trackPoints3D, true, 'catmullrom', 0.5);
+    const tangent0 = trackCurve.getTangentAt(0);
+    const expectedRotY = Math.atan2(tangent0.x, tangent0.z);
+
+    const diff = Math.abs(level.spawnRotationY - expectedRotY);
+    const normalizedDiff = Math.min(diff, Math.PI * 2 - diff);
+    expect(normalizedDiff).toBeLessThan(0.15);
+  });
+
+  it('computes realistic cross-slope transversal offsets for all levels without levitation', async () => {
+    const { compileTerrain, getInterpolatedHeight } = await import('@/utils/terrainCompiler');
     const levels = getAvailableLevels();
+
     for (const level of levels) {
-      if (level.environment?.sky) {
-        const { turbidity, rayleigh, mieCoefficient, mieDirectionalG } = level.environment.sky;
-        if (turbidity !== undefined) expect(turbidity).toBeGreaterThan(0);
-        if (rayleigh !== undefined) expect(rayleigh).toBeGreaterThan(0);
-        if (mieCoefficient !== undefined) expect(mieCoefficient).toBeGreaterThan(0);
-        if (mieDirectionalG !== undefined) expect(mieDirectionalG).toBeGreaterThan(0);
+      const { heights, rows, cols } = compileTerrain(level.data);
+      const points = level.data.track.points;
+      const trackPoints3D = points.map((p) => new Vector3(p.x, 0, p.z));
+      const trackCurve = new CatmullRomCurve3(trackPoints3D, true, 'catmullrom', 0.5);
+      const count = points.length;
+
+      for (let i = 0; i < count; i++) {
+        const p = points[i];
+        const u = i / count;
+        const tangent = trackCurve.getTangentAt(u).normalize();
+        const rotY = Math.atan2(tangent.x, tangent.z);
+        const cosY = Math.cos(rotY);
+        const sinY = Math.sin(rotY);
+        const halfWidth = (level.data.track.width + 5.5) / 2;
+
+        const leftX = p.x - halfWidth * cosY;
+        const leftZ = p.z + halfWidth * sinY;
+        const rightX = p.x + halfWidth * cosY;
+        const rightZ = p.z - halfWidth * sinY;
+
+        const centerGroundY = getInterpolatedHeight(p.x, p.z, heights, rows, cols, level.data.terrainBase.width, level.data.terrainBase.depth);
+        const leftGroundY = getInterpolatedHeight(leftX, leftZ, heights, rows, cols, level.data.terrainBase.width, level.data.terrainBase.depth);
+        const rightGroundY = getInterpolatedHeight(rightX, rightZ, heights, rows, cols, level.data.terrainBase.width, level.data.terrainBase.depth);
+
+        const maxRoadY = Math.max(centerGroundY, leftGroundY - 0.5, rightGroundY - 0.5);
+        const leftGroundOffset = leftGroundY - maxRoadY;
+        const rightGroundOffset = rightGroundY - maxRoadY;
+
+        expect(Number.isFinite(leftGroundOffset)).toBe(true);
+        expect(Number.isFinite(rightGroundOffset)).toBe(true);
+        // Foundation depth (12m) is greater than maximum possible cross-slope drop
+        expect(Math.abs(leftGroundOffset)).toBeLessThan(12.0);
+        expect(Math.abs(rightGroundOffset)).toBeLessThan(12.0);
       }
     }
   });

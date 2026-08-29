@@ -194,7 +194,9 @@ export function GrassField() {
     });
   }, [grassTuftTex, wildflowerTex, desertTuftTex]);
 
-  const isDesert = levelData.id.toLowerCase().includes('desert');
+  const levelId = levelData.id.toLowerCase();
+  const isDesert = levelId.includes('desert');
+  const isSnow = levelId.includes('sweden') || levelId.includes('snow') || levelId.includes('winter');
 
   const shaderUniformsRef = useRef<Record<string, IUniform>[]>([]);
   const carPosRef = useRef(new Vector3(0, 0, 0));
@@ -232,7 +234,9 @@ export function GrassField() {
     let attempt = 0;
 
     const targetGrassCount =
-      graphicsQuality === 'low'
+      isSnow
+        ? 0
+        : graphicsQuality === 'low'
         ? 14000
         : graphicsQuality === 'medium'
         ? 36000
@@ -308,7 +312,7 @@ export function GrassField() {
     const geo = createGrassTuftGeometry();
 
     return { chunksData: chunks, geometry: geo };
-  }, [heightmapData, levelData, graphicsQuality, isDesert]);
+  }, [heightmapData, levelData, graphicsQuality, isDesert, isSnow]);
 
   // Create shared custom grass material with photorealistic texture & wind shader
   const material = useMemo(() => {

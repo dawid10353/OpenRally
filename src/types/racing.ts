@@ -5,6 +5,8 @@ export interface CheckpointData {
   width: number;
   isStart: boolean;
   isFinish: boolean;
+  leftGroundOffset?: number;
+  rightGroundOffset?: number;
 }
 
 export type RaceStatus = 'idle' | 'countdown' | 'racing' | 'completed';

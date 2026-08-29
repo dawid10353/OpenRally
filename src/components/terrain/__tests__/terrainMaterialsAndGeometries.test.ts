@@ -27,13 +27,30 @@ describe('Terrain Materials and Procedural Geometries', () => {
       trackTexture: dummyTex,
       rockTexture: dummyTex,
       sandTexture: dummyTex,
+      snowTexture: dummyTex,
+      snowTrackTexture: dummyTex,
       isDesert: false,
+      isSnow: false,
     });
 
     expect(material).toBeDefined();
     expect(material.vertexColors).toBe(true);
     expect(material.roughness).toBeGreaterThan(0.5);
     expect(typeof material.onBeforeCompile).toBe('function');
+
+    const snowMaterial = createDetailedTerrainMaterial({
+      grassTexture: dummyTex,
+      trackTexture: dummyTex,
+      rockTexture: dummyTex,
+      sandTexture: dummyTex,
+      snowTexture: dummyTex,
+      snowTrackTexture: dummyTex,
+      isDesert: false,
+      isSnow: true,
+    });
+
+    expect(snowMaterial).toBeDefined();
+    expect(snowMaterial.roughness).toBeGreaterThan(0.85);
   });
 
   it('creates 3D volumetric grass tuft geometry with bladeTip, uv, normal, and position attributes', () => {

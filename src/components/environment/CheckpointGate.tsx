@@ -117,6 +117,14 @@ const REAR_BANNER_TEXTURE = createGateBannerCanvasTexture(false);
 const LAMP_LENS_GEO = new CircleGeometry(0.11, 12);
 const SPOTLIGHT_LENS_GEO = new CircleGeometry(0.18, 12);
 
+// Deep 12m subterranean foundation cylinder (never levitates on any slope)
+const FOUNDATION_CYL_GEO = new CylinderGeometry(0.75, 0.85, 12.0, 10);
+FOUNDATION_CYL_GEO.translate(0, -6.0, 0);
+
+// Crash pad sitting from Y = 0 to Y = 1.3m
+const CRASH_PAD_GEO = new BoxGeometry(1.3, 1.3, 1.3);
+CRASH_PAD_GEO.translate(0, 0.65, 0);
+
 // Shared reusable materials (Zero-GC, Zero runtime allocation)
 const STEEL_TRUSS_MAT = new MeshStandardMaterial({ color: '#cfd8dc', metalness: 0.88, roughness: 0.25 });
 const FOUNDATION_MAT = new MeshStandardMaterial({ color: '#212529', roughness: 0.9 });
@@ -169,17 +177,15 @@ const INACTIVE_SPOTLIGHT_LENS_MAT = new MeshStandardMaterial({
   side: DoubleSide,
 });
 
-interface GateMergedGeometries {
-  trussGeo: BufferGeometry;
-  foundationGeo: BufferGeometry;
-  crashPadGeo: BufferGeometry;
+interface HeaderMergedGeometries {
+  headerTrussGeo: BufferGeometry;
   bannerGeo: BufferGeometry;
 }
 
-const mergedGateGeoCache = new Map<number, GateMergedGeometries>();
+const headerGeoCache = new Map<number, HeaderMergedGeometries>();
 
-function createMergedGateGeometries(width: number): GateMergedGeometries {
-  const cached = mergedGateGeoCache.get(width);
+function getHeaderGeometries(width: number): HeaderMergedGeometries {
+  const cached = headerGeoCache.get(width);
   if (cached) return cached;
 
   const halfWidth = width / 2;
@@ -192,33 +198,7 @@ function createMergedGateGeometries(width: number): GateMergedGeometries {
 
   const trussParts: BufferGeometry[] = [];
 
-  // 1. Pillar vertical chords (Left & Right)
-  const pillarCyl = new CylinderGeometry(0.055, 0.055, gateHeight, 8);
-  [-halfWidth, halfWidth].forEach((px) => {
-    [-0.32, 0.32].forEach((ox) => {
-      [-0.3, 0.3].forEach((oz) => {
-        const chord = pillarCyl.clone();
-        chord.translate(px + ox, gateHeight / 2, oz);
-        trussParts.push(chord);
-      });
-    });
-  });
-
-  // 2. Pillar diagonal cross-braces
-  const braceCyl = new CylinderGeometry(0.028, 0.028, 0.95, 6);
-  for (let idx = 0; idx < 5; idx++) {
-    const lBrace = braceCyl.clone();
-    lBrace.rotateX(0.42);
-    lBrace.translate(-halfWidth, 1.8 + idx * 0.95, 0);
-    trussParts.push(lBrace);
-
-    const rBrace = braceCyl.clone();
-    rBrace.rotateX(-0.42);
-    rBrace.translate(halfWidth, 1.8 + idx * 0.95, 0);
-    trussParts.push(rBrace);
-  }
-
-  // 3. Lamp housings (Left & Right)
+  // 1. Lamp housings (Left & Right)
   const lampHousingCyl = new CylinderGeometry(0.12, 0.14, 0.22, 10);
   const leftLampHousing = lampHousingCyl.clone();
   leftLampHousing.rotateZ(Math.PI / 2);
@@ -230,7 +210,7 @@ function createMergedGateGeometries(width: number): GateMergedGeometries {
   rightLampHousing.translate(halfWidth - 0.38, gateHeight * 0.72, 0);
   trussParts.push(rightLampHousing);
 
-  // 4. Overhead crossbeams (Top & Bottom, Front & Rear)
+  // 2. Overhead crossbeams (Top & Bottom, Front & Rear)
   const crossbeamCyl = new CylinderGeometry(0.065, 0.065, width + 1.2, 8);
   [-0.3, 0.3].forEach((oz) => {
     const topBar = crossbeamCyl.clone();
@@ -244,7 +224,7 @@ function createMergedGateGeometries(width: number): GateMergedGeometries {
     trussParts.push(botBar);
   });
 
-  // 5. Overhead diagonal braces
+  // 3. Overhead diagonal braces
   const topTrussDiagCyl = new CylinderGeometry(0.025, 0.025, 1.8, 6);
   for (let idx = 0; idx < 8; idx++) {
     const step = (width * 0.85) / 8;
@@ -255,7 +235,7 @@ function createMergedGateGeometries(width: number): GateMergedGeometries {
     trussParts.push(diag);
   }
 
-  // 6. Spotlight housings
+  // 4. Spotlight housings
   const spotCone = new CylinderGeometry(0.02, 0.2, 0.32, 8);
   [-halfWidth * 0.55, 0, halfWidth * 0.55].forEach((sx) => {
     const spot = spotCone.clone();
@@ -264,43 +244,59 @@ function createMergedGateGeometries(width: number): GateMergedGeometries {
     trussParts.push(spot);
   });
 
-  // Merge all metal truss components into 1 single BufferGeometry
-  const mergedTruss = BufferGeometryUtils.mergeGeometries(trussParts, false);
-
-  // Concrete foundations (Left & Right)
-  const foundationCyl = new CylinderGeometry(0.7, 0.8, 3.0, 10);
-  const leftFound = foundationCyl.clone();
-  leftFound.translate(-halfWidth, -1.4, 0);
-  const rightFound = foundationCyl.clone();
-  rightFound.translate(halfWidth, -1.4, 0);
-  const mergedFound = BufferGeometryUtils.mergeGeometries([leftFound, rightFound], false);
-
-  // Crash pads (Left & Right)
-  const padBox = new BoxGeometry(1.3, 1.3, 1.3);
-  const leftPad = padBox.clone();
-  leftPad.translate(-halfWidth, 0.65, 0);
-  const rightPad = padBox.clone();
-  rightPad.translate(halfWidth, 0.65, 0);
-  const mergedPad = BufferGeometryUtils.mergeGeometries([leftPad, rightPad], false);
-
-  // Banner box geometry
+  const mergedHeaderTruss = BufferGeometryUtils.mergeGeometries(trussParts, false);
   const bannerGeo = new BoxGeometry(bannerWidth, bannerHeight, 0.28);
 
-  const result: GateMergedGeometries = {
-    trussGeo: mergedTruss,
-    foundationGeo: mergedFound,
-    crashPadGeo: mergedPad,
+  const result: HeaderMergedGeometries = {
+    headerTrussGeo: mergedHeaderTruss,
     bannerGeo,
   };
 
-  mergedGateGeoCache.set(width, result);
+  headerGeoCache.set(width, result);
   return result;
 }
 
+const pillarGeoCache = new Map<number, BufferGeometry>();
+
 /**
- * Intermediate Rally Timing Checkpoint Gate.
- * Features pre-merged high-performance architecture, textured motorsport header beam,
- * heavy-duty hazard crash pads, and down-spotlights with zero per-frame CPU/GPU churn.
+ * Creates an adaptive steel truss column geometry spanning from Y = 0 to Y = height.
+ */
+function getPillarColumnGeometry(height: number): BufferGeometry {
+  const roundedHeight = Math.max(0.5, Math.round(height * 10) / 10);
+  const cached = pillarGeoCache.get(roundedHeight);
+  if (cached) return cached;
+
+  const parts: BufferGeometry[] = [];
+
+  // 4 vertical tubular chords
+  const chordCyl = new CylinderGeometry(0.055, 0.055, roundedHeight, 8);
+  [-0.32, 0.32].forEach((ox) => {
+    [-0.3, 0.3].forEach((oz) => {
+      const chord = chordCyl.clone();
+      chord.translate(ox, roundedHeight / 2, oz);
+      parts.push(chord);
+    });
+  });
+
+  // Diagonal cross braces along the variable height
+  const numBraces = Math.max(1, Math.floor(roundedHeight / 0.95));
+  const braceStep = roundedHeight / numBraces;
+  const braceCyl = new CylinderGeometry(0.028, 0.028, Math.hypot(0.64, braceStep), 6);
+  for (let idx = 0; idx < numBraces; idx++) {
+    const brace = braceCyl.clone();
+    brace.rotateX(0.42 * (idx % 2 === 0 ? 1 : -1));
+    brace.translate(0, (idx + 0.5) * braceStep, 0);
+    parts.push(brace);
+  }
+
+  const merged = BufferGeometryUtils.mergeGeometries(parts, false);
+  pillarGeoCache.set(roundedHeight, merged);
+  return merged;
+}
+
+/**
+ * Intermediate Rally Timing Checkpoint Gate with Adaptive Terrain Ground Anchoring.
+ * Seamlessly anchors into slopes, hillsides, and banked curves with zero levitation and zero clipping.
  */
 export const CheckpointGate = memo(function CheckpointGate({
   data,
@@ -311,10 +307,20 @@ export const CheckpointGate = memo(function CheckpointGate({
   const width = data.width;
   const halfWidth = width / 2;
   const gateHeight = 6.2;
+  const topBarY = gateHeight + 0.9;
   const botBarY = gateHeight - 0.9;
   const bannerCenterY = gateHeight;
 
-  const geometries = useMemo(() => createMergedGateGeometries(width), [width]);
+  const leftOffset = data.leftGroundOffset ?? 0;
+  const rightOffset = data.rightGroundOffset ?? 0;
+
+  // Pillar column heights extending from top of crash pad (offset + 1.3m) up to topBarY (7.1m)
+  const leftColHeight = Math.max(0.5, topBarY - (leftOffset + 1.3));
+  const rightColHeight = Math.max(0.5, topBarY - (rightOffset + 1.3));
+
+  const { headerTrussGeo, bannerGeo } = useMemo(() => getHeaderGeometries(width), [width]);
+  const leftColumnGeo = useMemo(() => getPillarColumnGeometry(leftColHeight), [leftColHeight]);
+  const rightColumnGeo = useMemo(() => getPillarColumnGeometry(rightColHeight), [rightColHeight]);
 
   const statusLampMat = isPassed
     ? PASSED_STATUS_LAMP_MAT
@@ -324,20 +330,24 @@ export const CheckpointGate = memo(function CheckpointGate({
 
   const spotlightMat = isTarget ? TARGET_SPOTLIGHT_LENS_MAT : INACTIVE_SPOTLIGHT_LENS_MAT;
 
+  // Exact collider heights matching terrain elevations
+  const leftColliderHeight = Math.max(1.0, topBarY - leftOffset);
+  const rightColliderHeight = Math.max(1.0, topBarY - rightOffset);
+
   return (
     <group position={[x, y, z]} rotation={[0, data.rotationY, 0]}>
       {/* ─── 0. SOLID PHYSICS COLLIDERS ─── */}
       <RigidBody type="fixed" colliders={false}>
-        {/* Left Pillar */}
+        {/* Left Pillar Collider */}
         <CylinderCollider
-          args={[gateHeight / 2, 0.55]}
-          position={[-halfWidth, gateHeight / 2, 0]}
+          args={[leftColliderHeight / 2, 0.65]}
+          position={[-halfWidth, (leftOffset + topBarY) / 2, 0]}
           friction={0.8}
         />
-        {/* Right Pillar */}
+        {/* Right Pillar Collider */}
         <CylinderCollider
-          args={[gateHeight / 2, 0.55]}
-          position={[halfWidth, gateHeight / 2, 0]}
+          args={[rightColliderHeight / 2, 0.65]}
+          position={[halfWidth, (rightOffset + topBarY) / 2, 0]}
           friction={0.8}
         />
         {/* Top Overhead Crossbeam & Banner */}
@@ -348,22 +358,36 @@ export const CheckpointGate = memo(function CheckpointGate({
         />
       </RigidBody>
 
-      {/* ─── 1. PRE-MERGED STRUCTURAL ARCHITECTURE (1 single draw call for all steel trusswork) ─── */}
-      <mesh geometry={geometries.trussGeo} material={STEEL_TRUSS_MAT} castShadow />
+      {/* ─── 1. OVERHEAD HORIZONTAL TRUSS ARCHITECTURE ─── */}
+      <mesh geometry={headerTrussGeo} material={STEEL_TRUSS_MAT} castShadow />
 
-      {/* ─── 2. PRE-MERGED FOUNDATIONS ─── */}
-      <mesh geometry={geometries.foundationGeo} material={FOUNDATION_MAT} />
-
-      {/* ─── 3. PRE-MERGED CRASH PADS ─── */}
-      <mesh geometry={geometries.crashPadGeo} material={CRASH_PAD_MAT} castShadow receiveShadow />
-
-      {/* ─── 4. OVERHEAD RALLY TIMING BANNER ─── */}
+      {/* ─── 2. OVERHEAD RALLY TIMING BANNER ─── */}
       <mesh
         position={[0, bannerCenterY, 0]}
-        geometry={geometries.bannerGeo}
+        geometry={bannerGeo}
         material={SHARED_BANNER_MATERIALS}
         castShadow
       />
+
+      {/* ─── 3. ADAPTIVE LEFT PILLAR & GROUND ANCHORS ─── */}
+      <group position={[-halfWidth, leftOffset, 0]}>
+        {/* Deep subterranean concrete foundation (12m deep into the slope) */}
+        <mesh geometry={FOUNDATION_CYL_GEO} material={FOUNDATION_MAT} />
+        {/* Heavy duty hazard crash pad resting flush on the terrain */}
+        <mesh geometry={CRASH_PAD_GEO} material={CRASH_PAD_MAT} castShadow receiveShadow />
+        {/* Vertical steel truss column extending from crash pad to top beam */}
+        <mesh position={[0, 1.3, 0]} geometry={leftColumnGeo} material={STEEL_TRUSS_MAT} castShadow />
+      </group>
+
+      {/* ─── 4. ADAPTIVE RIGHT PILLAR & GROUND ANCHORS ─── */}
+      <group position={[halfWidth, rightOffset, 0]}>
+        {/* Deep subterranean concrete foundation (12m deep into the slope) */}
+        <mesh geometry={FOUNDATION_CYL_GEO} material={FOUNDATION_MAT} />
+        {/* Heavy duty hazard crash pad resting flush on the terrain */}
+        <mesh geometry={CRASH_PAD_GEO} material={CRASH_PAD_MAT} castShadow receiveShadow />
+        {/* Vertical steel truss column extending from crash pad to top beam */}
+        <mesh position={[0, 1.3, 0]} geometry={rightColumnGeo} material={STEEL_TRUSS_MAT} castShadow />
+      </group>
 
       {/* ─── 5. STATUS INDICATOR LIGHT LENSES (Left & Right) ─── */}
       <mesh

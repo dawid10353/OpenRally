@@ -42,20 +42,49 @@ export function Checkpoints() {
     for (let i = 0; i < count; i++) {
       const p = points[i];
       const u = i / count;
-      const tangent = trackCurve.getTangentAt(u);
+      const tangent = trackCurve.getTangentAt(u).normalize();
       
       // Exact heading along track spline direction
-      // In Three.js coordinates, +Z is forward, so atan2(tangent.x, tangent.z) aligns local Z with the road
       const rotY = Math.atan2(tangent.x, tangent.z);
-      const groundY = getInterpolatedHeight(p.x, p.z, heights, rows, cols, mapWidth, mapDepth);
+      const cosY = Math.cos(rotY);
+      const sinY = Math.sin(rotY);
+
+      const gateWidth = levelData.track.width + 5.5;
+      const halfWidth = gateWidth / 2;
+      const roadHalfWidth = levelData.track.width / 2;
+
+      // Sample terrain heights at exact world positions of left pillar, right pillar and road edges
+      // (matching the group's rotationY transform: local -X -> (-halfWidth*cosY, +halfWidth*sinY))
+      const centerGroundY = getInterpolatedHeight(p.x, p.z, heights, rows, cols, mapWidth, mapDepth);
+
+      const leftX = p.x - halfWidth * cosY;
+      const leftZ = p.z + halfWidth * sinY;
+      const leftGroundY = getInterpolatedHeight(leftX, leftZ, heights, rows, cols, mapWidth, mapDepth);
+
+      const rightX = p.x + halfWidth * cosY;
+      const rightZ = p.z - halfWidth * sinY;
+      const rightGroundY = getInterpolatedHeight(rightX, rightZ, heights, rows, cols, mapWidth, mapDepth);
+
+      // Drivable road edge heights
+      const roadLeftY = getInterpolatedHeight(p.x - roadHalfWidth * cosY, p.z + roadHalfWidth * sinY, heights, rows, cols, mapWidth, mapDepth);
+      const roadRightY = getInterpolatedHeight(p.x + roadHalfWidth * cosY, p.z - roadHalfWidth * sinY, heights, rows, cols, mapWidth, mapDepth);
+
+      // Gantry origin Y is aligned with the highest drivable road point to ensure clearance everywhere
+      const maxRoadY = Math.max(centerGroundY, roadLeftY, roadRightY);
+
+      // Relative ground offsets under the left and right pillars
+      const leftGroundOffset = leftGroundY - maxRoadY;
+      const rightGroundOffset = rightGroundY - maxRoadY;
 
       cps.push({
         id: i,
-        position: [p.x, groundY, p.z],
+        position: [p.x, maxRoadY, p.z],
         rotationY: rotY,
-        width: levelData.track.width + 5.5,
+        width: gateWidth,
         isStart: i === 0,
         isFinish: i === 0,
+        leftGroundOffset,
+        rightGroundOffset,
       });
     }
 

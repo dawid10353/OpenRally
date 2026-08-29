@@ -1,6 +1,7 @@
 import type { LevelPreset } from '@/types/level';
 import { LEVEL1_DATA } from './level1';
 import { LEVEL2_DESERT_DATA } from './levels/desertCanyon';
+import { LEVEL3_SWEDEN_DATA } from './levels/swedenSnow';
 
 /**
  * Stage 1 / Default Level: Island Circuit.
@@ -69,11 +70,45 @@ export const LEVEL_PRESET_DESERT: LevelPreset = {
 };
 
 /**
+ * Stage 3 Level: Sweden Snow Rally.
+ * High-speed Scandinavian winter stage with snowbanks, crest jumps, red cottages, and frozen lake sections.
+ * Vehicle spawns directly on the marked start grid facing the Start/Finish Gantry.
+ */
+export const LEVEL_PRESET_SWEDEN: LevelPreset = {
+  id: 'level3_sweden',
+  name: 'Sweden Snow Rally',
+  description: 'High-speed Scandinavian winter stage with snowbanks, crest jumps, red cottages, and frozen lake.',
+  difficulty: 'hard',
+  surfaceDescription: 'Snow & Ice',
+  data: LEVEL3_SWEDEN_DATA,
+  spawnPosition: [-3.5, 11.0, 1.5],
+  spawnRotationY: Math.atan2(130 - (-70), -50 - (-40)), // Aligned with start straight
+  fallResetY: -10.0,
+  environment: {
+    sky: {
+      sunPosition: [120, 25, -60],
+      inclination: 0.72,
+      azimuth: 0.35,
+      turbidity: 2.5,
+      rayleigh: 0.9,
+      mieCoefficient: 0.008,
+      mieDirectionalG: 0.85,
+    },
+    fog: {
+      color: '#d4e5f2',
+      near: 120,
+      far: 1400,
+    },
+  },
+};
+
+/**
  * Registry of all available levels in OpenRally.
  */
 export const LEVEL_REGISTRY: Record<string, LevelPreset> = {
   level1_island: LEVEL_PRESET_ISLAND,
   level2_desert: LEVEL_PRESET_DESERT,
+  level3_sweden: LEVEL_PRESET_SWEDEN,
 };
 
 /** Default active level ID */
@@ -92,3 +127,4 @@ export function getLevelPreset(id: string): LevelPreset {
 export function getAvailableLevels(): LevelPreset[] {
   return Object.values(LEVEL_REGISTRY);
 }
+

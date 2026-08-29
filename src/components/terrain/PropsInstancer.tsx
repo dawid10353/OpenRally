@@ -1072,6 +1072,7 @@ export function PropsInstancer() {
   const [
     pineBarkTexture,
     pineBranchTexture,
+    pineBranchSnowTexture,
     birchBarkTexture,
     leafyBranchTexture,
     desertBarkTexture,
@@ -1079,13 +1080,16 @@ export function PropsInstancer() {
     rockTexture,
     sandTexture,
     cabinTimberWallTexture,
+    cabinRedWallTexture,
     cabinDoorTexture,
     cabinWindowTexture,
     cabinRoofTexture,
+    cabinRoofSnowTexture,
     fenceTexture,
   ] = useTexture([
     '/textures/foliage/tree_bark.jpg',
     '/textures/foliage/pine_branch.jpg',
+    '/textures/foliage/pine_branch_snow.jpg',
     '/textures/foliage/birch_bark.jpg',
     '/textures/foliage/leafy_branch.jpg',
     '/textures/foliage/desert_bark.jpg',
@@ -1093,9 +1097,11 @@ export function PropsInstancer() {
     '/textures/terrain/rock_cliff.jpg',
     '/textures/terrain/desert_sand.jpg',
     '/textures/props/cabin_timber_wall.jpg',
+    '/textures/props/cabin_red_wall.jpg',
     '/textures/props/cabin_door.jpg',
     '/textures/props/cabin_window.jpg',
     '/textures/props/cabin_roof.jpg',
+    '/textures/props/cabin_roof_snow.jpg',
     '/textures/props/rustic_fence.jpg',
   ]);
 
@@ -1103,6 +1109,7 @@ export function PropsInstancer() {
     [
       pineBarkTexture,
       pineBranchTexture,
+      pineBranchSnowTexture,
       birchBarkTexture,
       leafyBranchTexture,
       desertBarkTexture,
@@ -1110,9 +1117,11 @@ export function PropsInstancer() {
       rockTexture,
       sandTexture,
       cabinTimberWallTexture,
+      cabinRedWallTexture,
       cabinDoorTexture,
       cabinWindowTexture,
       cabinRoofTexture,
+      cabinRoofSnowTexture,
       fenceTexture,
     ].forEach((tex) => {
       tex.wrapS = RepeatWrapping;
@@ -1124,6 +1133,7 @@ export function PropsInstancer() {
   }, [
     pineBarkTexture,
     pineBranchTexture,
+    pineBranchSnowTexture,
     birchBarkTexture,
     leafyBranchTexture,
     desertBarkTexture,
@@ -1131,13 +1141,17 @@ export function PropsInstancer() {
     rockTexture,
     sandTexture,
     cabinTimberWallTexture,
+    cabinRedWallTexture,
     cabinDoorTexture,
     cabinWindowTexture,
     cabinRoofTexture,
+    cabinRoofSnowTexture,
     fenceTexture,
   ]);
 
-  const isDesert = levelData.id.toLowerCase().includes('desert');
+  const levelId = levelData.id.toLowerCase();
+  const isDesert = levelId.includes('desert');
+  const isSnow = levelId.includes('sweden') || levelId.includes('snow') || levelId.includes('winter');
 
   // Geometries
   const pineTrunkGeo = useMemo(() => {
@@ -1234,9 +1248,9 @@ export function PropsInstancer() {
         map: pineBarkTexture,
         roughness: 0.92,
         metalness: 0.02,
-        color: new Color('#5a3f2b'),
+        color: new Color(isSnow ? '#44342a' : '#5a3f2b'),
       }),
-    [pineBarkTexture],
+    [pineBarkTexture, isSnow],
   );
 
   const birchTrunkMaterial = useMemo(
@@ -1340,9 +1354,14 @@ export function PropsInstancer() {
   };
 
   const pineFoliageMaterial = useMemo(
-    () => createFoliageMaterial(pineBranchTexture, isDesert ? '#8b7a42' : '#23441a', false),
+    () =>
+      createFoliageMaterial(
+        isSnow ? pineBranchSnowTexture : pineBranchTexture,
+        isSnow ? '#ffffff' : isDesert ? '#8b7a42' : '#23441a',
+        false,
+      ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pineBranchTexture, isDesert],
+    [pineBranchTexture, pineBranchSnowTexture, isDesert, isSnow],
   );
 
   const birchFoliageMaterial = useMemo(
@@ -1362,11 +1381,11 @@ export function PropsInstancer() {
     () =>
       new MeshStandardMaterial({
         map: rockTexture,
-        roughness: 0.85,
+        roughness: isSnow ? 0.92 : 0.85,
         metalness: 0.05,
-        color: new Color('#9fa4ab'),
+        color: new Color(isSnow ? '#b5bec8' : '#9fa4ab'),
       }),
-    [rockTexture],
+    [rockTexture, isSnow],
   );
 
   const sandstoneMaterial = useMemo(
@@ -1395,12 +1414,12 @@ export function PropsInstancer() {
   const cabinWallMaterial = useMemo(
     () =>
       new MeshStandardMaterial({
-        map: cabinTimberWallTexture,
+        map: isSnow ? cabinRedWallTexture : cabinTimberWallTexture,
         roughness: 0.88,
         metalness: 0.02,
-        color: new Color('#755f4c'),
+        color: new Color(isSnow ? '#b83b2a' : '#755f4c'),
       }),
-    [cabinTimberWallTexture],
+    [cabinTimberWallTexture, cabinRedWallTexture, isSnow],
   );
 
   const cabinDoorMaterial = useMemo(
@@ -1409,9 +1428,9 @@ export function PropsInstancer() {
         map: cabinDoorTexture,
         roughness: 0.82,
         metalness: 0.04,
-        color: new Color('#80654e'),
+        color: new Color(isSnow ? '#ded9ce' : '#80654e'),
       }),
-    [cabinDoorTexture],
+    [cabinDoorTexture, isSnow],
   );
 
   const cabinWindowMaterial = useMemo(
@@ -1428,12 +1447,12 @@ export function PropsInstancer() {
   const cabinRoofMaterial = useMemo(
     () =>
       new MeshStandardMaterial({
-        map: cabinRoofTexture,
+        map: isSnow ? cabinRoofSnowTexture : cabinRoofTexture,
         roughness: 0.88,
         metalness: 0.01,
-        color: new Color('#635e4f'),
+        color: new Color(isSnow ? '#ffffff' : '#635e4f'),
       }),
-    [cabinRoofTexture],
+    [cabinRoofTexture, cabinRoofSnowTexture, isSnow],
   );
 
   const fenceMaterial = useMemo(
@@ -1442,9 +1461,9 @@ export function PropsInstancer() {
         map: fenceTexture,
         roughness: 0.92,
         metalness: 0.02,
-        color: new Color('#7a7164'),
+        color: new Color(isSnow ? '#8b8478' : '#7a7164'),
       }),
-    [fenceTexture],
+    [fenceTexture, isSnow],
   );
 
   // Categorize props and compute exact ground anchoring for zero floating

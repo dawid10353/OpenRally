@@ -17,7 +17,9 @@ export function getSurfaceAtPosition(
   heightmapData?: HeightmapData,
   levelData?: LevelData,
 ): SurfaceType {
-  const isDesert = levelData?.id?.toLowerCase().includes('desert') ?? false;
+  const levelId = levelData?.id?.toLowerCase() ?? '';
+  const isDesert = levelId.includes('desert');
+  const isSnow = levelId.includes('sweden') || levelId.includes('snow') || levelId.includes('winter');
 
   // 1. Prepared track circuit takes precedence over underlying terrain elevation
   if (heightmapData && levelData) {
@@ -33,12 +35,18 @@ export function getSurfaceAtPosition(
     if (col >= 0 && col < cols && row >= 0 && row < rows) {
       const mask = trackMasks[row * cols + col];
       if (mask > 0.35) {
+        if (isSnow) return 'snow';
         return isDesert ? 'gravel' : 'mud';
       }
     }
   }
 
   // 2. Off-track terrain handling:
+  // Snow maps are snow everywhere
+  if (isSnow) {
+    return 'snow';
+  }
+
   // Desert maps are sandy dunes everywhere off-track
   if (isDesert) {
     return 'sand';
