@@ -6,11 +6,12 @@
   <p><strong>Next-generation open-source 3D arcade-sim rally experience running directly in modern web browsers at 60+ FPS.</strong></p>
 
   <p>
+    <a href="https://github.com/dawid10353/OpenRally/releases"><img src="https://img.shields.io/badge/Release-v1.0.0-blue?logo=github&logoColor=white" alt="Release v1.0.0" /></a>
     <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-Strict_Zero_Any-3178C6?logo=typescript&logoColor=white" alt="TypeScript Strict" /></a>
     <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" /></a>
     <a href="https://threejs.org/"><img src="https://img.shields.io/badge/Three.js-R3F-black?logo=three.js" alt="Three.js & R3F" /></a>
     <a href="https://rapier.rs/"><img src="https://img.shields.io/badge/Physics-Rapier3D_WASM-E95420" alt="Rapier3D WASM" /></a>
-    <a href="https://vitest.dev/"><img src="https://img.shields.io/badge/Tests-148_Passing-22c55e?logo=vitest&logoColor=white" alt="Vitest Tests" /></a>
+    <a href="https://vitest.dev/"><img src="https://img.shields.io/badge/Tests-178_Passing-22c55e?logo=vitest&logoColor=white" alt="Vitest Tests" /></a>
     <a href="https://oxc.rs/"><img src="https://img.shields.io/badge/Linter-Oxlint_Clean-10b981" alt="Oxlint" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License" /></a>
   </p>
@@ -199,7 +200,7 @@ OpenRally Architecture
 ├── UI & HUD:           React 19 + SVG Instrumentation + CSS Modules
 ├── Post-Processing:    @react-three/postprocessing (Bloom, Vignette, ToneMapping)
 ├── Audio Engine:       WebAudio API (procedural synthesis & sampling)
-├── Testing & QA:       Vitest (148+ automated tests) + Oxlint + Strict TypeScript
+├── Testing & QA:       Vitest (178+ automated tests) + Oxlint + Strict TypeScript
 └── Bundler & Dev:      Vite 8
 ```
 
@@ -221,7 +222,7 @@ OpenRally Architecture
 OpenRally enforces strict quality gates with zero tolerance for regressions:
 
 ```bash
-# Run complete verification suite (Typecheck + Lint + Vitest 148 tests)
+# Run complete verification suite (Typecheck + Lint + Vitest 178 tests)
 npm run check
 
 # Run unit tests only

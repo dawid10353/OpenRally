@@ -1575,6 +1575,9 @@ export function MenuOverlay() {
             </span>
             <strong>Back</strong>
           </span>
+          <span style={{ marginLeft: 'auto', opacity: 0.6, fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px' }}>
+            v1.0.0
+          </span>
         </div>
 
       </div>
