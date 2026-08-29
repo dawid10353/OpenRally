@@ -168,7 +168,7 @@ describe('tire and surface physics', () => {
       expect(result.grips[2]).toBeLessThan(result.grips[0]);
     });
 
-    it('reduces rear wheel grip on loose surfaces when throttle is applied (power oversteer)', () => {
+    it('reduces all powered wheel grips synchronously on loose surfaces when throttle is applied (AWD power slide)', () => {
       const controllerWithoutThrottle = createMockController();
       const resultNoThrottle = applyTireFrictionAndBrakes(
         controllerWithoutThrottle,
@@ -198,7 +198,9 @@ describe('tire and surface physics', () => {
 
       expect(resultNoThrottle.surface).toBe('sand');
       expect(resultWithThrottle.surface).toBe('sand');
-      // Rear wheels (index 2, 3) should experience reduced grip under full throttle on sand
+      // In AWD mode, all 4 driven wheels (0, 1, 2, 3) should experience synchronized grip reduction under full throttle
+      expect(resultWithThrottle.grips[0]).toBeLessThan(noThrottleGrips[0]);
+      expect(resultWithThrottle.grips[1]).toBeLessThan(noThrottleGrips[1]);
       expect(resultWithThrottle.grips[2]).toBeLessThan(noThrottleGrips[2]);
       expect(resultWithThrottle.grips[3]).toBeLessThan(noThrottleGrips[3]);
     });

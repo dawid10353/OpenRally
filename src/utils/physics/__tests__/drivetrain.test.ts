@@ -93,4 +93,30 @@ describe('drivetrain physics', () => {
     expect(corneringController.forces[0]).toBeGreaterThan(straightController.forces[0]);
     expect(corneringController.forces[2]).toBeGreaterThan(straightController.forces[2]);
   });
+
+  it('boosts AWD engine force during high-angle drifts to maintain speed and momentum', () => {
+    const straightController = createMockController();
+    applyDrivetrain(
+      straightController,
+      DEFAULT_VEHICLE_CONFIG,
+      { throttle: 1, brake: 0, steering: 0 },
+      15,
+      2,
+      0 // No slip
+    );
+
+    const driftingController = createMockController();
+    applyDrivetrain(
+      driftingController,
+      DEFAULT_VEHICLE_CONFIG,
+      { throttle: 1, brake: 0, steering: 0 },
+      15,
+      2,
+      Math.PI / 6 // 30 degrees slip angle
+    );
+
+    // Forces during high slip drift should be significantly boosted to retain kinetic energy
+    expect(driftingController.forces[0]).toBeGreaterThan(straightController.forces[0]);
+    expect(driftingController.forces[2]).toBeGreaterThan(straightController.forces[2]);
+  });
 });

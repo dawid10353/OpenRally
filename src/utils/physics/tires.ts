@@ -120,11 +120,10 @@ export function applyTireFrictionAndBrakes(
       currentFriction = gripCurve.baseGrip - (gripCurve.baseGrip - gripCurve.slideGrip) * overSlip;
     }
 
-    // Dynamic loose surface traction loss under throttle (power oversteer / wheelspin)
+    // Dynamic loose surface traction loss under throttle (AWD wheelspin & power slide)
     if (throttle > 0.15 && surfaceDef.looseSurfaceTractionLoss && wheel.powered) {
-      // Rear/steerable power delivery breaks traction on loose surfaces (mud, grass, sand)
-      const axleSlipFactor = !wheel.steerable ? 1.0 : 0.45;
-      const tractionLoss = axleSlipFactor * surfaceDef.looseSurfaceTractionLoss * throttle;
+      // In AWD rally drivetrains, all driven wheels break loose and spin synchronously under throttle
+      const tractionLoss = surfaceDef.looseSurfaceTractionLoss * throttle;
       currentFriction *= Math.max(0.35, 1.0 - tractionLoss);
     }
 

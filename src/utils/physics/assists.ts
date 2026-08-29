@@ -45,23 +45,24 @@ export function applyAssists(
     const absSpeed = Math.abs(forwardSpeed);
 
     if (Math.abs(input.steering) > 0.02 && absSpeed > 1.5) {
-      // Agile Turn-In Assistance (simulates front torque vectoring & active diff turn-in)
+      // Subtle, progressive Turn-In Assistance (complements physical tire forces smoothly)
       const speedRamp = Math.min(1.0, absSpeed / 12.0);
-      const turnInTorque = input.steering * speedRamp * 0.55 * mass * dt;
+      const turnInTorque = input.steering * speedRamp * 0.20 * mass * dt;
       localTorqueY += turnInTorque;
 
       // Allow natural rotation up to a dynamic yaw rate based on steering & speed
-      const targetYawRate = input.steering * Math.min(2.8, (absSpeed / 14.0) + 1.2);
+      const targetYawRate = input.steering * Math.min(3.2, (absSpeed / 12.0) + 1.5);
       const excessYaw = _localAngVel.y - targetYawRate;
 
       // Only damp if vehicle is over-rotating beyond the intended drift angle
-      if (Math.sign(_localAngVel.y) === Math.sign(input.steering) && Math.abs(_localAngVel.y) > Math.abs(targetYawRate) + 0.3) {
-        localTorqueY -= excessYaw * config.handling.assists.yawDamping * mass * dt * 1.8;
+      if (Math.sign(_localAngVel.y) === Math.sign(input.steering) && Math.abs(_localAngVel.y) > Math.abs(targetYawRate) + 0.5) {
+        localTorqueY -= excessYaw * config.handling.assists.yawDamping * mass * dt * 1.0;
       }
     } else {
-      // Centered / neutral steering — damp unintended snap-spins and oscillations
-      if (Math.abs(_localAngVel.y) > 0.1) {
-        localTorqueY -= _localAngVel.y * (config.handling.assists.yawDamping * 1.5) * mass * dt * 2.0;
+      // Centered / neutral steering — gentle straight-line stability without killing drift momentum
+      const isPowerSliding = input.throttle > 0.2 && Math.abs(_localAngVel.y) < 3.0;
+      if (!isPowerSliding && Math.abs(_localAngVel.y) > 0.3) {
+        localTorqueY -= _localAngVel.y * config.handling.assists.yawDamping * mass * dt * 0.8;
       }
     }
   }

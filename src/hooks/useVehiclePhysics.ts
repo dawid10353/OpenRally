@@ -168,7 +168,7 @@ export function useVehiclePhysics(
     }
 
     // --- 1. APPLY DRIVETRAIN (Engine, Reverse) ---
-    applyDrivetrain(controller, config, input, forwardSpeed, currentGear);
+    applyDrivetrain(controller, config, input, forwardSpeed, currentGear, slipAngle);
 
     // --- 2. APPLY TIRE FRICTION & BRAKES ---
     const { grips: tireGrips, surface } = applyTireFrictionAndBrakes(

@@ -32,15 +32,26 @@ describe('assists physics', () => {
     reset: false,
   };
 
-  it('applies stabilizing torque impulse when car experiences unintended yaw rotation', () => {
-    // Car spinning around Y axis with 0 steering input
+  it('applies stabilizing torque impulse when car experiences unintended yaw rotation off-throttle', () => {
+    // Car spinning around Y axis with 0 steering input and 0 throttle
     const body = createMockBody({ angvel: { x: 0, y: 2.0, z: 0 } });
-    applyAssists(body, DEFAULT_VEHICLE_CONFIG, baseInput, 20, 0.016);
+    applyAssists(body, DEFAULT_VEHICLE_CONFIG, { ...baseInput, throttle: 0 }, 20, 0.016);
 
     expect(body.applyTorqueImpulse).toHaveBeenCalled();
     expect(body.appliedTorques.length).toBeGreaterThan(0);
     // Opposes the positive angular velocity
     expect(body.appliedTorques[0].y).toBeLessThan(0);
+  });
+
+  it('allows natural power sliding under throttle without aggressive neutral yaw fighting', () => {
+    // Car sliding at moderate yaw rate under active throttle
+    const body = createMockBody({ angvel: { x: 0, y: 1.5, z: 0 } });
+    applyAssists(body, DEFAULT_VEHICLE_CONFIG, { ...baseInput, throttle: 1 }, 20, 0.016);
+
+    // Yaw torques should not forcefully clamp the slide
+    const yawTorques = body.appliedTorques.map((t) => t.y);
+    const sumYaw = yawTorques.reduce((a, b) => a + b, 0);
+    expect(sumYaw).toBe(0);
   });
 
   it('does not apply restrictive yaw torque when handbrake is held (allowing drift/spins)', () => {
