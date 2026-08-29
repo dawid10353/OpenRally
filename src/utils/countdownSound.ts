@@ -1,5 +1,5 @@
 /**
- * Web Audio synthesizer for FIA Rally countdown start beeps.
+ * Web Audio synthesizer for rally countdown start beeps.
  * Produces crisp 520Hz ready beeps for 3, 2, 1 and high-pitch 1040Hz triumphant beep for START.
  */
 let _audioCtx: AudioContext | null = null;

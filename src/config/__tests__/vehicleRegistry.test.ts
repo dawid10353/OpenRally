@@ -32,7 +32,7 @@ describe('Vehicle Registry', () => {
 
     const wrcCar = getVehiclePreset('rally_wrc');
     expect(wrcCar.id).toBe('rally_wrc');
-    expect(wrcCar.name).toBe('Vortex WRC Rally1');
+    expect(wrcCar.name).toBe('Vortex Rally1');
     expect(wrcCar.stats.driveType).toBe('AWD');
     expect(wrcCar.config.engine.maxSpeed).toBe(265);
 

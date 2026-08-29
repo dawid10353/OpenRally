@@ -35,7 +35,7 @@
 
   <p align="center">
     <img src="public/screenshots/gantry_finish.png" alt="OpenRally Modular Checkpoint Gate & Rally Timing" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
-    <img src="public/screenshots/drift_action.png" alt="OpenRally Vortex WRC Drift Action & Skid Marks" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
+    <img src="public/screenshots/drift_action.png" alt="OpenRally Vortex Rally1 Drift Action & Skid Marks" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
   </p>
 
   <p align="center">
@@ -139,7 +139,7 @@ OpenRally provides seamless support for **Keyboard** and **Gamepads** (PlayStati
 ### Playable Vehicles (Garage)
 
 <div align="center">
-  <img src="public/screenshots/garage_vortex.png" alt="OpenRally Garage - Vortex WRC Rally1" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
+  <img src="public/screenshots/garage_vortex.png" alt="OpenRally Garage - Vortex Rally1" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
   <img src="public/screenshots/garage_apex.png" alt="OpenRally Garage - Apex Rally AWD" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
 </div>
 
@@ -148,7 +148,7 @@ OpenRally provides seamless support for **Keyboard** and **Gamepads** (PlayStati
 | Vehicle | Class | Drivetrain | Top Speed | Handling | Character |
 |---|---|---|---|---|---|
 | **Apex Rally AWD** | Classic Group A Rally | AWD (50/50) | 240 km/h | ★★★★★ | Dedicated 3D rally legend with forgiving suspension, balanced AWD grip, and agile cornering. |
-| **Vortex WRC Rally1** | Modern WRC Rally1 | AWD (50/50) | 265 km/h | ★★★★★ | Next-gen modern WRC machine with aggressive aero, explosive turbo acceleration, and razor-sharp downforce handling. |
+| **Vortex Rally1** | Modern Rally1 | AWD (50/50) | 265 km/h | ★★★★★ | Next-gen modern Rally1 machine with aggressive aero, explosive turbo acceleration, and razor-sharp downforce handling. |
 
 ### Available Stages & Tracks
 
@@ -244,7 +244,7 @@ npm run typecheck
 - [x] **Stage 1 — Foundation (Completed):** Procedural heightmap terrain, Rapier raycast vehicle physics, chase/bumper cameras, HUD, lighting.
 - [x] **Stage 2 — Simulation & Polish (Completed):** Particle systems, synthesized WebAudio, surface friction curves, skid ribbons, checkpoint racing system, Vitest test suite.
 - [x] **Stage 3 — Expansion (Current Stage):**
-  - [x] Dedicated 3D GLB vehicle models (`Apex Rally AWD`, `Vortex WRC Rally1`) with raycast suspension & tire physics
+  - [x] Dedicated 3D GLB vehicle models (`Apex Rally AWD`, `Vortex Rally1`) with raycast suspension & tire physics
   - [x] Authentic analog rally instrumentation (Speedometer, Tachometer, Shift Light, Gear Display)
   - [x] Stage roadbook minimap with compass directions and elevation awareness
   - [x] Multi-track stage registry (Island Circuit, Desert Canyon)

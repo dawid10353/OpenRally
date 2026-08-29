@@ -179,6 +179,7 @@ Multiplayer, map editor, weather, asset generation automation
 3. **No toy/placeholder VFX or environment elements**: Always implement effects (water, smoke, dust, vegetation, props) using enterprise/AAA techniques (custom GLSL shaders, GPU instancing, typed particle pools, physical interaction, graphics scalability).
 4. **Never commit code breaking `npm run check`**: All tests and linter must be clean before finishing tasks.
 5. **Git Branch & Push Policy (Main & Stable Protection)**: All ongoing development, commits, and experiments must remain strictly on the `dev` branch. **NEVER automatically merge or push changes to `main` or `stable` branches.** Syncing, merging, or pushing to `main` and `stable` is ONLY allowed when the user explicitly requests it.
+6. **Strict Trademark & Copyright Safety (IP Protection)**: NEVER use real-world automotive manufacturer brands (e.g., *Ford, Toyota, Subaru, Mitsubishi, Audi, Porsche*), real motorsport governing bodies or series trademarks (e.g., *FIA, WRC, WEC, Formula 1, F1, NASCAR*), or real corporate sponsor trademarks (e.g., *Red Bull, Monster Energy, Pirelli, Castrol, Sparco, Michelin*) in vehicle presets, in-game banners, 3D textures, UI text, audio tags, or code comments. Always invent and use completely original, fictional, or generic names and branding (e.g., `Apex Rally AWD`, `Vortex Rally1`, `Open Rally Championship`). Ensure all assets (audio, 3D models, textures) are original or under permissive licenses (MIT/CC0) with zero trademark infringements.
 
 
 

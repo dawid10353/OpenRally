@@ -43,7 +43,7 @@ const BULB_GEO = new SphereGeometry(0.14, 12, 12);
 const RIM_GEO = new RingGeometry(0.14, 0.18, 12);
 
 /**
- * Isolated FIA 5-Light Array cluster.
+ * Isolated 5-Light Rally Start Array cluster.
  * Subscribes to countdown and raceStatus in isolation so the rest of the gantry never re-renders.
  */
 const StartLightsCluster = memo(function StartLightsCluster() {
@@ -656,7 +656,7 @@ export const StartFinishGantry = memo(function StartFinishGantry({ data }: Start
       {/* ─── 5. HIGH-PERFORMANCE DIGITAL TIMING LED SCREEN ─── */}
       <DigitalTimingScreen />
 
-      {/* ─── 6. FIA RALLY START LIGHT CLUSTER ─── */}
+      {/* ─── 6. 5-LIGHT RALLY START LIGHT CLUSTER ─── */}
       <StartLightsCluster />
 
       {/* Overhead Gantry Down-Spotlights */}

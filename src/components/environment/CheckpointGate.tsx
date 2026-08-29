@@ -102,7 +102,7 @@ function createGateBannerCanvasTexture(isFront: boolean): CanvasTexture {
 
       ctx.font = '800 24px "Segoe UI", sans-serif';
       ctx.fillStyle = '#00d4ff';
-      ctx.fillText('★ FIA WORLD RALLY ★', 512, 168);
+      ctx.fillText('★ OPEN WORLD RALLY ★', 512, 168);
     }
   }
   const tex = new CanvasTexture(canvas);

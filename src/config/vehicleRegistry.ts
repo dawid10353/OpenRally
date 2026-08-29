@@ -115,12 +115,12 @@ export const WRC_VEHICLE_CONFIG: VehicleConfig = {
 };
 
 /**
- * Modern Rally1 WRC Car Preset.
+ * Modern Rally1 Car Preset.
  */
 export const VEHICLE_RALLY_WRC: VehiclePreset = {
   id: 'rally_wrc',
-  name: 'Vortex WRC Rally1',
-  description: 'Next-gen modern WRC rally machine with aggressive aero, explosive turbo acceleration, and razor-sharp high-speed downforce handling.',
+  name: 'Vortex Rally1',
+  description: 'Next-gen modern Rally1 machine with aggressive aero, explosive turbo acceleration, and razor-sharp high-speed downforce handling.',
   category: 'rally',
   modelPath: VEHICLE_WRC_MODEL_PATH,
   modelPositionOffset: [0, 0.10, 0.1],
