@@ -54,12 +54,12 @@ OpenRally follows standard **Three.js Right-Handed Cartesian Coordinates**:
 To make adding new content frictionless and modular for AI agents, the codebase uses centralized registries:
 
 1. **`VehicleRegistry` (`src/config/vehicleRegistry.ts`)**:
-   - Manages all playable vehicles (`rally_hatchback`, `rally_coupe`, `desert_truck`).
+   - Manages all playable vehicles (`rally_hatchback`, `rally_wrc`).
    - Pairs 3D GLB model paths, visual scale/offset offsets, UI stats, and `VehicleConfig`.
    - Access via `getVehiclePreset(id)` or `getAvailableVehicles()`.
 
 2. **`LevelRegistry` (`src/config/levelRegistry.ts`)**:
-   - Manages all tracks & stages (`level1_island`, `level2_desert`).
+   - Manages all tracks & stages (`level1_island`, `level2_desert`, `level3_sweden`, `level4_britain`).
    - Encapsulates `LevelData` (heightmap noise, track spline, height brush modifiers, props), level spawn coordinates `[x, y, z]`, spawn heading, fall reset bounds, and environmental atmosphere presets.
    - Access via `getLevelPreset(id)` or `getAvailableLevels()`.
 
@@ -103,14 +103,15 @@ Inside `src/hooks/useVehiclePhysics.ts`, each animation frame executes in the fo
 
 1. **Delta Clamping**: `const dt = Math.min(delta, MAX_DELTA);` (prevents physics explosions after background tab switches).
 2. **Input Reading**: Reads normalized throttle `[0, 1]`, brake `[0, 1]`, steering `[-1, 1]`, handbrake `boolean`.
-3. **Speed & Slip Calculation**: Computes forward speed, lateral speed, and slip angle (difference between heading and velocity vector).
+3. **Speed & Slip Calculation**: Computes forward speed, lateral speed, ground speed (`Math.hypot`), and chassis slip angle.
 4. **Powertrain & Gearbox**: Computes automatic gear shifting (1-5 or Reverse) and engine RPM (`calculateRPM`). Emits `gear_shifted` on changes.
-5. **Drivetrain Force**: Distributes engine torque to powered wheels based on AWD/RWD bias (`applyDrivetrain`).
-6. **Tires & Friction**: Determines surface from `SurfaceRegistry`, applies Pacejka-lite friction drop-off, handbrake drift multiplier, and steering angles (`applyTireFrictionAndBrakes`). Emits `surface_changed` on changes.
-7. **Aerodynamics & Assists**: Applies downforce and subtle yaw/pitch/roll anti-spin damping (`applyAerodynamics`, `applyAssists`).
+5. **Drivetrain Force**: Distributes engine torque to all powered wheels via continuous symmetrical AWD with drift power boost compensation (`applyDrivetrain`).
+6. **Tires & Friction**: Determines surface from `SurfaceRegistry`, computes per-wheel local slip angles (front wheels account for steer angle), applies smooth cubic Hermite (smoothstep) Pacejka-lite friction curve with front/rear grip bias, handbrake drift multiplier, and steering angles (`applyTireFrictionAndBrakes`). Emits `surface_changed` on changes.
+7. **Aerodynamics & Assists**: Applies downforce, responsive turn-in yaw torque assist, and pitch/roll anti-spin stabilization (`applyAerodynamics`, `applyAssists`).
 8. **Suspension Anti-Roll Bars**: Balances left/right suspension compression on front and rear axles (`applyAntiRollBars`).
-9. **Visual Synchronization**: Syncs visual wheel meshes with suspension travel, steering angle, and wheel roll rotation (`syncWheelVisuals`).
-10. **State Store Update**: Updates `useGameStore` with latest telemetry for HUD, audio, and particle systems.
+9. **Rolling Drag & Drift Momentum**: Applies surface rolling resistance with 65% drag reduction during active throttle drifts to preserve cornering speed.
+10. **Visual Synchronization**: Syncs visual wheel meshes with suspension travel, steering angle, and wheel roll rotation (`syncWheelVisuals`).
+11. **State Store Update**: Updates `useGameStore` with latest telemetry for HUD, audio, and particle systems.
 
 ---
 

@@ -153,4 +153,56 @@ npm run check
 ```
 This executes compiler checks, oxlint linter, full-project diagnostics (`diagnostics.test.ts`), and vitest unit tests across all registries, generators, and physics formulas.
 
+---
+
+## 7. Vehicle Physics Tuning Guide
+
+OpenRally's vehicle physics pipeline consists of 4 interdependent subsystems. Understanding how they interact is essential for balanced handling.
+
+### 7.1 Surface Grip (`src/config/surfaceRegistry.ts`)
+
+Each surface defines **front and rear** tire grip curves independently:
+```ts
+tireModel: {
+  front: { baseGrip: 2.30, peakSlipAngle: Math.PI / 8, slideGrip: 1.65 },
+  rear:  { baseGrip: 2.10, peakSlipAngle: Math.PI / 8, slideGrip: 1.50 },
+}
+```
+
+| Parameter | Effect |
+|---|---|
+| `baseGrip` | Peak lateral friction. Lower = easier to slide. |
+| `peakSlipAngle` | Angle at which grip starts dropping. Tighter = less margin before slide. |
+| `slideGrip` | Minimum friction when fully sliding. Lower = faster, more committed drifts. |
+| Front > Rear bias | ~10% higher front grip creates natural oversteer tendency (rear breaks loose first). |
+
+### 7.2 Tire Friction Model (`src/utils/physics/tires.ts`)
+
+Key design decisions:
+- **Per-wheel local slip angle**: Front steered wheels compute `|slipAngle - steerAngle|` so turning into a slide reduces their perceived slip, maintaining front grip and turn-in authority.
+- **Smooth cubic Hermite (smoothstep) drop-off** instead of linear: `overSlip² × (3 - 2 × overSlip)` gives gradual grip loss near the limit and sharp loss at extreme angles.
+- **Loose surface traction loss**: Under throttle on dirt/gravel/snow, all powered wheels lose grip synchronously (`looseSurfaceTractionLoss × throttle`, floor at 0.40).
+
+### 7.3 Drivetrain AWD Power (`src/utils/physics/drivetrain.ts`)
+
+Continuous symmetrical AWD with drift power compensation:
+```
+driftPowerBoost = 1.0 + steerAmount × 0.35 + slipAmount × 0.65
+```
+- At full lock steering + 45° slip: `1.0 + 0.35 + 0.65 = 2.0×` engine force.
+- This overcomes lateral scrub drag so the car **accelerates through drifts** instead of bogging down.
+- `frontBias: 0.5` = 50/50 front/rear torque split (true symmetrical AWD).
+
+### 7.4 Assists (`src/utils/physics/assists.ts`)
+
+| Assist | Purpose |
+|---|---|
+| **Turn-in torque** (`0.52 × mass × speedRamp`) | Direct yaw moment on corner entry, eliminates understeer. Ramps from 0 to full over 8 m/s. |
+| **Yaw rate ceiling** (`min(4.5, speed/10 + 2.2)`) | Limits rotation speed to prevent spin-outs. Only kicks in at excess yaw + 0.8 rad/s. |
+| **Power slide freedom** | When throttle > 0.15 and yaw < 3.8 rad/s with no steering, yaw damping is suppressed to preserve drift momentum. |
+| **Handbrake** | Completely disables yaw damping for free rotation during handbrake turns. |
+
+### 7.5 Rolling Drag & Drift Momentum (`src/hooks/useVehiclePhysics.ts`)
+
+During active throttle drifts (`|slipAngle| > 0.15` and `throttle > 0.1`), rolling resistance is reduced by 65% to prevent artificial speed loss during cornering slides.
 
