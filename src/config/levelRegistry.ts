@@ -1,5 +1,5 @@
 import type { LevelPreset } from '@/types/level';
-import { LEVEL1_DATA } from './level1';
+import { LEVEL1_DATA } from './levels/islandCircuit';
 import { LEVEL2_DESERT_DATA } from './levels/desertCanyon';
 import { LEVEL3_SWEDEN_DATA } from './levels/swedenSnow';
 import { LEVEL4_BRITAIN_DATA } from './levels/highlandCastle';

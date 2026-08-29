@@ -1,7 +1,7 @@
 import { Color } from 'three';
 import type { LevelData } from '@/types/level';
 
-import { LEVEL1_DATA } from './level1';
+import { LEVEL1_DATA } from './levels/islandCircuit';
 
 // ─── Default Level Config ─────────────────────────────────────────
 /** Default level configuration for Stage 1 */

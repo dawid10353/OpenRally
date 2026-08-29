@@ -15,38 +15,8 @@ export const GEAR_RATIOS = [0, 2.5, 1.8, 1.3, 1.0, 0.8]; // Index is gear (0=N/R
 export const SHIFT_UP_SPEEDS = [0, 40, 80, 130, 180, 999]; // Shift to next gear when exceeding these speeds (km/h)
 export const SHIFT_DOWN_SPEEDS = [0, 0, 30, 70, 120, 170]; // Shift to previous gear when falling below these speeds (km/h)
 
-// ─── Friction & Tire Models ──────────────────────────────────────────
-export const TIRE_MODELS: Record<'tarmac' | 'mud' | 'grass' | 'sand', import('@/types/vehicle').TireConfig> = {
-  tarmac: {
-    front: { baseGrip: 2.80, peakSlipAngle: Math.PI / 8, slideGrip: 2.25 },
-    rear: { baseGrip: 2.75, peakSlipAngle: Math.PI / 8, slideGrip: 2.20 },
-  },
-  mud: {
-    front: { baseGrip: 2.20, peakSlipAngle: Math.PI / 6.8, slideGrip: 1.80 },
-    rear: { baseGrip: 2.15, peakSlipAngle: Math.PI / 6.8, slideGrip: 1.75 },
-  },
-  grass: {
-    front: { baseGrip: 1.75, peakSlipAngle: Math.PI / 7, slideGrip: 1.35 },
-    rear: { baseGrip: 1.70, peakSlipAngle: Math.PI / 7, slideGrip: 1.30 },
-  },
-  sand: {
-    front: { baseGrip: 1.65, peakSlipAngle: Math.PI / 6, slideGrip: 1.30 },
-    rear: { baseGrip: 1.60, peakSlipAngle: Math.PI / 6, slideGrip: 1.25 },
-  },
-};
-
 /** Terrain elevation threshold below which coastal sand friction is applied (ocean surface is at -8.0) */
 export const SAND_ELEVATION_THRESHOLD = -5.0;
-
-// ─── Reset ───────────────────────────────────────────────────────────
-/** Y position below which the vehicle resets (fallen into ocean, wheels completely submerged) */
-export const FALL_RESET_Y = -8.25;
-
-/** Position the vehicle resets to after falling (spawned on the track) */
-export const RESET_SPAWN_POSITION: [number, number, number] = [-209.8, -0.2, -38.0];
-
-/** Euler Y rotation (heading in radians) when spawned/reset */
-export const RESET_SPAWN_ROTATION_Y = Math.PI + 0.7 - (120 * Math.PI / 180);
 
 // ─── Frame Clamping ──────────────────────────────────────────────────
 /** Maximum frame delta (seconds) to prevent physics explosion after tab switch */

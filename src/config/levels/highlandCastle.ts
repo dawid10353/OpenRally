@@ -503,7 +503,7 @@ function generateBritainProps(_mapWidth: number, _mapDepth: number): PropData[] 
         rotation: [0, b.rotY, 0],
         scale: [1.0, 1.0, 1.0],
       },
-      4.0,
+      0,
     );
   }
 
