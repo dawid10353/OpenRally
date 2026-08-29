@@ -220,5 +220,40 @@ describe('tire and surface physics', () => {
       expect(resultWithThrottle.grips[2]).toBeLessThan(noThrottleGrips[2]);
       expect(resultWithThrottle.grips[3]).toBeLessThan(noThrottleGrips[3]);
     });
+
+    it('recovers front wheel grip when driver countersteers during a lateral drift', () => {
+      const controllerOversteer = createMockController();
+      // Sliding right (slipAngle = 0.5 rad) and steering into slide (+1.0)
+      const resultIntoSlide = applyTireFrictionAndBrakes(
+        controllerOversteer,
+        DEFAULT_VEHICLE_CONFIG,
+        { brake: 0, handbrake: false, steering: 1.0, throttle: 0 },
+        50,
+        13.8,
+        0,
+        5,
+        0,
+        0.5 // +0.5 rad sliding right
+      );
+      const intoSlideGrips = [...resultIntoSlide.grips];
+
+      const controllerCountersteer = createMockController();
+      // Sliding right (slipAngle = 0.5 rad) and countersteering right (-1.0)
+      const resultCountersteer = applyTireFrictionAndBrakes(
+        controllerCountersteer,
+        DEFAULT_VEHICLE_CONFIG,
+        { brake: 0, handbrake: false, steering: -1.0, throttle: 0 },
+        50,
+        13.8,
+        0,
+        5,
+        0,
+        0.5 // +0.5 rad sliding right
+      );
+
+      // Countersteering aligns front wheels with velocity vector, maintaining high front tire grip
+      expect(resultCountersteer.grips[0]).toBeGreaterThan(intoSlideGrips[0]);
+      expect(resultCountersteer.grips[1]).toBeGreaterThan(intoSlideGrips[1]);
+    });
   });
 });

@@ -9,7 +9,7 @@ import { useGameStore } from '@/store/gameStore';
 import { useRacingStore } from '@/store/racingStore';
 import { DEFAULT_VEHICLE_CONFIG, MS_TO_KMH, MAX_DELTA } from '@/config/vehicle';
 import { updateGearbox, calculateRPM } from '@/utils/physics/powertrain';
-import { applyDrivetrain } from '@/utils/physics/drivetrain';
+import { applyDrivetrain, applyAwdDriftPropulsion } from '@/utils/physics/drivetrain';
 import { applyTireFrictionAndBrakes } from '@/utils/physics/tires';
 import { applyAerodynamics } from '@/utils/physics/aerodynamics';
 import { applyAssists } from '@/utils/physics/assists';
@@ -244,6 +244,18 @@ export function useVehiclePhysics(
       _dragImpulse.copy(_forward).multiplyScalar(-Math.sign(forwardSpeed) * clampedDrag);
       body.applyImpulse(_dragImpulse, true);
     }
+
+    // --- 5.1. APPLY AWD POWER-SLIDE PROPULSION ---
+    applyAwdDriftPropulsion(
+      body,
+      config,
+      input,
+      _forward,
+      speedKmh,
+      slipAngle,
+      groundedRatio,
+      dt,
+    );
 
     // --- 6. UPDATE TELEMETRY & ENGINE RPM ---
     const targetRpm = calculateRPM(speedKmh, currentGear, input, {

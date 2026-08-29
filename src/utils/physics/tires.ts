@@ -120,9 +120,12 @@ export function applyTireFrictionAndBrakes(
     }
 
     // Calculate local slip angle relative to wheel heading:
-    // Front steered wheels are aligned with steerAngle, so their tire slip is (slipAngle - steerAngle).
-    // Rear non-steerable wheels experience the chassis slipAngle directly.
-    const localSlipAngle = wheel.steerable ? Math.abs(slipAngle - steerAngle) : Math.abs(slipAngle);
+    // In Three.js right-handed coordinates: +X is right, +Y is up, +Z is forward.
+    // When the car slides to the right, slipAngle = atan2(Vx, Vz) > 0.
+    // When the driver steers right, input.steering < 0, so steerAngle < 0 (pointing towards +X).
+    // The relative slip angle between the wheel heading and the ground velocity vector is (slipAngle + steerAngle).
+    // Countersteering thus directly reduces the front wheel slip angle to 0, recovering full steering authority!
+    const localSlipAngle = wheel.steerable ? Math.abs(slipAngle + steerAngle) : Math.abs(slipAngle);
 
     // Base friction with smooth slip curve (Pacejka-lite)
     const gripCurve = wheel.steerable ? tireModel.front : tireModel.rear;
@@ -136,11 +139,10 @@ export function applyTireFrictionAndBrakes(
       currentFriction = gripCurve.baseGrip - (gripCurve.baseGrip - gripCurve.slideGrip) * smoothDrop;
     }
 
-    // Dynamic loose surface traction loss under throttle (AWD wheelspin & power slide)
+    // Dynamic loose surface traction modulation under throttle (progressive rally wheelspin)
     if (throttle > 0.15 && surfaceDef.looseSurfaceTractionLoss && wheel.powered) {
-      // In AWD rally drivetrains, all driven wheels break loose synchronously under throttle
       const tractionLoss = surfaceDef.looseSurfaceTractionLoss * throttle;
-      currentFriction *= Math.max(0.40, 1.0 - tractionLoss);
+      currentFriction *= Math.max(0.85, 1.0 - tractionLoss);
     }
 
     // Handbrake — drift assist grip multiplier

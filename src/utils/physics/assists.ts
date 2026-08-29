@@ -45,18 +45,34 @@ export function applyAssists(
     const absSpeed = Math.abs(forwardSpeed);
 
     if (Math.abs(input.steering) > 0.02 && absSpeed > 1.5) {
-      // Responsive, direct Turn-In Assistance (eliminates understeer on corner entry)
-      const speedRamp = Math.min(1.0, absSpeed / 8.0);
-      const turnInTorque = input.steering * speedRamp * 0.52 * mass * dt;
-      localTorqueY += turnInTorque;
+      const isCounterSteering =
+        Math.sign(input.steering) !== Math.sign(_localAngVel.y) && Math.abs(_localAngVel.y) > 0.25;
 
-      // Allow natural rotation up to an agile dynamic yaw rate based on steering & speed
-      const targetYawRate = input.steering * Math.min(4.5, (absSpeed / 10.0) + 2.2);
-      const excessYaw = _localAngVel.y - targetYawRate;
+      if (isCounterSteering) {
+        // Active Countersteer Yaw Authority:
+        // When driver turns against the spin to catch a slide, apply dynamic aligning torque
+        // to rapidly arrest unwanted rotation and align heading with countersteering intent.
+        const counterTorque =
+          input.steering *
+          Math.min(3.2, Math.abs(_localAngVel.y) * 1.5 + 1.2) *
+          mass *
+          dt *
+          0.85;
+        localTorqueY += counterTorque;
+      } else {
+        // Responsive, direct Turn-In Assistance (eliminates understeer on corner entry)
+        const speedRamp = Math.min(1.0, absSpeed / 8.0);
+        const turnInTorque = input.steering * speedRamp * 0.52 * mass * dt;
+        localTorqueY += turnInTorque;
 
-      // Only damp if vehicle is over-rotating into a spin-out
-      if (Math.sign(_localAngVel.y) === Math.sign(input.steering) && Math.abs(_localAngVel.y) > Math.abs(targetYawRate) + 0.8) {
-        localTorqueY -= excessYaw * config.handling.assists.yawDamping * mass * dt * 0.7;
+        // Allow natural rotation up to an agile dynamic yaw rate based on steering & speed
+        const targetYawRate = input.steering * Math.min(4.5, (absSpeed / 10.0) + 2.2);
+        const excessYaw = _localAngVel.y - targetYawRate;
+
+        // Only damp if vehicle is over-rotating into a spin-out
+        if (Math.sign(_localAngVel.y) === Math.sign(input.steering) && Math.abs(_localAngVel.y) > Math.abs(targetYawRate) + 0.8) {
+          localTorqueY -= excessYaw * config.handling.assists.yawDamping * mass * dt * 0.7;
+        }
       }
     } else {
       // Centered / neutral steering — gentle straight-line stability without killing drift momentum

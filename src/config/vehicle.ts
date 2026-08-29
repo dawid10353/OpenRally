@@ -18,20 +18,20 @@ export const SHIFT_DOWN_SPEEDS = [0, 0, 30, 70, 120, 170]; // Shift to previous 
 // ─── Friction & Tire Models ──────────────────────────────────────────
 export const TIRE_MODELS: Record<'tarmac' | 'mud' | 'grass' | 'sand', import('@/types/vehicle').TireConfig> = {
   tarmac: {
-    front: { baseGrip: 2.6, peakSlipAngle: Math.PI / 7.5, slideGrip: 2.2 },
-    rear: { baseGrip: 2.6, peakSlipAngle: Math.PI / 7.5, slideGrip: 2.2 },
+    front: { baseGrip: 2.80, peakSlipAngle: Math.PI / 8, slideGrip: 2.25 },
+    rear: { baseGrip: 2.75, peakSlipAngle: Math.PI / 8, slideGrip: 2.20 },
   },
   mud: {
-    front: { baseGrip: 1.85, peakSlipAngle: Math.PI / 6, slideGrip: 1.55 },
-    rear: { baseGrip: 1.85, peakSlipAngle: Math.PI / 6, slideGrip: 1.55 },
+    front: { baseGrip: 2.20, peakSlipAngle: Math.PI / 6.8, slideGrip: 1.80 },
+    rear: { baseGrip: 2.15, peakSlipAngle: Math.PI / 6.8, slideGrip: 1.75 },
   },
   grass: {
-    front: { baseGrip: 1.50, peakSlipAngle: Math.PI / 6.5, slideGrip: 1.20 },
-    rear: { baseGrip: 1.50, peakSlipAngle: Math.PI / 6.5, slideGrip: 1.20 },
+    front: { baseGrip: 1.75, peakSlipAngle: Math.PI / 7, slideGrip: 1.35 },
+    rear: { baseGrip: 1.70, peakSlipAngle: Math.PI / 7, slideGrip: 1.30 },
   },
   sand: {
-    front: { baseGrip: 1.25, peakSlipAngle: Math.PI / 5.5, slideGrip: 1.00 },
-    rear: { baseGrip: 1.25, peakSlipAngle: Math.PI / 5.5, slideGrip: 1.00 },
+    front: { baseGrip: 1.65, peakSlipAngle: Math.PI / 6, slideGrip: 1.30 },
+    rear: { baseGrip: 1.60, peakSlipAngle: Math.PI / 6, slideGrip: 1.25 },
   },
 };
 

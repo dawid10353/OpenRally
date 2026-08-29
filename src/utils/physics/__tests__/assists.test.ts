@@ -75,4 +75,16 @@ describe('assists physics', () => {
     // Should apply positive torque in the direction of left steering
     expect(sumYaw).toBeGreaterThan(0);
   });
+
+  it('applies authoritative countersteer torque when steering opposes active yaw rotation', () => {
+    // Car rotating clockwise / right (angvel.y = -1.8) and driver countersteers left (+0.9)
+    const body = createMockBody({ angvel: { x: 0, y: -1.8, z: 0 } });
+    applyAssists(body, DEFAULT_VEHICLE_CONFIG, { ...baseInput, steering: 0.9 }, 15, 0.016);
+
+    expect(body.applyTorqueImpulse).toHaveBeenCalled();
+    const yawTorques = body.appliedTorques.map((t) => t.y);
+    const sumYaw = yawTorques.reduce((a, b) => a + b, 0);
+    // Countersteer should generate strong positive torque to catch the slide
+    expect(sumYaw).toBeGreaterThan(0);
+  });
 });

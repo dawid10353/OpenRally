@@ -1,6 +1,10 @@
 import type { VehicleConfig, IRapierVehicleController } from '@/types/vehicle';
 import type { InputState } from '@/types/game';
+import type { RapierRigidBody } from '@react-three/rapier';
+import { Vector3 } from 'three';
 import { GEAR_RATIOS, BRAKE_SPEED_THRESHOLD, REVERSE_FORCE_MULTIPLIER } from '@/config/vehicle';
+
+const _thrustImpulse = new Vector3();
 
 export function applyDrivetrain(
   controller: IRapierVehicleController,
@@ -41,5 +45,47 @@ export function applyDrivetrain(
     } else {
       controller.setWheelEngineForce(i, 0);
     }
+  }
+}
+
+/**
+ * Applies active AWD directional tractive propulsion during power slides.
+ * Overcomes Rapier's isotropic Coulomb friction circle clamping on sliding wheels,
+ * ensuring all 4 driven wheels deliver authentic forward momentum and throttle pull.
+ */
+export function applyAwdDriftPropulsion(
+  body: RapierRigidBody,
+  config: VehicleConfig,
+  input: Pick<InputState, 'throttle' | 'steering'>,
+  forwardVector: Vector3,
+  speedKmh: number,
+  slipAngle: number,
+  groundedRatio: number,
+  dt: number
+): void {
+  if (input.throttle <= 0.05 || groundedRatio <= 0) return;
+
+  const absSlip = Math.abs(slipAngle);
+  if (absSlip < 0.05) return;
+
+  // Slip engagement factor: ramps up as vehicle enters drift
+  const slipFactor = Math.min(1.0, (absSlip - 0.04) / (Math.PI / 4.5));
+  // Engine power headroom relative to top speed
+  const speedGovernor = Math.max(0, 1.0 - speedKmh / (config.engine.maxSpeed * 1.05));
+  
+  // AWD directional propulsion impulse along chassis heading
+  const thrustMagnitude =
+    (config.engine.maxForce / Math.max(1, config.chassisMass)) *
+    0.65 *
+    input.throttle *
+    slipFactor *
+    speedGovernor *
+    groundedRatio *
+    body.mass() *
+    dt;
+
+  if (thrustMagnitude > 0) {
+    _thrustImpulse.copy(forwardVector).multiplyScalar(thrustMagnitude);
+    body.applyImpulse(_thrustImpulse, true);
   }
 }
