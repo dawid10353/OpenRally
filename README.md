@@ -11,7 +11,7 @@
     <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" /></a>
     <a href="https://threejs.org/"><img src="https://img.shields.io/badge/Three.js-R3F-black?logo=three.js" alt="Three.js & R3F" /></a>
     <a href="https://rapier.rs/"><img src="https://img.shields.io/badge/Physics-Rapier3D_WASM-E95420" alt="Rapier3D WASM" /></a>
-    <a href="https://vitest.dev/"><img src="https://img.shields.io/badge/Tests-178_Passing-22c55e?logo=vitest&logoColor=white" alt="Vitest Tests" /></a>
+    <a href="https://vitest.dev/"><img src="https://img.shields.io/badge/Tests-191_Passing-22c55e?logo=vitest&logoColor=white" alt="Vitest Tests" /></a>
     <a href="https://oxc.rs/"><img src="https://img.shields.io/badge/Linter-Oxlint_Clean-10b981" alt="Oxlint" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License" /></a>
   </p>
@@ -85,8 +85,9 @@ The project combines authentic motorsport simulation principles with accessible 
 - **Raycast Suspension Kinetics:** Independent 4-wheel raycast suspension powered by **Rapier3D (WASM)** with authentic spring rates, compression/relaxation damping, anti-roll bars (ARB), wheel bottoming-out detection, and dynamic longitudinal/lateral weight transfer.
 - **Physics-Based Engine & RPM Simulation:** Real-time RPM calculations driven by wheel rotation speeds, clutch slippage, throttle inertia, idle bounce, and redline limiter bounce.
 - **Powertrain & Automatic Gearbox:** 5-speed automatic transmission with tuned gear ratios, torque curves, engine braking, and automatic upshift/downshift hysteresis.
-- **Pacejka-Inspired Multi-Surface Friction:** Non-linear tire grip curves simulating slip angles, traction limits, understeer/oversteer transitions, and responsive handbrake-initiated power slides.
-- **Arcade-Sim Driving Assists:** Speed-sensitive steering scaling, yaw damping, and drift grip multipliers for high accessibility paired with deep driving satisfaction.
+- **Pacejka-Inspired Multi-Surface Friction:** Non-linear tire grip curves with per-wheel local slip angles, front/rear grip bias for natural oversteer, smooth cubic Hermite (smoothstep) friction drop-off, and responsive handbrake-initiated power slides.
+- **Continuous Symmetrical AWD & Drift Power Compensation:** True 50/50 all-wheel-drive torque delivery with dynamic drift power boost that overcomes lateral scrub drag, maintaining speed and propulsion through high-angle slides.
+- **Arcade-Sim Driving Assists:** Responsive turn-in yaw torque, speed-sensitive steering scaling, power slide momentum preservation (65% rolling drag reduction during drifts), and drift grip multipliers for high accessibility paired with deep driving satisfaction.
 
 ### 🏁 Time Attack & Race Management
 - **3-2-1-GO Start Sequence:** Dynamic start countdown with synthesized WebAudio countdown beeps, input locking during the countdown, and instant launch on GO.
@@ -101,7 +102,7 @@ The project combines authentic motorsport simulation principles with accessible 
 
 ### 🏔️ Procedural Terrains & Dynamic Surface Registry
 - **Multi-Octave Terrain Engine:** Procedural terrain generation using continuous Simplex noise with erosion curves, realistic hills, valleys, and physics heightfield colliders.
-- **Dynamic Surface Physics:** Distinct friction models, rolling resistance, dust color signatures, and acoustics across **Tarmac, Mud, Grass, Sand, and Gravel**.
+- **Dynamic Surface Physics:** Distinct friction models with front/rear grip bias, rolling resistance, dust color signatures, and acoustics across **Tarmac, Mud, Grass, Sand, Snow, and Gravel**.
 
 ### ✨ Commercial-Grade VFX & Environmental Systems
 - **Modular 3D Race Architecture:** Checkpoint gates and start/finish gantries with truss frames, sponsor banners, spotlights, digital LED timers, and carbon-fiber textures.
@@ -157,6 +158,8 @@ OpenRally provides seamless support for **Keyboard** and **Gamepads** (PlayStati
 |---|---|---|---|
 | **Island Circuit** | Coastal Archipelago | Mud, Grass, Tarmac | Scenic coastal curves, green hills, ocean vistas, and fast flowing elevation changes. |
 | **Desert Canyon** | Arid Badlands | Sand, Gravel, Rock | Dusty canyon corridors, loose dunes, sharp switchbacks, and elevation drops. |
+| **Sweden Snow Rally** | Nordic Tundra | Snow, Ice | Frozen Scandinavian roads through pine forests, icy hairpins, and snow-covered valleys. |
+| **Highland Castle** | Scottish Highlands | Mud, Grass, Heather | Rolling highland moors with ancient castle ruins, stone cottages, scenic lochs, and Celtic standing stones. |
 
 ---
 
@@ -200,7 +203,7 @@ OpenRally Architecture
 ├── UI & HUD:           React 19 + SVG Instrumentation + CSS Modules
 ├── Post-Processing:    @react-three/postprocessing (Bloom, Vignette, ToneMapping)
 ├── Audio Engine:       WebAudio API (procedural synthesis & sampling)
-├── Testing & QA:       Vitest (178+ automated tests) + Oxlint + Strict TypeScript
+├── Testing & QA:       Vitest (191 automated tests) + Oxlint + Strict TypeScript
 └── Bundler & Dev:      Vite 8
 ```
 
@@ -222,7 +225,7 @@ OpenRally Architecture
 OpenRally enforces strict quality gates with zero tolerance for regressions:
 
 ```bash
-# Run complete verification suite (Typecheck + Lint + Vitest 178 tests)
+# Run complete verification suite (Typecheck + Lint + Vitest 191 tests)
 npm run check
 
 # Run unit tests only
@@ -248,11 +251,12 @@ npm run typecheck
   - [x] Dedicated 3D GLB vehicle models (`Apex Rally AWD`, `Vortex Rally1`) with raycast suspension & tire physics
   - [x] Authentic analog rally instrumentation (Speedometer, Tachometer, Shift Light, Gear Display)
   - [x] Stage roadbook minimap with compass directions and elevation awareness
-  - [x] Multi-track stage registry (Island Circuit, Desert Canyon)
+  - [x] Multi-track stage registry (Island Circuit, Desert Canyon, Sweden Snow Rally, Highland Castle)
   - [x] Modular 3D race architecture (start/finish gantries, sector gates, race textures)
   - [x] Time Attack 3-2-1-GO countdown sequence with audio beeps & split time delta tracking
   - [x] Physics-based dynamic engine RPM simulation with inertia & limiter bounce
   - [x] Full gamepad navigation, customizable deadzones, and progressive analog control
+  - [x] Vehicle physics overhaul: front/rear grip bias, per-wheel slip, smoothstep friction, AWD drift power boost, drift momentum preservation
   - [ ] Additional vehicle models (RWD Sports Coupe, Desert Trophy Truck)
   - [ ] Hillclimb & rallycross stages
 - [ ] **Stage 4 — Future Visions:**
