@@ -3,7 +3,7 @@ import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { TelemetryHUD } from './TelemetryHUD';
 import { Minimap } from './Minimap';
-import { AnalogGauges, TimingBoard } from './hud';
+import { AnalogGauges, TimingBoard } from './gauges';
 
 /**
  * Rally HUD overlay — authentic twin-gauge rally cluster (analog Speedometer & Tachometer),
