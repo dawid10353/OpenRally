@@ -7,4 +7,6 @@ export * from './GarageView';
 export * from './TrackSelectView';
 export * from './SettingsView';
 export * from './ControlsView';
+export * from './CreditsView';
+export * from './HeroShowcase';
 export * from './useMenuGamepadNavigation';

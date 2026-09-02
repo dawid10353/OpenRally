@@ -1,5 +1,7 @@
+import { useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { PresentationControls, Environment } from '@react-three/drei';
+import { OrbitControls, Environment } from '@react-three/drei';
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import type { VehiclePreset } from '@/types';
 import { menuStyles, getFocusStyle } from './menuStyles';
 import { CarModelDisplay, StatBar } from './CarModelDisplay';
@@ -33,9 +35,30 @@ export function GarageView({
   onSelectView,
 }: GarageViewProps) {
   const isEquipped = selectedVehicleId === previewVehicleId;
+  const controlsRef = useRef<OrbitControlsImpl>(null);
+
+  const handleZoomIn = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!controlsRef.current) return;
+    controlsRef.current.dollyIn(1.25);
+    controlsRef.current.update();
+  };
+
+  const handleZoomOut = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!controlsRef.current) return;
+    controlsRef.current.dollyOut(1.25);
+    controlsRef.current.update();
+  };
+
+  const handleResetCamera = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!controlsRef.current) return;
+    controlsRef.current.reset();
+  };
 
   return (
-    <div style={{ ...menuStyles.subView, color: textColor, width: '100%', minWidth: '520px' }}>
+    <div style={{ ...menuStyles.subView, color: textColor, width: '100%', minWidth: '540px', maxWidth: '820px' }}>
       <h2 style={menuStyles.subViewTitle}>Garage</h2>
 
       {/* Vehicle Selection Tabs */}
@@ -54,19 +77,89 @@ export function GarageView({
         ))}
       </div>
 
-      {/* 3D Preview Canvas */}
-      <div style={{ width: '100%', height: '240px', background: 'rgba(0,0,0,0.04)', borderRadius: '12px', overflow: 'hidden', cursor: 'grab' }}>
-        <Canvas shadows dpr={[1, 2]} camera={{ position: [4, 2.5, -6], fov: 45 }}>
-          <color attach="background" args={['#e8ecf0']} />
-          <ambientLight intensity={0.7} />
-          <directionalLight position={[10, 10, 10]} intensity={1.5} />
-          <PresentationControls speed={1.5} global zoom={0.8} polar={[-0.1, Math.PI / 4]}>
-            <group position={[0, 0.2, 0]}>
-              <CarModelDisplay preset={previewPreset} />
-            </group>
-          </PresentationControls>
+      {/* 3D Preview Canvas with 360° Orbit & Zoom */}
+      <div style={{
+        width: '100%',
+        height: '300px',
+        position: 'relative',
+        background: 'radial-gradient(ellipse at center, #18233C 0%, #0B101D 100%)',
+        borderRadius: '12px',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        overflow: 'hidden',
+        cursor: 'grab',
+      }}>
+        <Canvas shadows dpr={[1, 2]} camera={{ position: [3.8, 2.0, -5.4], fov: 42 }}>
+          <color attach="background" args={['#0B101D']} />
+          <ambientLight intensity={0.9} />
+          <directionalLight position={[10, 10, 10]} intensity={2.2} castShadow />
+          <directionalLight position={[-8, 6, -8]} intensity={0.7} color="#3B82F6" />
+          <group position={[0, 0.15, 0]}>
+            <CarModelDisplay preset={previewPreset} />
+          </group>
+          <OrbitControls
+            ref={controlsRef}
+            enablePan={false}
+            enableZoom={true}
+            minDistance={2.4}
+            maxDistance={8.5}
+            minPolarAngle={Math.PI / 12}
+            maxPolarAngle={Math.PI / 2 - 0.05}
+            enableDamping={true}
+            dampingFactor={0.08}
+            target={[0, 0.4, 0]}
+          />
           <Environment preset="city" />
         </Canvas>
+
+        {/* Interactive Zoom & Reset Controls */}
+        <div style={{
+          position: 'absolute',
+          top: '10px',
+          right: '10px',
+          display: 'flex',
+          gap: '6px',
+          zIndex: 10,
+        }}>
+          <button
+            type="button"
+            title="Zoom In"
+            style={styles.zoomButton}
+            onClick={handleZoomIn}
+          >
+            +
+          </button>
+          <button
+            type="button"
+            title="Zoom Out"
+            style={styles.zoomButton}
+            onClick={handleZoomOut}
+          >
+            −
+          </button>
+          <button
+            type="button"
+            title="Reset Camera View"
+            style={styles.zoomButton}
+            onClick={handleResetCamera}
+          >
+            ↺
+          </button>
+        </div>
+
+        {/* Interaction Hint */}
+        <span style={{
+          position: 'absolute',
+          bottom: '8px',
+          right: '12px',
+          fontSize: '10px',
+          fontWeight: 700,
+          letterSpacing: '1px',
+          color: 'rgba(255, 255, 255, 0.5)',
+          pointerEvents: 'none',
+          textShadow: '0 1px 4px rgba(0, 0, 0, 0.8)',
+        }}>
+          DRAG TO ROTATE • SCROLL TO ZOOM
+        </span>
       </div>
 
       {/* Specs and Description */}
@@ -92,21 +185,25 @@ export function GarageView({
           style={{
             ...menuStyles.button,
             flex: 1,
-            background: isEquipped ? '#10b981' : 'linear-gradient(90deg, #1B365D, #E31837)',
+            background: isEquipped ? 'linear-gradient(90deg, #059669, #10B981)' : 'linear-gradient(90deg, #991B1B, #E31837)',
+            justifyContent: 'center',
+            fontWeight: 700,
+            color: '#FFFFFF',
             ...getFocusStyle(focusedIndex === 0),
           }}
           onPointerMove={(e) => onPointerMoveItem(0, e)}
           onClick={() => onEquipVehicle(previewVehicleId)}
         >
-          {isEquipped ? '✓ Equipped' : 'Equip Vehicle'}
+          {isEquipped ? '✓ EQUIPPED' : 'EQUIP VEHICLE'}
         </button>
         <button
           style={{ 
             ...menuStyles.button, 
             ...menuStyles.secondaryButton, 
             color: textColor, 
-            borderColor: 'rgba(0,0,0,0.2)', 
-            width: '100px',
+            borderColor: 'rgba(255, 255, 255, 0.1)', 
+            width: '110px',
+            justifyContent: 'center',
             ...getFocusStyle(focusedIndex === 1),
           }} 
           onPointerMove={(e) => onPointerMoveItem(1, e)}
@@ -118,3 +215,22 @@ export function GarageView({
     </div>
   );
 }
+
+const styles: Record<string, React.CSSProperties> = {
+  zoomButton: {
+    width: '28px',
+    height: '28px',
+    borderRadius: '6px',
+    background: 'rgba(15, 23, 42, 0.75)',
+    border: '1px solid rgba(255, 255, 255, 0.15)',
+    color: '#F1F5F9',
+    fontSize: '14px',
+    fontWeight: 700,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    backdropFilter: 'blur(6px)',
+    transition: 'background 0.15s ease, border-color 0.15s ease, transform 0.1s ease',
+  },
+};

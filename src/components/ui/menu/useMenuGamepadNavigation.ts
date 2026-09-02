@@ -61,7 +61,9 @@ export function useMenuGamepadNavigation({
 
   const getItemCount = useCallback((): number => {
     const curView = viewRef.current;
-    if (curView === 'main') return 5;
+    if (curView === 'main') {
+      return useGameStore.getState().gameState === 'paused' ? 5 : 6;
+    }
     if (curView === 'start_mode') return 3;
     if (curView === 'garage') return 2;
     if (curView === 'tracks') return availableLevels.length + 1;
@@ -70,6 +72,7 @@ export function useMenuGamepadNavigation({
       return isVib ? 13 : 12;
     }
     if (curView === 'controls') return 1;
+    if (curView === 'credits') return 2;
     return 1;
   }, [availableLevels.length]);
 
@@ -209,6 +212,7 @@ export function useMenuGamepadNavigation({
         } else if (curIdx === 2) setView('tracks');
         else if (curIdx === 3) setView('options');
         else if (curIdx === 4) setView('controls');
+        else if (curIdx === 5) setView('credits');
       }
     } else if (curView === 'start_mode') {
       if (curIdx === 0) handleLaunchMode('freeroam');
@@ -244,6 +248,12 @@ export function useMenuGamepadNavigation({
       }
     } else if (curView === 'controls') {
       setView('main');
+    } else if (curView === 'credits') {
+      if (curIdx === 0) {
+        window.open('https://github.com/dawid10353/OpenRally', '_blank', 'noopener,noreferrer');
+      } else {
+        setView('main');
+      }
     }
   }, [
     availableLevels,

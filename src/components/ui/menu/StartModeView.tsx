@@ -32,19 +32,20 @@ export function StartModeView({
         display: 'flex',
         alignItems: 'center',
         gap: '8px',
-        background: 'rgba(0,0,0,0.04)',
-        padding: '6px 14px',
+        background: 'rgba(255, 255, 255, 0.05)',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        padding: '8px 16px',
         borderRadius: '20px',
         marginBottom: '16px',
         fontSize: '13px',
-        color: '#555',
+        color: '#CBD5E1',
       }}>
-        <span>Active Track: <strong>{currentLevelPreset.name}</strong></span>
+        <span>ACTIVE STAGE: <strong style={{ color: '#FFFFFF' }}>{currentLevelPreset.name}</strong></span>
         <button 
           style={{ border: 'none', background: 'transparent', color: '#E31837', fontWeight: 700, cursor: 'pointer', fontSize: '12px', padding: 0 }}
           onClick={() => onSelectView('tracks')}
         >
-          (Change Track)
+          (CHANGE STAGE)
         </button>
       </div>
 
@@ -54,8 +55,8 @@ export function StartModeView({
         <div 
           style={{
             ...menuStyles.modeCard,
-            borderColor: gameMode === 'freeroam' ? '#10b981' : 'rgba(0,0,0,0.12)',
-            background: 'rgba(16, 185, 129, 0.04)',
+            borderColor: gameMode === 'freeroam' ? '#10B981' : 'rgba(255, 255, 255, 0.1)',
+            background: gameMode === 'freeroam' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 255, 255, 0.02)',
             cursor: 'pointer',
             ...getFocusStyle(focusedIndex === 0),
           }}
@@ -63,21 +64,24 @@ export function StartModeView({
           onClick={() => onLaunchMode('freeroam')}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ ...menuStyles.modeBadge, background: '#10b981' }}>🌿 OPEN WORLD</span>
+            <span style={{ ...menuStyles.modeBadge, background: '#059669', letterSpacing: '1px' }}>FREE ROAM</span>
           </div>
-          <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: 700, color: '#111827' }}>
+          <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: 700, color: '#F8FAFC' }}>
             Free Roam
           </h3>
-          <p style={{ fontSize: '13px', color: '#4b5563', lineHeight: 1.4, margin: '0 0 16px 0', flex: 1 }}>
+          <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: 1.4, margin: '0 0 16px 0', flex: 1 }}>
             Drive freely across open hills and valleys. No checkpoint gates, no timer pressure — pure driving enjoyment.
           </p>
           <button
             style={{
               ...menuStyles.button,
-              background: 'linear-gradient(90deg, #059669, #10b981)',
+              background: 'linear-gradient(90deg, #059669, #10B981)',
               padding: '12px 16px',
               fontSize: '14px',
+              fontWeight: 700,
               boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+              color: '#FFFFFF',
+              justifyContent: 'center',
             }}
             onClick={(e) => {
               e.stopPropagation();
@@ -92,8 +96,8 @@ export function StartModeView({
         <div 
           style={{
             ...menuStyles.modeCard,
-            borderColor: gameMode === 'timeattack' ? '#E31837' : 'rgba(0,0,0,0.12)',
-            background: 'rgba(227, 24, 55, 0.04)',
+            borderColor: gameMode === 'timeattack' ? '#E31837' : 'rgba(255, 255, 255, 0.1)',
+            background: gameMode === 'timeattack' ? 'rgba(227, 24, 55, 0.08)' : 'rgba(255, 255, 255, 0.02)',
             cursor: 'pointer',
             ...getFocusStyle(focusedIndex === 1),
           }}
@@ -101,12 +105,12 @@ export function StartModeView({
           onClick={() => onLaunchMode('timeattack')}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <span style={{ ...menuStyles.modeBadge, background: '#E31837' }}>⚡ RALLY STAGE</span>
+            <span style={{ ...menuStyles.modeBadge, background: '#E31837', letterSpacing: '1px' }}>TIME ATTACK</span>
           </div>
-          <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: 700, color: '#111827' }}>
+          <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: 700, color: '#F8FAFC' }}>
             Time Attack
           </h3>
-          <p style={{ fontSize: '13px', color: '#4b5563', lineHeight: 1.4, margin: '0 0 10px 0' }}>
+          <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: 1.4, margin: '0 0 10px 0' }}>
             Pass through all checkpoint gates and set the fastest lap record on the circuit.
           </p>
           
@@ -116,25 +120,29 @@ export function StartModeView({
             alignItems: 'center',
             justifyContent: 'center',
             gap: '6px',
-            padding: '6px 10px',
+            padding: '8px 12px',
             borderRadius: '6px',
-            background: 'rgba(0,0,0,0.06)',
+            background: 'rgba(255, 255, 255, 0.04)',
+            border: '1px solid rgba(255, 255, 255, 0.06)',
             marginBottom: '16px',
             fontSize: '12px',
             fontWeight: 700,
-            color: selectedLevelBest ? '#d97706' : '#6b7280',
+            color: selectedLevelBest ? '#38BDF8' : '#64748B',
           }}>
-            <span>🏆 Track Record:</span>
-            <span>{selectedLevelBest ? formatLapTime(selectedLevelBest) : 'No time set yet'}</span>
+            <span>BEST LAP:</span>
+            <span>{selectedLevelBest ? formatLapTime(selectedLevelBest) : '--:--.--'}</span>
           </div>
 
           <button
             style={{
               ...menuStyles.button,
-              background: 'linear-gradient(90deg, #1B365D, #E31837)',
+              background: 'linear-gradient(90deg, #991B1B, #E31837)',
               padding: '12px 16px',
               fontSize: '14px',
+              fontWeight: 700,
               boxShadow: '0 4px 12px rgba(227, 24, 55, 0.3)',
+              color: '#FFFFFF',
+              justifyContent: 'center',
             }}
             onClick={(e) => {
               e.stopPropagation();
@@ -151,9 +159,10 @@ export function StartModeView({
           ...menuStyles.button, 
           ...menuStyles.secondaryButton, 
           color: textColor, 
-          borderColor: 'rgba(0,0,0,0.2)', 
+          borderColor: 'rgba(255, 255, 255, 0.1)', 
           width: '100%', 
           marginTop: '16px',
+          justifyContent: 'center',
           ...getFocusStyle(focusedIndex === 2),
         }} 
         onPointerMove={(e) => onPointerMoveItem(2, e)}

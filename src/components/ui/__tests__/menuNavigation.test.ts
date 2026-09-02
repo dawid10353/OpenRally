@@ -2,27 +2,36 @@ import { describe, it, expect } from 'vitest';
 
 describe('Menu Navigation & Key Indices', () => {
   it('calculates cyclical vertical navigation correctly', () => {
-    const getItemCount = (view: string, levelsCount: number, vibrationEnabled: boolean): number => {
-      if (view === 'main') return 5;
+    const getItemCount = (view: string, isPaused: boolean, levelsCount: number, vibrationEnabled: boolean): number => {
+      if (view === 'main') return isPaused ? 5 : 6;
       if (view === 'start_mode') return 3;
       if (view === 'garage') return 2;
       if (view === 'tracks') return levelsCount + 1;
       if (view === 'options') return vibrationEnabled ? 13 : 12;
       if (view === 'controls') return 1;
+      if (view === 'credits') return 2;
       return 1;
     };
 
-    // Main menu (5 items)
-    const mainCount = getItemCount('main', 4, true);
-    expect(mainCount).toBe(5);
+    // Main menu (6 items: Start, Garage, Tracks, Options, Controls, Credits)
+    const mainCount = getItemCount('main', false, 4, true);
+    expect(mainCount).toBe(6);
+
+    // Pause menu (5 items: Resume, Restart, Options, Controls, Return to Main Menu)
+    const pauseCount = getItemCount('main', true, 4, true);
+    expect(pauseCount).toBe(5);
+
+    // Credits view (2 items: GitHub repo, Back)
+    const creditsCount = getItemCount('credits', false, 4, true);
+    expect(creditsCount).toBe(2);
 
     // Nav Down from last item loops to top
-    const nextFromLast = (4 + 1) % mainCount;
+    const nextFromLast = (5 + 1) % mainCount;
     expect(nextFromLast).toBe(0);
 
     // Nav Up from top item loops to bottom
     const prevFromTop = (0 - 1 + mainCount) % mainCount;
-    expect(prevFromTop).toBe(4);
+    expect(prevFromTop).toBe(5);
   });
 
   it('cycles controls tabs across dualsense, xbox, and keyboard', () => {

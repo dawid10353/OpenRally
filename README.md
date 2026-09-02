@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="public/openrally_logo.png" alt="OpenRally Logo" width="460" />
+  <img src="public/openrally_logo_dark.png" alt="OpenRally Logo" width="520" />
 
   <h1>OpenRally</h1>
 
@@ -11,7 +11,7 @@
     <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black" alt="React 19" /></a>
     <a href="https://threejs.org/"><img src="https://img.shields.io/badge/Three.js-R3F-black?logo=three.js" alt="Three.js & R3F" /></a>
     <a href="https://rapier.rs/"><img src="https://img.shields.io/badge/Physics-Rapier3D_WASM-E95420" alt="Rapier3D WASM" /></a>
-    <a href="https://vitest.dev/"><img src="https://img.shields.io/badge/Tests-191_Passing-22c55e?logo=vitest&logoColor=white" alt="Vitest Tests" /></a>
+    <a href="https://vitest.dev/"><img src="https://img.shields.io/badge/Tests-204_Passing-22c55e?logo=vitest&logoColor=white" alt="Vitest Tests" /></a>
     <a href="https://oxc.rs/"><img src="https://img.shields.io/badge/Linter-Oxlint_Clean-10b981" alt="Oxlint" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License" /></a>
   </p>
@@ -97,8 +97,21 @@ The project combines authentic motorsport simulation principles with accessible 
 ### 🧭 Classic Motorsport Instrumentation & HUD
 - **Twin-Gauge Rally Cluster:** Authentic analog cockpit instruments featuring a 240 km/h speedometer, 8,000 RPM tachometer with redline zone, flashing **Shift Light LED**, and retro amber gear display.
 - **Stage Roadbook Minimap:** Real-time 2D track overview with compass cardinal directions (N, S, E, W), start/finish checkpoints, vehicle orientation tracking, and elevation markers.
-- **Interactive Pause & Garage Menu:** Full-featured tabbed menu overlay to switch vehicles, change stages, adjust graphics/audio/controls settings, or toggle telemetry on the fly.
 - **Real-Time Engineering Telemetry:** On-demand telemetry overlay (`T` key) displaying chassis velocities, G-forces, slip angles, suspension travel, and engine state.
+
+### 🖥️ Broadcast-Grade UI & Showroom Architecture
+- **Interactive Dashboard:** Modern rally menu hub featuring live 3D vehicle turntable with 360° orbit rotation, smooth zoom inspection, telemetry meters, and photographic circuit banners.
+- **Photographic Circuit Selector:** High-definition stage cards featuring terrain previews, surface descriptions, and circuit records.
+- **In-Stage Pause Dashboard:** Full-featured rally pause screen displaying active circuit thumbnail, machine telemetry, lap records, and gamepad controls.
+
+<div align="center">
+  <img src="public/screenshots/main_menu.png" alt="OpenRally Main Menu Dashboard" width="100%" style="border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,0.6); margin-bottom: 12px;" />
+</div>
+
+<div align="center">
+  <img src="public/screenshots/tracks_selection.png" alt="OpenRally Circuit Selection" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
+  <img src="public/screenshots/pause_menu.png" alt="OpenRally Stage Pause Menu" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
+</div>
 
 ### 🏔️ Procedural Terrains & Dynamic Surface Registry
 - **Multi-Octave Terrain Engine:** Procedural terrain generation using continuous Simplex noise with erosion curves, realistic hills, valleys, and physics heightfield colliders.
@@ -138,11 +151,10 @@ OpenRally provides seamless support for **Keyboard** and **Gamepads** (PlayStati
 
 ## 🚗 Vehicles & Stages
 
-### Playable Vehicles (Garage)
+### Playable Vehicles & 3D Garage Showroom
 
 <div align="center">
-  <img src="public/screenshots/garage_vortex.png" alt="OpenRally Garage - Vortex Rally1" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
-  <img src="public/screenshots/garage_apex.png" alt="OpenRally Garage - Apex Rally AWD" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
+  <img src="public/screenshots/garage_showroom.png" alt="OpenRally 3D Interactive Garage Showroom" width="100%" style="border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,0.6);" />
 </div>
 
 <br />

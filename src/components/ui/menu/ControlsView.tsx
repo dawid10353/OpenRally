@@ -52,9 +52,9 @@ export function ControlsView({
         <span style={{ fontSize: '13px', fontWeight: 600 }}>
           {gamepadConnected
             ? (gamepadType === 'dualsense'
-                ? `🎮 DualSense (PS5) Connected: ${gamepadName || 'Sony DualSense'}`
-                : `🎮 Xbox Controller Connected: ${gamepadName || 'XInput Controller'}`)
-            : '🎮 No Active Controller — Press any button on your gamepad to connect!'}
+                ? `DualSense (PS5) Connected: ${gamepadName || 'Sony DualSense'}`
+                : `Xbox Controller Connected: ${gamepadName || 'XInput Controller'}`)
+            : 'No Active Controller — Press any button on your gamepad to connect'}
         </span>
       </div>
 
@@ -66,11 +66,12 @@ export function ControlsView({
             flex: 1,
             padding: '8px 6px',
             fontSize: '12px',
+            fontWeight: 700,
             ...(controlsTab === 'dualsense' ? menuStyles.activeTabButton : {}),
           }}
           onClick={() => onSetControlsTab('dualsense')}
         >
-          🎮 DualSense (PS5)
+          DualSense (PS5)
         </button>
         <button
           style={{
@@ -78,11 +79,12 @@ export function ControlsView({
             flex: 1,
             padding: '8px 6px',
             fontSize: '12px',
+            fontWeight: 700,
             ...(controlsTab === 'xbox' ? menuStyles.activeTabButton : {}),
           }}
           onClick={() => onSetControlsTab('xbox')}
         >
-          🎮 Xbox
+          Xbox Controller
         </button>
         <button
           style={{
@@ -90,149 +92,219 @@ export function ControlsView({
             flex: 1,
             padding: '8px 6px',
             fontSize: '12px',
+            fontWeight: 700,
             ...(controlsTab === 'keyboard' ? menuStyles.activeTabButton : {}),
           }}
           onClick={() => onSetControlsTab('keyboard')}
         >
-          ⌨️ Keyboard
+          Keyboard
         </button>
       </div>
 
       {controlsTab === 'dualsense' ? (
         <div style={{
           ...menuStyles.controlsHelp,
-          background: 'rgba(0,0,0,0.05)',
-          color: '#555555',
+          background: 'rgba(15, 23, 42, 0.65)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '12px',
+          color: '#CBD5E1',
         }}>
           <div style={menuStyles.controlRow}>
-            <strong>🕹️ Left Stick (L3)</strong>
-            <span>Steering (Analog)</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.badge}>L-STICK</span> Steering (Analog)
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Left / Right</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong>🎥 Right Stick (R3)</strong>
-            <span>Free Look Orbit Camera (360°)</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.badge}>R-STICK</span> Free Look Orbit
+            </strong>
+            <span style={{ color: '#94A3B8' }}>360° Camera</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong>🏎️ R2 (Right Trigger)</strong>
-            <span>Throttle / Gas (Analog)</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.badgeTrigger}>R2</span> Throttle / Gas
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Progressive Analog</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong>🛑 L2 (Left Trigger)</strong>
-            <span>Brake / Reverse (Analog)</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.badgeTrigger}>L2</span> Brake / Reverse
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Progressive Analog</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong><span style={{ color: '#0070d1', fontWeight: 800 }}>✕</span> Cross / R1</strong>
-            <span>Handbrake / Drift</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.psCross}>✕</span> Cross / R1
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Handbrake / Drift</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong><span style={{ color: '#4caf50', fontWeight: 800 }}>△</span> Triangle / L1</strong>
-            <span>Change Camera Mode</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.psTriangle}>▲</span> Triangle / L1
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Cycle Camera</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong><span style={{ color: '#e53935', fontWeight: 800 }}>◯</span> Circle / R3 Click</strong>
-            <span>Look Back (Instant)</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.psCircle}>●</span> Circle / R3
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Look Back (Instant)</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong><span style={{ color: '#e91e63', fontWeight: 800 }}>▢</span> Square / Create</strong>
-            <span>Reset Position</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.psSquare}>■</span> Square / Create
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Reset Vehicle</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong>⏸️ Options</strong>
-            <span>Pause / Unpause</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.badge}>OPTIONS</span> Pause
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Toggle Menu</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong>📊 Create (Share) / L3</strong>
-            <span>Toggle Telemetry</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.badge}>SHARE / L3</span> Telemetry
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Toggle Inspector</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong>🧭 D-Pad</strong>
-            <span>Directional Controls</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.badge}>D-PAD</span> Navigation
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Menu Controls</span>
           </div>
         </div>
       ) : controlsTab === 'xbox' ? (
         <div style={{
           ...menuStyles.controlsHelp,
-          background: 'rgba(0,0,0,0.05)',
-          color: '#555555',
+          background: 'rgba(15, 23, 42, 0.65)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '12px',
+          color: '#CBD5E1',
         }}>
           <div style={menuStyles.controlRow}>
-            <strong>🕹️ Left Stick (Analog)</strong>
-            <span>Steering</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.badge}>LS</span> Steering
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Analog Left / Right</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong>🎥 Right Stick (Analog)</strong>
-            <span>Free Look Orbit Camera (360°)</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.badge}>RS</span> Free Look Orbit
+            </strong>
+            <span style={{ color: '#94A3B8' }}>360° Camera</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong>🏎️ RT (Right Trigger)</strong>
-            <span>Throttle / Gas (Analog)</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.badgeTrigger}>RT</span> Throttle / Gas
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Progressive Analog</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong>🛑 LT (Left Trigger)</strong>
-            <span>Brake / Reverse (Analog)</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.badgeTrigger}>LT</span> Brake / Reverse
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Progressive Analog</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong><span style={{ color: '#107c10', fontWeight: 800 }}>A</span> / RB</strong>
-            <span>Handbrake / Drift</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.xboxA}>A</span> / RB
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Handbrake / Drift</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong><span style={{ color: '#ffb900', fontWeight: 800 }}>Y</span> / LB</strong>
-            <span>Change Camera Mode</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.xboxY}>Y</span> / LB
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Cycle Camera</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong><span style={{ color: '#d83b01', fontWeight: 800 }}>B</span> / RS Click</strong>
-            <span>Look Back (Instant)</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.xboxB}>B</span> / RS Click
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Look Back (Instant)</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong><span style={{ color: '#0078d7', fontWeight: 800 }}>X</span> / View</strong>
-            <span>Reset Position</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.xboxX}>X</span> / View
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Reset Vehicle</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong>⏸️ Menu (Start)</strong>
-            <span>Pause / Unpause</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.badge}>MENU</span> Pause
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Toggle Menu</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong>📊 View / LS Click</strong>
-            <span>Toggle Telemetry</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.badge}>VIEW / LS</span> Telemetry
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Toggle Inspector</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong>🧭 D-Pad</strong>
-            <span>Directional Controls</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.badge}>D-PAD</span> Navigation
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Menu Controls</span>
           </div>
         </div>
       ) : (
         <div style={{
           ...menuStyles.controlsHelp,
-          background: 'rgba(0,0,0,0.05)',
-          color: '#555555',
+          background: 'rgba(15, 23, 42, 0.65)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '12px',
+          color: '#CBD5E1',
         }}>
           <div style={menuStyles.controlRow}>
-            <strong>WASD / Arrows</strong>
-            <span>Steering & Gas / Brake</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <kbd style={styles.kbd}>W</kbd>
+              <kbd style={styles.kbd}>A</kbd>
+              <kbd style={styles.kbd}>S</kbd>
+              <kbd style={styles.kbd}>D</kbd>
+              <span style={{ color: '#64748B', margin: '0 4px' }}>or</span>
+              <kbd style={styles.kbd}>ARROWS</kbd>
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Steer, Throttle & Brake</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong>Space</strong>
-            <span>Handbrake</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <kbd style={styles.kbd}>SPACE</kbd>
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Handbrake / Drift</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong>C</strong>
-            <span>Change Camera</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <kbd style={styles.kbd}>C</kbd>
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Cycle Camera Mode</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong>B</strong>
-            <span>Look Back (Hold)</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <kbd style={styles.kbd}>B</kbd>
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Look Back (Hold)</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong>T</strong>
-            <span>Toggle Telemetry</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <kbd style={styles.kbd}>T</kbd>
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Toggle Telemetry</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong>R</strong>
-            <span>Reset Position</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <kbd style={styles.kbd}>R</kbd>
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Reset Vehicle Position</span>
           </div>
           <div style={menuStyles.controlRow}>
-            <strong>ESC</strong>
-            <span>Pause / Menu</span>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <kbd style={styles.kbd}>ESC</kbd>
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Pause / Menu</span>
           </div>
         </div>
       )}
@@ -240,8 +312,12 @@ export function ControlsView({
       <button 
         style={{ 
           ...menuStyles.button, 
+          ...menuStyles.secondaryButton,
+          color: textColor,
+          borderColor: 'rgba(255, 255, 255, 0.1)',
           marginTop: '20px', 
           width: '100%',
+          justifyContent: 'center',
           ...getFocusStyle(focusedIndex === 0),
         }} 
         onPointerMove={(e) => onPointerMoveItem(0, e)}
@@ -252,3 +328,135 @@ export function ControlsView({
     </div>
   );
 }
+
+const styles: Record<string, React.CSSProperties> = {
+  badge: {
+    padding: '2px 8px',
+    borderRadius: '4px',
+    background: 'rgba(255, 255, 255, 0.08)',
+    border: '1px solid rgba(255, 255, 255, 0.14)',
+    color: '#E2E8F0',
+    fontSize: '11px',
+    fontWeight: 800,
+    letterSpacing: '0.5px',
+  },
+  badgeTrigger: {
+    padding: '2px 8px',
+    borderRadius: '4px',
+    background: 'rgba(227, 24, 55, 0.15)',
+    border: '1px solid rgba(227, 24, 55, 0.4)',
+    color: '#F87171',
+    fontSize: '11px',
+    fontWeight: 800,
+    letterSpacing: '0.5px',
+  },
+  psCross: {
+    width: '18px',
+    height: '18px',
+    borderRadius: '50%',
+    background: '#0070D1',
+    color: '#FFFFFF',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '10px',
+    fontWeight: 900,
+  },
+  psTriangle: {
+    width: '18px',
+    height: '18px',
+    borderRadius: '50%',
+    background: '#10B981',
+    color: '#FFFFFF',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '9px',
+    fontWeight: 900,
+  },
+  psCircle: {
+    width: '18px',
+    height: '18px',
+    borderRadius: '50%',
+    background: '#EF4444',
+    color: '#FFFFFF',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '9px',
+    fontWeight: 900,
+  },
+  psSquare: {
+    width: '18px',
+    height: '18px',
+    borderRadius: '50%',
+    background: '#EC4899',
+    color: '#FFFFFF',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '9px',
+    fontWeight: 900,
+  },
+  xboxA: {
+    width: '18px',
+    height: '18px',
+    borderRadius: '50%',
+    background: '#107C10',
+    color: '#FFFFFF',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '11px',
+    fontWeight: 900,
+  },
+  xboxB: {
+    width: '18px',
+    height: '18px',
+    borderRadius: '50%',
+    background: '#D83B01',
+    color: '#FFFFFF',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '11px',
+    fontWeight: 900,
+  },
+  xboxX: {
+    width: '18px',
+    height: '18px',
+    borderRadius: '50%',
+    background: '#0078D7',
+    color: '#FFFFFF',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '11px',
+    fontWeight: 900,
+  },
+  xboxY: {
+    width: '18px',
+    height: '18px',
+    borderRadius: '50%',
+    background: '#FFB900',
+    color: '#000000',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '11px',
+    fontWeight: 900,
+  },
+  kbd: {
+    display: 'inline-block',
+    padding: '3px 8px',
+    fontSize: '11px',
+    fontWeight: 800,
+    lineHeight: '1',
+    color: '#E2E8F0',
+    backgroundColor: '#1E293B',
+    border: '1px solid #334155',
+    borderRadius: '4px',
+    boxShadow: '0 2px 0 #0F172A',
+    fontFamily: 'monospace',
+  },
+};

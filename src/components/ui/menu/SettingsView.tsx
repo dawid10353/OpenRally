@@ -273,9 +273,9 @@ export function SettingsView({
         onPointerMove={(e) => onPointerMoveItem(resetIdx, e)}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }}>
-          <span>Reset Track Records</span>
-          <span style={{ fontSize: '11px', color: '#666666', fontWeight: 400 }}>
-            Wipe all saved best lap times across all stages
+          <span style={{ fontWeight: 700, color: '#F1F5F9' }}>Clear Stage Lap Records</span>
+          <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500 }}>
+            Reset all saved personal best times across circuits
           </span>
         </div>
         <button
@@ -283,15 +283,16 @@ export function SettingsView({
           style={{
             padding: '6px 14px',
             borderRadius: '6px',
-            border: resetConfirmState === 'confirming' ? '1px solid #E31837' : 'none',
+            border: resetConfirmState === 'confirming' ? '1px solid #E31837' : '1px solid rgba(227, 24, 55, 0.4)',
             background: resetConfirmState === 'confirming'
               ? '#E31837'
               : resetConfirmState === 'done'
                 ? '#10b981'
-                : 'rgba(227, 24, 55, 0.12)',
-            color: resetConfirmState === 'confirming' || resetConfirmState === 'done' ? '#ffffff' : '#E31837',
-            fontSize: '13px',
-            fontWeight: 700,
+                : 'rgba(227, 24, 55, 0.15)',
+            color: resetConfirmState === 'confirming' || resetConfirmState === 'done' ? '#ffffff' : '#F87171',
+            fontSize: '12px',
+            fontWeight: 800,
+            letterSpacing: '0.5px',
             cursor: 'pointer',
             transition: 'all 0.2s ease',
             display: 'flex',
@@ -300,17 +301,21 @@ export function SettingsView({
           }}
           onClick={onResetRecords}
         >
-          {resetConfirmState === 'confirming' && '⚠️ Click to Confirm'}
-          {resetConfirmState === 'done' && '✓ Records Cleared!'}
-          {resetConfirmState === 'idle' && '🗑️ Reset Records'}
+          {resetConfirmState === 'confirming' && 'CONFIRM RESET'}
+          {resetConfirmState === 'done' && 'CLEARED'}
+          {resetConfirmState === 'idle' && 'CLEAR ALL'}
         </button>
       </div>
 
       <button 
         style={{ 
           ...menuStyles.button, 
+          ...menuStyles.secondaryButton,
+          color: textColor,
+          borderColor: 'rgba(255, 255, 255, 0.1)',
           marginTop: '20px', 
           width: '100%',
+          justifyContent: 'center',
           ...getFocusStyle(focusedIndex === backIdx),
         }} 
         onPointerMove={(e) => onPointerMoveItem(backIdx, e)}

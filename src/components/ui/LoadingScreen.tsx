@@ -1,15 +1,22 @@
 import { useEffect, useState } from 'react';
 import { useProgress } from '@react-three/drei';
 import { useGameStore } from '@/store/gameStore';
+import { getLevelPreset } from '@/config/levelRegistry';
+import { getVehiclePreset } from '@/config/vehicleRegistry';
 
 /**
  * Loading screen overlay — shown while physics/scene initializes when entering gameplay.
- * Fades out once ready. Never displays during Pause Menu or Main Menu.
+ * Fades out once ready. Styled consistently with the cinematic dark rally atmosphere.
  */
 export function LoadingScreen() {
   const { active, progress } = useProgress();
   const gameState = useGameStore((s) => s.gameState);
   const isSceneReady = useGameStore((s) => s.isSceneReady);
+  const selectedLevelId = useGameStore((s) => s.selectedLevelId);
+  const selectedVehicleId = useGameStore((s) => s.selectedVehicleId);
+
+  const level = getLevelPreset(selectedLevelId);
+  const vehicle = getVehiclePreset(selectedVehicleId);
 
   const isPlaying = gameState === 'playing';
   const [visible, setVisible] = useState(false);
@@ -55,19 +62,47 @@ export function LoadingScreen() {
       <div style={styles.content}>
         {/* Game Logo */}
         <div style={styles.logoContainer}>
-          <img src="/openrally_logo.png" alt="OpenRally Logo" style={styles.logoImage} />
+          <img
+            src="/openrally_logo_dark.png"
+            alt="OpenRally"
+            style={styles.logoImage}
+          />
+        </div>
+
+        {/* Stage & Machine Preview Pill */}
+        <div style={styles.stagePill}>
+          <span style={styles.stageLabel}>STAGE:</span>
+          <span style={styles.stageValue}>{level.name}</span>
+          <span style={styles.separator}>•</span>
+          <span style={styles.stageLabel}>MACHINE:</span>
+          <span style={styles.stageValue}>{vehicle.name}</span>
         </div>
 
         {/* Loading bar */}
         <div style={styles.loadingBar}>
-          <div style={{ ...styles.loadingFill, width: `${Math.max(8, displayProgress)}%` }}>
+          <div
+            style={{
+              ...styles.loadingFill,
+              width: `${Math.max(8, displayProgress)}%`,
+            }}
+          >
             <div style={styles.loadingGlow} />
           </div>
         </div>
 
+        {/* Status Text */}
         <p style={styles.subtitle}>
-          {displayProgress < 100 ? `Loading assets... ${displayProgress}%` : 'Starting engine...'}
+          {displayProgress < 100
+            ? `INITIALIZING SIMULATION • ${displayProgress}%`
+            : 'ENGINE READY • ENTERING STAGE'}
         </p>
+
+        {/* Author Credit Badge */}
+        <div style={styles.authorBadge}>
+          <span style={styles.authorLabel}>CREATED BY</span>
+          <span style={styles.authorName}>dawid10353 (Dawid Warzocha)</span>
+          <span style={styles.versionTag}>• v1.0.0</span>
+        </div>
       </div>
     </div>
   );
@@ -78,56 +113,121 @@ const styles: Record<string, React.CSSProperties> = {
     position: 'fixed',
     inset: 0,
     zIndex: 100,
-    background: '#FEFFFD',
+    backgroundImage: `
+      linear-gradient(180deg, rgba(6, 9, 16, 0.85) 0%, rgba(9, 13, 24, 0.94) 100%),
+      radial-gradient(circle at center, rgba(227, 24, 55, 0.15) 0%, transparent 60%),
+      url('/images/ui/rally_backdrop.jpg')
+    `,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontFamily: "'Inter', 'Segoe UI', sans-serif",
+    fontFamily: '"Outfit", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     pointerEvents: 'none',
   },
   content: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
+    textAlign: 'center',
     gap: '24px',
+    maxWidth: '560px',
+    padding: '24px',
   },
   logoContainer: {
-    animation: 'pulse 2s ease-in-out infinite',
-    marginBottom: '10px',
+    maxWidth: '480px',
+    width: '85vw',
   },
   logoImage: {
-    maxWidth: '400px',
-    maxHeight: '200px',
-    objectFit: 'contain',
+    width: '100%',
+    height: 'auto',
+    display: 'block',
+    filter: 'drop-shadow(0 12px 32px rgba(227, 24, 55, 0.35)) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.8))',
+  },
+  stagePill: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '6px 16px',
+    borderRadius: '20px',
+    background: 'rgba(15, 23, 42, 0.75)',
+    border: '1px solid rgba(255, 255, 255, 0.12)',
+    backdropFilter: 'blur(8px)',
+    fontSize: '12px',
+    letterSpacing: '0.5px',
+  },
+  stageLabel: {
+    color: '#94A3B8',
+    fontWeight: 700,
+    fontSize: '11px',
+    letterSpacing: '1px',
+  },
+  stageValue: {
+    color: '#FFFFFF',
+    fontWeight: 800,
+  },
+  separator: {
+    color: '#64748B',
   },
   loadingBar: {
-    width: '240px',
-    height: '4px',
-    background: 'rgba(0,0,0,0.1)',
-    borderRadius: '2px',
+    width: '320px',
+    height: '6px',
+    background: 'rgba(255, 255, 255, 0.08)',
+    border: '1px solid rgba(255, 255, 255, 0.12)',
+    borderRadius: '3px',
     overflow: 'hidden',
   },
   loadingFill: {
-    width: '100%',
     height: '100%',
-    background: 'linear-gradient(90deg, #1B365D, #E31837, #1B365D)',
+    background: 'linear-gradient(90deg, #991B1B, #E31837, #F87171)',
     backgroundSize: '200% 100%',
-    animation: 'shimmer 1.5s ease-in-out infinite',
-    borderRadius: '2px',
+    borderRadius: '3px',
     position: 'relative' as const,
+    transition: 'width 0.2s ease-out',
   },
   loadingGlow: {
     position: 'absolute' as const,
     inset: '-2px',
     background: 'inherit',
-    filter: 'blur(6px)',
-    opacity: 0.3,
+    filter: 'blur(4px)',
+    opacity: 0.4,
   },
   subtitle: {
-    fontSize: '13px',
-    color: '#666666',
-    letterSpacing: '2px',
+    fontSize: '12px',
+    color: '#CBD5E1',
+    letterSpacing: '3px',
     margin: 0,
-    fontWeight: 500,
+    fontWeight: 800,
+    textTransform: 'uppercase',
+  },
+  authorBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '4px 14px',
+    borderRadius: '16px',
+    background: 'rgba(15, 23, 42, 0.5)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    marginTop: '8px',
+  },
+  authorLabel: {
+    color: 'rgba(243, 244, 246, 0.5)',
+    fontSize: '10px',
+    fontWeight: 700,
+    letterSpacing: '1px',
+    textTransform: 'uppercase',
+  },
+  authorName: {
+    color: '#F3F4F6',
+    fontSize: '11px',
+    fontWeight: 700,
+    letterSpacing: '0.5px',
+  },
+  versionTag: {
+    color: '#E31837',
+    fontSize: '11px',
+    fontWeight: 800,
   },
 };

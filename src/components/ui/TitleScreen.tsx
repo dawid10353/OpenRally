@@ -110,7 +110,7 @@ export function TitleScreen() {
         {/* Logo */}
         <div style={styles.logoWrapper}>
           <img
-            src="/openrally_logo.png"
+            src="/openrally_logo_dark.png"
             alt="OpenRally"
             style={styles.logoImage}
           />
@@ -118,7 +118,15 @@ export function TitleScreen() {
 
         {/* Clean, minimalist call to action */}
         <div style={styles.prompt}>
-          <span style={styles.promptText}>PRESS ANY KEY TO START</span>
+          <span style={styles.promptText}>PRESS ANY BUTTON TO START</span>
+          <span style={styles.promptSub}>KEYBOARD / CONTROLLER</span>
+        </div>
+
+        {/* Game Author Credit */}
+        <div style={styles.authorBadge}>
+          <span style={styles.authorLabel}>CREATED BY</span>
+          <span style={styles.authorName}>dawid10353 (Dawid Warzocha)</span>
+          <span style={styles.versionTag}>• v1.0.0</span>
         </div>
       </div>
     </div>
@@ -130,7 +138,14 @@ const styles: Record<string, React.CSSProperties> = {
     position: 'fixed',
     inset: 0,
     zIndex: 90,
-    background: '#0B0F19',
+    backgroundImage: `
+      linear-gradient(180deg, rgba(6, 9, 16, 0.78) 0%, rgba(9, 13, 24, 0.90) 100%),
+      radial-gradient(circle at center, rgba(227, 24, 55, 0.15) 0%, transparent 60%),
+      url('/images/ui/rally_backdrop.jpg')
+    `,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundRepeat: 'no-repeat',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -145,27 +160,65 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     textAlign: 'center',
     gap: '36px',
+    maxWidth: '560px',
+    padding: '24px',
   },
   logoWrapper: {
-    maxWidth: '420px',
-    width: '85vw',
+    maxWidth: '500px',
+    width: '90vw',
   },
   logoImage: {
     width: '100%',
     height: 'auto',
     display: 'block',
+    filter: 'drop-shadow(0 12px 32px rgba(227, 24, 55, 0.35)) drop-shadow(0 2px 8px rgba(0, 0, 0, 0.8))',
   },
   prompt: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    gap: '8px',
+    gap: '6px',
   },
   promptText: {
-    color: '#F3F4F6',
+    color: '#FFFFFF',
     fontSize: '18px',
-    fontWeight: 700,
+    fontWeight: 800,
     letterSpacing: '4px',
-    animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+    textShadow: '0 2px 12px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 255, 255, 0.3)',
+  },
+  promptSub: {
+    color: '#94A3B8',
+    fontSize: '11px',
+    fontWeight: 700,
+    letterSpacing: '2px',
+    textTransform: 'uppercase',
+  },
+  authorBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '6px 16px',
+    borderRadius: '20px',
+    background: 'rgba(15, 23, 42, 0.7)',
+    border: '1px solid rgba(255, 255, 255, 0.12)',
+    backdropFilter: 'blur(8px)',
+  },
+  authorLabel: {
+    color: 'rgba(243, 244, 246, 0.5)',
+    fontSize: '11px',
+    fontWeight: 700,
+    letterSpacing: '1px',
+    textTransform: 'uppercase',
+  },
+  authorName: {
+    color: '#F3F4F6',
+    fontSize: '12px',
+    fontWeight: 700,
+    letterSpacing: '0.5px',
+  },
+  versionTag: {
+    color: '#E31837',
+    fontSize: '11px',
+    fontWeight: 800,
   },
 };
