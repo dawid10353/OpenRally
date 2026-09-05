@@ -24,7 +24,7 @@ export function StartModeView({
   onSelectView,
 }: StartModeViewProps) {
   return (
-    <div style={{ ...menuStyles.subView, color: textColor, width: '100%', minWidth: '560px' }}>
+    <div className="mode-subview menu-scalable-container" style={{ ...menuStyles.subView, color: textColor, width: '100%', minWidth: '560px' }}>
       <h2 style={{ ...menuStyles.subViewTitle, marginBottom: '6px' }}>Select Game Mode</h2>
       
       {/* Selected Track Pill */}
@@ -42,7 +42,20 @@ export function StartModeView({
       }}>
         <span>ACTIVE STAGE: <strong style={{ color: '#FFFFFF' }}>{currentLevelPreset.name}</strong></span>
         <button 
-          style={{ border: 'none', background: 'transparent', color: '#E31837', fontWeight: 700, cursor: 'pointer', fontSize: '12px', padding: 0 }}
+          style={{
+            border: 'none',
+            background: 'transparent',
+            color: '#E31837',
+            fontWeight: 700,
+            cursor: 'pointer',
+            fontSize: '12px',
+            padding: '8px 12px',
+            minHeight: '44px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            borderRadius: '6px',
+            touchAction: 'manipulation',
+          }}
           onClick={() => onSelectView('tracks')}
         >
           (CHANGE STAGE)
@@ -69,7 +82,7 @@ export function StartModeView({
           <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: 700, color: '#F8FAFC' }}>
             Free Roam
           </h3>
-          <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: 1.4, margin: '0 0 16px 0', flex: 1 }}>
+          <p className="mode-card-desc" style={{ fontSize: '13px', color: '#94A3B8', lineHeight: 1.4, margin: '0 0 16px 0', flex: 1 }}>
             Drive freely across open hills and valleys. No checkpoint gates, no timer pressure — pure driving enjoyment.
           </p>
           <button
@@ -110,7 +123,7 @@ export function StartModeView({
           <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: 700, color: '#F8FAFC' }}>
             Time Attack
           </h3>
-          <p style={{ fontSize: '13px', color: '#94A3B8', lineHeight: 1.4, margin: '0 0 10px 0' }}>
+          <p className="mode-card-desc" style={{ fontSize: '13px', color: '#94A3B8', lineHeight: 1.4, margin: '0 0 10px 0' }}>
             Pass through all checkpoint gates and set the fastest lap record on the circuit.
           </p>
           

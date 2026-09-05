@@ -1,4 +1,6 @@
-import { useEffect, useRef, memo } from 'react';
+import { useEffect, useRef, memo, useState } from 'react';
+import { getLastInputType, isTouchDevice, type InputType } from '@/utils/input/touch';
+import { useSettingsStore } from '@/store/settingsStore';
 import { useGameStore } from '@/store/gameStore';
 import { useRacingStore } from '@/store/racingStore';
 
@@ -15,6 +17,36 @@ function formatLapTime(seconds: number): string {
  * Uses transient Zustand subscriptions for 0 React re-renders on timing updates.
  */
 export const TimingBoard = memo(function TimingBoard() {
+  const touchControlMode = useSettingsStore((s) => s.touchControlMode);
+  const [activeInputType, setActiveInputType] = useState<InputType>(() => getLastInputType());
+
+  useEffect(() => {
+    const handleInputSwitch = (e?: Event) => {
+      if (e && 'detail' in e && typeof (e as CustomEvent).detail?.modality === 'string') {
+        setActiveInputType((e as CustomEvent).detail.modality);
+      } else {
+        setActiveInputType(getLastInputType());
+      }
+    };
+    window.addEventListener('pointerdown', handleInputSwitch, { passive: true });
+    window.addEventListener('touchstart', handleInputSwitch, { passive: true });
+    window.addEventListener('keydown', handleInputSwitch, { passive: true });
+    window.addEventListener('openrally-input-switch', handleInputSwitch as EventListener);
+    return () => {
+      window.removeEventListener('pointerdown', handleInputSwitch);
+      window.removeEventListener('touchstart', handleInputSwitch);
+      window.removeEventListener('keydown', handleInputSwitch);
+      window.removeEventListener('openrally-input-switch', handleInputSwitch as EventListener);
+    };
+  }, []);
+
+  const effectiveInputType = getLastInputType() || activeInputType;
+  const isTouchActive =
+    touchControlMode === 'always' ||
+    (touchControlMode === 'auto' &&
+      (effectiveInputType === 'touch' || isTouchDevice()) &&
+      effectiveInputType !== 'keyboard' &&
+      effectiveInputType !== 'gamepad');
   const gameState = useGameStore((s) => s.gameState);
   const gameMode = useGameStore((s) => s.gameMode);
   const bestLapTime = useRacingStore((s) => s.bestLapTime);
@@ -55,7 +87,10 @@ export const TimingBoard = memo(function TimingBoard() {
   return (
     <>
       {/* Time Attack Rally Stage Timing Card */}
-      <div style={styles.timerCard}>
+      <div style={{
+        ...styles.timerCard,
+        top: isTouchActive ? 'calc(68px + var(--sat, 0px))' : 'calc(20px + var(--sat))',
+      }}>
         <div style={styles.timerHeader}>
           <span style={styles.stageTitle}>RALLY STAGE</span>
         </div>
@@ -117,8 +152,8 @@ export const TimingBoard = memo(function TimingBoard() {
 const styles: Record<string, React.CSSProperties> = {
   timerCard: {
     position: 'absolute',
-    top: '20px',
-    left: '20px',
+    top: 'calc(20px + var(--sat))',
+    left: 'calc(20px + var(--sal))',
     background: '#121620',
     border: '2px solid #374151',
     borderRadius: '12px',
@@ -184,8 +219,8 @@ const styles: Record<string, React.CSSProperties> = {
   classicRallyCountdown: {
     position: 'absolute',
     top: '22%',
-    left: 0,
-    right: 0,
+    left: 'var(--sal)',
+    right: 'var(--sar)',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',

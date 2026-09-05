@@ -30,6 +30,17 @@ const _euler = new Euler();
 const _spawnQuat = new Quaternion();
 const _spawnEuler = new Euler();
 const _posTuple: [number, number, number] = [0, 0, 0];
+const _telemetryState = {
+  speed: 0,
+  lateralSpeed: 0,
+  slipAngle: 0,
+  rpm: 0,
+  gear: 1,
+  heading: 0,
+  position: _posTuple,
+  tireGrips: [1, 1, 1, 1] as number[],
+  surface: 'tarmac' as SurfaceType,
+};
 
 /**
  * Vehicle physics hook using Rapier's DynamicRayCastVehicleController.
@@ -280,17 +291,18 @@ export function useVehiclePhysics(
     _posTuple[1] = pos.y;
     _posTuple[2] = pos.z;
 
-    useGameStore.setState({
-      speed: Math.round(speedKmh),
-      lateralSpeed,
-      slipAngle,
-      rpm: Math.round(targetRpm),
-      gear: currentGear,
-      heading: _euler.y,
-      position: _posTuple,
-      tireGrips,
-      surface,
-    });
+    // Update pre-allocated telemetry object to eliminate per-frame GC allocations
+    _telemetryState.speed = Math.round(speedKmh);
+    _telemetryState.lateralSpeed = lateralSpeed;
+    _telemetryState.slipAngle = slipAngle;
+    _telemetryState.rpm = Math.round(targetRpm);
+    _telemetryState.gear = currentGear;
+    _telemetryState.heading = _euler.y;
+    _telemetryState.position = _posTuple;
+    _telemetryState.tireGrips = tireGrips;
+    _telemetryState.surface = surface;
+
+    useGameStore.setState(_telemetryState);
 
     // --- 8. CHECK RESET STATE ---
     const resetState = useGameStore.getState();

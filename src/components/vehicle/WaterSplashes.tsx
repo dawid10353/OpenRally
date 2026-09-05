@@ -2,6 +2,8 @@ import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import type { RapierRigidBody } from '@react-three/rapier';
 import { InstancedMesh, Object3D, Color, Vector3, CanvasTexture, Quaternion } from 'three';
+import { isMobileDevice } from '@/utils/device';
+import { WATER_MAX_PARTICLES, WATER_MOBILE_MAX_PARTICLES } from '@/config/particles';
 
 // Reusable objects for matrix composition
 const _q = new Quaternion();
@@ -34,7 +36,6 @@ const createSplashTexture = () => {
 
 const splashTexture = createSplashTexture();
 
-const MAX_PARTICLES = 1000;
 const WATER_COLOR = new Color('#ffffff');
 const SPLASH_COLOR = new Color('#cceeff');
 const DRIVING_SPEED_THRESHOLD = 2; // km/h
@@ -60,13 +61,18 @@ interface WaterSplashesProps {
 
 export function WaterSplashes({ wheelsRef, chassisRef }: WaterSplashesProps) {
   const meshRef = useRef<InstancedMesh>(null);
-  const particleIndexRef = useRef(0);
   const timeAccumulator = useRef(0);
+  const wasRenderingRef = useRef(false);
 
-  const opacityArray = useMemo(() => new Float32Array(MAX_PARTICLES).fill(0), []);
+  const maxParticles = useMemo(
+    () => (isMobileDevice() ? WATER_MOBILE_MAX_PARTICLES : WATER_MAX_PARTICLES),
+    [],
+  );
+
+  const opacityArray = useMemo(() => new Float32Array(maxParticles).fill(0), [maxParticles]);
 
   const particles = useMemo(() => {
-    return Array.from({ length: MAX_PARTICLES }, () => ({
+    return Array.from({ length: maxParticles }, () => ({
       active: false,
       position: new Vector3(),
       velocity: new Vector3(),
@@ -77,7 +83,22 @@ export function WaterSplashes({ wheelsRef, chassisRef }: WaterSplashesProps) {
       rotationAngle: 0,
       rotationSpeed: 0,
     })) as Particle[];
-  }, []);
+  }, [maxParticles]);
+
+  // Dense active index tracking and O(1) free index stack
+  const freeIndices = useMemo(() => {
+    const arr = new Int32Array(maxParticles);
+    for (let i = 0; i < maxParticles; i++) {
+      arr[i] = i;
+    }
+    return arr;
+  }, [maxParticles]);
+  const activeIndices = useMemo(() => new Int32Array(maxParticles), [maxParticles]);
+
+  const freeIndicesRef = useRef(freeIndices);
+  const activeIndicesRef = useRef(activeIndices);
+  const freeCountRef = useRef(maxParticles);
+  const activeCountRef = useRef(0);
 
   const dummy = useMemo(() => new Object3D(), []);
 
@@ -87,16 +108,29 @@ export function WaterSplashes({ wheelsRef, chassisRef }: WaterSplashesProps) {
     const body = chassisRef.current;
     const wheels = wheelsRef.current;
 
+    const trans = body.translation();
+    const isNearWater = trans.y <= -7.0;
+
     const linvel = body.linvel();
     const speed = Math.sqrt(linvel.x * linvel.x + linvel.z * linvel.z);
     const isDriving = speed > DRIVING_SPEED_THRESHOLD;
+
+    // Early exit when no particles are active and vehicle is not driving near water
+    if (activeCountRef.current === 0 && (!isDriving || !isNearWater)) {
+      if (wasRenderingRef.current) {
+        meshRef.current.count = 0;
+        meshRef.current.instanceMatrix.needsUpdate = true;
+        wasRenderingRef.current = false;
+      }
+      return;
+    }
 
     timeAccumulator.current += delta;
     
     // Znacznie gęstsze rozbryzgi
     const EMIT_RATE = isDriving ? Math.max(0.005, 0.02 - (speed * 0.0005)) : 0.1; 
 
-    if (isDriving) {
+    if (isDriving && isNearWater) {
       let emissionsToDo = Math.floor(timeAccumulator.current / EMIT_RATE);
       emissionsToDo = Math.min(emissionsToDo, 5); // limit per klatka
 
@@ -104,17 +138,20 @@ export function WaterSplashes({ wheelsRef, chassisRef }: WaterSplashesProps) {
         timeAccumulator.current -= emissionsToDo * EMIT_RATE;
 
         for (let e = 0; e < emissionsToDo; e++) {
-          [0, 1, 2, 3].forEach((wheelIdx) => {
+          for (let wheelIdx = 0; wheelIdx < 4; wheelIdx++) {
             const wheel = wheels[wheelIdx];
-            if (!wheel) return;
+            if (!wheel) continue;
 
             // Sprawdzamy pozycję w świecie, by ustalić czy koło jest w wodzie
             wheel.getWorldPosition(dummy.position);
             
             // Jeśli spód koła (zakładamy promień ~0.35) jest poniżej poziomu wody
-            if (dummy.position.y - 0.35 > WATER_LEVEL) return;
+            if (dummy.position.y - 0.35 > WATER_LEVEL) continue;
 
-            const p = particles[particleIndexRef.current];
+            if (freeCountRef.current <= 0) break; // pool exhausted
+
+            const pIdx = freeIndicesRef.current[--freeCountRef.current];
+            const p = particles[pIdx];
             p.active = true;
             p.position.copy(dummy.position);
             
@@ -140,69 +177,83 @@ export function WaterSplashes({ wheelsRef, chassisRef }: WaterSplashesProps) {
             p.rotationAngle = Math.random() * Math.PI * 2;
             p.rotationSpeed = (Math.random() - 0.5) * 2;
 
-            particleIndexRef.current = (particleIndexRef.current + 1) % MAX_PARTICLES;
-          });
+            activeIndicesRef.current[activeCountRef.current++] = pIdx;
+          }
         }
       }
     } else {
       timeAccumulator.current = 0;
     }
 
-    let activeCount = 0;
-    for (let i = 0; i < MAX_PARTICLES; i++) {
-      const p = particles[i];
-      if (p.active) {
-        p.life += delta;
-        if (p.life >= p.maxLife) {
-          p.active = false;
-          continue;
-        }
+    // Dense particle update loop with in-place compaction
+    const count = activeCountRef.current;
+    let writeIdx = 0;
 
-        // Grawitacja ciągnie krople w dół silniej niż kurz
-        p.velocity.y -= delta * 15; 
-        
-        // Opór powietrza w poziomie
-        p.velocity.x *= Math.pow(0.5, delta); 
-        p.velocity.z *= Math.pow(0.5, delta);
+    for (let i = 0; i < count; i++) {
+      const pIdx = activeIndicesRef.current[i];
+      const p = particles[pIdx];
 
-        p.position.addScaledVector(p.velocity, delta);
-        p.rotationAngle += p.rotationSpeed * delta;
-        
-        // Jeśli kropelka spadnie poniżej wody, znika szybciej
-        if (p.position.y < WATER_LEVEL) {
-           p.life += delta * 2; 
-        }
-        
-        const progress = p.life / p.maxLife;
-        let currentOpacity = 0;
-        
-        if (progress < 0.1) {
-          currentOpacity = progress / 0.1;
-        } else if (progress > 0.5) {
-          const t = (progress - 0.5) / 0.5;
-          currentOpacity = 1 - (t * t); 
-        } else {
-          currentOpacity = 1;
-        }
-
-        // Krople nie rosną drastycznie tak jak dym
-        const currentScale = p.scale * (1 + progress * 0.2);
-
-        _q.setFromAxisAngle(_axisZ, p.rotationAngle);
-        dummy.quaternion.copy(state.camera.quaternion).multiply(_q);
-        
-        _scale.set(currentScale, currentScale, currentScale);
-        dummy.matrix.compose(p.position, dummy.quaternion, _scale);
-
-        meshRef.current.setMatrixAt(activeCount, dummy.matrix);
-        meshRef.current.setColorAt(activeCount, p.color);
-        opacityArray[activeCount] = currentOpacity;
-        activeCount++;
+      p.life += delta;
+      if (p.life >= p.maxLife) {
+        p.active = false;
+        freeIndicesRef.current[freeCountRef.current++] = pIdx;
+        continue;
       }
+
+      // Grawitacja ciągnie krople w dół silniej niż kurz
+      p.velocity.y -= delta * 15; 
+      
+      // Opór powietrza w poziomie
+      p.velocity.x *= Math.pow(0.5, delta); 
+      p.velocity.z *= Math.pow(0.5, delta);
+
+      p.position.addScaledVector(p.velocity, delta);
+      p.rotationAngle += p.rotationSpeed * delta;
+      
+      // Jeśli kropelka spadnie poniżej wody, znika szybciej
+      if (p.position.y < WATER_LEVEL) {
+        p.life += delta * 2; 
+      }
+
+      if (p.life >= p.maxLife) {
+        p.active = false;
+        freeIndicesRef.current[freeCountRef.current++] = pIdx;
+        continue;
+      }
+      
+      const progress = p.life / p.maxLife;
+      let currentOpacity = 0;
+      
+      if (progress < 0.1) {
+        currentOpacity = progress / 0.1;
+      } else if (progress > 0.5) {
+        const t = (progress - 0.5) / 0.5;
+        currentOpacity = 1 - (t * t); 
+      } else {
+        currentOpacity = 1;
+      }
+
+      // Krople nie rosną drastycznie tak jak dym
+      const currentScale = p.scale * (1 + progress * 0.2);
+
+      _q.setFromAxisAngle(_axisZ, p.rotationAngle);
+      dummy.quaternion.copy(state.camera.quaternion).multiply(_q);
+      
+      _scale.set(currentScale, currentScale, currentScale);
+      dummy.matrix.compose(p.position, dummy.quaternion, _scale);
+
+      meshRef.current.setMatrixAt(writeIdx, dummy.matrix);
+      meshRef.current.setColorAt(writeIdx, p.color);
+      opacityArray[writeIdx] = currentOpacity;
+
+      activeIndicesRef.current[writeIdx] = pIdx;
+      writeIdx++;
     }
 
-    meshRef.current.count = activeCount;
-    if (activeCount > 0) {
+    activeCountRef.current = writeIdx;
+    meshRef.current.count = writeIdx;
+
+    if (writeIdx > 0) {
       meshRef.current.instanceMatrix.needsUpdate = true;
       if (meshRef.current.instanceColor) {
         meshRef.current.instanceColor.needsUpdate = true;
@@ -210,11 +261,16 @@ export function WaterSplashes({ wheelsRef, chassisRef }: WaterSplashesProps) {
       if (meshRef.current.geometry && meshRef.current.geometry.attributes.instanceOpacity) {
         meshRef.current.geometry.attributes.instanceOpacity.needsUpdate = true;
       }
+      wasRenderingRef.current = true;
+    } else if (wasRenderingRef.current) {
+      meshRef.current.instanceMatrix.needsUpdate = true;
+      wasRenderingRef.current = false;
     }
   });
 
   return (
-    <instancedMesh ref={meshRef} args={[undefined, undefined, MAX_PARTICLES]} frustumCulled={false}>
+    <instancedMesh ref={meshRef} args={[undefined, undefined, maxParticles]} frustumCulled={false}>
+
       <planeGeometry args={[0.2, 0.2]}>
         <instancedBufferAttribute
           attach="attributes-instanceOpacity"

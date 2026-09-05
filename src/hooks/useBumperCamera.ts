@@ -11,6 +11,10 @@ const _bodyPos = new Vector3();
 const _worldQuat = new Quaternion();
 const _offset = new Vector3();
 
+// Pre-allocated rotation constants to eliminate per-frame GC allocations
+const _pitchDownQuat = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), -0.07);
+const _y180Quat = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), Math.PI);
+
 // Offset for the hood view (moved back and up to see the hood)
 const BUMPER_OFFSET = new Vector3(0, 1.1, 0.5); 
 
@@ -42,22 +46,15 @@ export function useBumperCamera(targetRef: React.RefObject<Object3D | null>): vo
       _offset.set(0, 1.1, 3.5).applyQuaternion(_worldQuat);
       camera.position.copy(_bodyPos).add(_offset);
       
-      const _pitchDown = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), -0.07);
-      // No 180-degree rotation means it looks towards local -Z (backwards)
-      camera.quaternion.copy(_worldQuat).multiply(_pitchDown);
+      // Zero allocations: use module-level constant
+      camera.quaternion.copy(_worldQuat).multiply(_pitchDownQuat);
     } else {
       // Normal bumper camera
       _offset.copy(BUMPER_OFFSET).applyQuaternion(_worldQuat);
       camera.position.copy(_bodyPos).add(_offset);
 
-      // For bumper/hood, we want the camera to also roll with the car.
-      // Three.js cameras look down their local -Z axis, but the car's forward is +Z.
-      // Therefore, we must rotate the camera 180 degrees around the Y axis relative to the car.
-      const _y180 = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), Math.PI);
-      // Slight downward pitch (approx 4 degrees) so the hood is visible
-      const _pitchDown = new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), -0.07);
-      
-      camera.quaternion.copy(_worldQuat).multiply(_y180).multiply(_pitchDown);
+      // Zero allocations: use module-level constants
+      camera.quaternion.copy(_worldQuat).multiply(_y180Quat).multiply(_pitchDownQuat);
     }
 
     // Dynamic FOV based on speed (higher sense of speed in bumper mode)
@@ -76,10 +73,13 @@ export function useBumperCamera(targetRef: React.RefObject<Object3D | null>): vo
       1 - Math.pow(FOV_SMOOTH_BASE, delta * 60),
     );
 
-    // Apply FOV
+    // Apply FOV and update projection matrix only when delta is significant to avoid scene graph churn
     if ('fov' in camera) {
-      (camera as PerspectiveCamera).fov = currentFovRef.current;
-      (camera as PerspectiveCamera).updateProjectionMatrix();
+      const persCamera = camera as PerspectiveCamera;
+      if (Math.abs(persCamera.fov - currentFovRef.current) > 0.02) {
+        persCamera.fov = currentFovRef.current;
+        persCamera.updateProjectionMatrix();
+      }
     }
   });
 }

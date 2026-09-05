@@ -4,7 +4,8 @@ import {
   Color,
   MeshStandardMaterial,
   type Texture,
-  type Sphere,
+  Sphere,
+  Vector3,
 } from 'three';
 import {
   createCabinStoneGeometry,
@@ -44,7 +45,6 @@ export interface ArchitectureInstancerProps {
   castleStoneTexture: Texture;
   britishDrystoneTexture: Texture;
   highlandCottageThatchTexture: Texture;
-  globalBoundingSphere: Sphere;
 }
 
 /**
@@ -72,7 +72,6 @@ export function ArchitectureInstancer({
   castleStoneTexture,
   britishDrystoneTexture,
   highlandCottageThatchTexture,
-  globalBoundingSphere,
 }: ArchitectureInstancerProps) {
   const cabinStoneRef = useRef<InstancedMesh>(null);
   const cabinWallRef = useRef<InstancedMesh>(null);
@@ -90,84 +89,84 @@ export function ArchitectureInstancer({
   const castleArchRef = useRef<InstancedMesh>(null);
   const stoneBridgeRef = useRef<InstancedMesh>(null);
 
-  // Geometries
+  // Geometries with genuine bounding spheres
   const cabinStoneGeo = useMemo(() => {
     const geo = createCabinStoneGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   const cabinWallGeo = useMemo(() => {
     const geo = createCabinWallGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   const cabinDoorGeo = useMemo(() => {
     const geo = createCabinDoorGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   const cabinWindowGeo = useMemo(() => {
     const geo = createCabinWindowGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   const cabinRoofGeo = useMemo(() => {
     const geo = createCabinRoofGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   const cottageWallGeo = useMemo(() => {
     const geo = createHighlandCottageWallGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   const cottageRoofGeo = useMemo(() => {
     const geo = createHighlandCottageRoofGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   const castleTowerGeo = useMemo(() => {
     const geo = createCastleTowerGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   const castleWallGeo = useMemo(() => {
     const geo = createCastleWallGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   const castleGateGeo = useMemo(() => {
     const geo = createCastleGateGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   const castleKeepGeo = useMemo(() => {
     const geo = createCastleKeepGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   const castleArchGeo = useMemo(() => {
     const geo = createCastleArchGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   const stoneBridgeGeo = useMemo(() => {
     const geo = createStoneBridgeGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   // Materials
   const cabinStoneMaterial = useMemo(
@@ -278,6 +277,13 @@ export function ArchitectureInstancer({
       }
       mesh.instanceMatrix.needsUpdate = true;
       mesh.count = items.length;
+      if (items.length > 0) {
+        mesh.visible = true;
+        mesh.computeBoundingSphere();
+      } else {
+        mesh.visible = false;
+        mesh.boundingSphere = new Sphere(new Vector3(0, 0, 0), -1);
+      }
     };
 
     uploadBatch(cabinStoneRef.current, cabins);

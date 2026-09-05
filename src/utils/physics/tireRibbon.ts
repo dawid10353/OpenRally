@@ -214,6 +214,9 @@ export class TireRibbonBuffer {
   public readonly alphas: Float32Array;    // maxSegments * 2 * 1
   public readonly indices: Uint32Array;    // (maxSegments - 1) * 6
 
+  /** Flag indicating whether ribbon geometry topology (vertices, UVs, colors, indices) changed */
+  public topologyDirty: boolean = true;
+
   // Pre-allocated object pool for segments
   private readonly points: RibbonPoint[];
   private start = 0;
@@ -234,6 +237,7 @@ export class TireRibbonBuffer {
     this.colors = new Float32Array(numVerts * 3);
     this.alphas = new Float32Array(numVerts * 1);
     this.indices = new Uint32Array((this.maxSegments - 1) * 6);
+    this.topologyDirty = true;
 
     this.points = Array.from({ length: this.maxSegments }, () => ({
       leftX: 0,
@@ -264,6 +268,15 @@ export class TireRibbonBuffer {
     this.hasLastPosition = false;
     this.wasAirborne = true;
     this.alphas.fill(0);
+    this.topologyDirty = true;
+  }
+
+  /**
+   * Flags that the tire is airborne or stopped, ensuring subsequent ground contacts
+   * disconnect the ribbon geometry rather than drawing stretched bridges.
+   */
+  public notifyAirborne(): void {
+    this.wasAirborne = true;
   }
 
   /**
@@ -417,6 +430,7 @@ export class TireRibbonBuffer {
     pt.disconnected = disconnected;
 
     this.count++;
+    this.topologyDirty = true;
   }
 
   /**
@@ -425,29 +439,58 @@ export class TireRibbonBuffer {
    */
   public updateLifetime(currentTime: number): boolean {
     if (this.count === 0) {
-      this.activeIndicesCount = 0;
+      if (this.activeIndicesCount > 0) {
+        this.activeIndicesCount = 0;
+        this.topologyDirty = true;
+      }
       return false;
     }
 
     const lifetime = this.config.lifetime;
 
     // 1. Prune expired points from the head of the circular queue
+    let pruned = false;
     while (this.count > 0) {
       const pt = this.points[this.start];
       if (currentTime - pt.time >= lifetime) {
         this.start = (this.start + 1) % this.maxSegments;
         this.count--;
+        pruned = true;
       } else {
         break;
       }
     }
 
+    if (pruned) {
+      this.topologyDirty = true;
+    }
+
     if (this.count === 0) {
       this.activeIndicesCount = 0;
+      this.topologyDirty = true;
       return false;
     }
 
-    // 2. Populate linear typed arrays in contiguous order
+    // 2. If topology did not change, only update alpha channel (avoids updating positions, UVs, colors, indices)
+    if (!this.topologyDirty) {
+      for (let i = 0; i < this.count; i++) {
+        const ptIdx = (this.start + i) % this.maxSegments;
+        const pt = this.points[ptIdx];
+
+        const age = currentTime - pt.time;
+        const progress = Math.min(1.0, Math.max(0.0, age / lifetime));
+        const fade = 1.0 - progress * progress;
+        const curAlpha = pt.baseAlpha * fade;
+        pt.alpha = curAlpha;
+
+        const vIdx = i * 2;
+        this.alphas[vIdx] = curAlpha;
+        this.alphas[vIdx + 1] = curAlpha;
+      }
+      return true;
+    }
+
+    // 3. Topology changed: fully repopulate linear typed arrays in contiguous order
     let indexCount = 0;
 
     for (let i = 0; i < this.count; i++) {

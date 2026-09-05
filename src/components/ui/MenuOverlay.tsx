@@ -97,6 +97,8 @@ export function MenuOverlay() {
 
   const { 
     graphicsQuality, setGraphicsQuality, 
+    targetFps, setTargetFps,
+    drawDistance, setDrawDistance,
     antiAliasing, setAntiAliasing,
     resolutionScale, setResolutionScale,
     shadowsEnabled, toggleShadows, 
@@ -271,27 +273,35 @@ export function MenuOverlay() {
 
   return (
     <div
+      className="overlay-menu-container"
       style={isPause ? menuStyles.pauseOverlayMenu : menuStyles.overlayMenu}
       onPointerDown={ensureAudioPlayback}
     >
       <audio ref={audioRef} src="/sounds/menu-music.mp3" autoPlay loop />
-      <div style={{ ...(isPause && view === 'main' ? menuStyles.pauseCardMenu : menuStyles.cardMenu), color: textColor }}>
+      <div
+        className={`menu-scalable-container ${isPause && view === 'main' ? 'pause-card-compact' : ''}`}
+        style={{ ...(isPause && view === 'main' ? menuStyles.pauseCardMenu : menuStyles.cardMenu), color: textColor }}
+      >
         
         {/* Main Menu Dashboard View */}
         {!isPause && view === 'main' && (
-          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '20px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '12px' }}>
             {/* Top Brand Header */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-              paddingBottom: '16px',
-              flexWrap: 'wrap',
-              gap: '12px',
-            }}>
+            <div
+              className="menu-brand-header"
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                paddingBottom: '16px',
+                flexWrap: 'wrap',
+                gap: '12px',
+              }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                 <img
+                  className="menu-brand-logo"
                   src="/openrally_logo_dark.png"
                   alt="OpenRally"
                   style={{
@@ -321,7 +331,7 @@ export function MenuOverlay() {
             </div>
 
             {/* Split Dashboard: Navigation on left, Showcase on right */}
-            <div style={menuStyles.dashboardLayout}>
+            <div className="menu-dashboard-layout" style={menuStyles.dashboardLayout}>
               {/* Left: Navigation Actions */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{
@@ -375,14 +385,14 @@ export function MenuOverlay() {
 
         {/* Pause Menu View */}
         {isPause && view === 'main' && (
-          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '14px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '12px' }}>
             {/* Header with neon pause bars */}
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               width: '100%',
-              paddingBottom: '10px',
+              paddingBottom: '8px',
               borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -402,7 +412,7 @@ export function MenuOverlay() {
                     boxShadow: '0 0 10px rgba(227, 24, 55, 0.8)',
                   }} />
                 </div>
-                <h1 style={{ ...menuStyles.pauseTitle, margin: 0, fontSize: '22px' }}>STAGE PAUSED</h1>
+                <h1 style={{ ...menuStyles.pauseTitle, margin: 0, fontSize: '20px' }}>STAGE PAUSED</h1>
               </div>
               <span style={{
                 padding: '4px 10px',
@@ -418,69 +428,75 @@ export function MenuOverlay() {
               </span>
             </div>
 
-            {/* Stage Preview Banner Card */}
-            <div style={{
-              width: '100%',
-              height: '84px',
-              borderRadius: '12px',
-              backgroundImage: `
-                linear-gradient(90deg, rgba(10, 14, 25, 0.95) 0%, rgba(10, 14, 25, 0.72) 55%, rgba(10, 14, 25, 0.4) 100%),
-                url('${STAGE_BANNERS[currentLevelPreset.id] || '/images/stages/island_circuit.jpg'}')
-              `,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              padding: '12px 18px',
-              boxSizing: 'border-box',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              boxShadow: '0 6px 18px rgba(0, 0, 0, 0.4)',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '16px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.5px' }}>
-                  {currentLevelPreset.name}
-                </span>
-                <span style={{
-                  fontSize: '11px',
-                  fontWeight: 800,
-                  color: '#38BDF8',
-                  background: 'rgba(56, 189, 248, 0.12)',
-                  border: '1px solid rgba(56, 189, 248, 0.3)',
-                  padding: '2px 8px',
-                  borderRadius: '4px',
-                  letterSpacing: '0.5px',
-                }}>
-                  {selectedLevelBest && selectedLevelBest > 0
-                    ? `RECORD: ${formatLapTime(selectedLevelBest)}`
-                    : 'RECORD: --:--.--'}
-                </span>
+            {/* Split content: Left banner & stats, Right action buttons */}
+            <div className="pause-split-layout" style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '12px' }}>
+              {/* Stage Preview Banner Card */}
+              <div
+                className="pause-banner-card"
+                style={{
+                  width: '100%',
+                  height: '84px',
+                  borderRadius: '12px',
+                  backgroundImage: `
+                    linear-gradient(90deg, rgba(10, 14, 25, 0.95) 0%, rgba(10, 14, 25, 0.72) 55%, rgba(10, 14, 25, 0.4) 100%),
+                    url('${STAGE_BANNERS[currentLevelPreset.id] || '/images/stages/island_circuit.jpg'}')
+                  `,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  padding: '12px 18px',
+                  boxSizing: 'border-box',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  boxShadow: '0 6px 18px rgba(0, 0, 0, 0.4)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '16px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.5px' }}>
+                    {currentLevelPreset.name}
+                  </span>
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    color: '#38BDF8',
+                    background: 'rgba(56, 189, 248, 0.12)',
+                    border: '1px solid rgba(56, 189, 248, 0.3)',
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    letterSpacing: '0.5px',
+                  }}>
+                    {selectedLevelBest && selectedLevelBest > 0
+                      ? `RECORD: ${formatLapTime(selectedLevelBest)}`
+                      : 'RECORD: --:--.--'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 600 }}>
+                    Surface: <strong style={{ color: '#CBD5E1' }}>{currentLevelPreset.surfaceDescription}</strong>
+                  </span>
+                  <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 600 }}>
+                    Machine: <strong style={{ color: '#CBD5E1' }}>{activeVehiclePreset.name}</strong>
+                  </span>
+                </div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 600 }}>
-                  Surface: <strong style={{ color: '#CBD5E1' }}>{currentLevelPreset.surfaceDescription}</strong>
-                </span>
-                <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 600 }}>
-                  Machine: <strong style={{ color: '#CBD5E1' }}>{activeVehiclePreset.name}</strong>
-                </span>
-              </div>
-            </div>
 
-            {/* Action Buttons */}
-            <MainView
-              isPause={true}
-              focusedIndex={focusedIndex}
-              textColor={textColor}
-              onPointerMoveItem={handlePointerMoveItem}
-              onSelectView={setView}
-              onResume={() => setGameState('playing')}
-              onReset={handleReset}
-              onReturnToMainMenu={handleReturnToMainMenu}
-              onOpenGarage={() => {
-                setPreviewVehicleId(selectedVehicleId);
-                setView('garage');
-              }}
-            />
+              {/* Action Buttons */}
+              <MainView
+                isPause={true}
+                focusedIndex={focusedIndex}
+                textColor={textColor}
+                onPointerMoveItem={handlePointerMoveItem}
+                onSelectView={setView}
+                onResume={() => setGameState('playing')}
+                onReset={handleReset}
+                onReturnToMainMenu={handleReturnToMainMenu}
+                onOpenGarage={() => {
+                  setPreviewVehicleId(selectedVehicleId);
+                  setView('garage');
+                }}
+              />
+            </div>
           </div>
         )}
 
@@ -534,6 +550,8 @@ export function MenuOverlay() {
         {view === 'options' && (
           <SettingsView
             graphicsQuality={graphicsQuality}
+            targetFps={targetFps}
+            drawDistance={drawDistance}
             antiAliasing={antiAliasing}
             resolutionScale={resolutionScale}
             shadowsEnabled={shadowsEnabled}
@@ -549,6 +567,8 @@ export function MenuOverlay() {
             textColor={textColor}
             onPointerMoveItem={handlePointerMoveItem}
             onSetGraphicsQuality={setGraphicsQuality}
+            onSetTargetFps={setTargetFps}
+            onSetDrawDistance={setDrawDistance}
             onSetAntiAliasing={setAntiAliasing}
             onSetResolutionScale={setResolutionScale}
             onToggleShadows={toggleShadows}

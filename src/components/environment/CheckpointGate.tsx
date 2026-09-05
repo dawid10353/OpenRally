@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useEffect } from 'react';
 import { RigidBody, CylinderCollider, CuboidCollider } from '@react-three/rapier';
 import {
   CanvasTexture,
@@ -334,6 +334,54 @@ export const CheckpointGate = memo(function CheckpointGate({
   const leftColliderHeight = Math.max(1.0, topBarY - leftOffset);
   const rightColliderHeight = Math.max(1.0, topBarY - rightOffset);
 
+  // ─── GEOMETRY BATCHING: Merge static sub-meshes sharing identical materials to cut Draw Calls ───
+  const foundationsGeo = useMemo(() => {
+    const left = FOUNDATION_CYL_GEO.clone();
+    left.translate(-halfWidth, leftOffset, 0);
+    const right = FOUNDATION_CYL_GEO.clone();
+    right.translate(halfWidth, rightOffset, 0);
+    return BufferGeometryUtils.mergeGeometries([left, right], false);
+  }, [halfWidth, leftOffset, rightOffset]);
+
+  const crashPadsGeo = useMemo(() => {
+    const left = CRASH_PAD_GEO.clone();
+    left.translate(-halfWidth, leftOffset, 0);
+    const right = CRASH_PAD_GEO.clone();
+    right.translate(halfWidth, rightOffset, 0);
+    return BufferGeometryUtils.mergeGeometries([left, right], false);
+  }, [halfWidth, leftOffset, rightOffset]);
+
+  const statusLampsGeo = useMemo(() => {
+    const leftLens = LAMP_LENS_GEO.clone();
+    leftLens.rotateZ(Math.PI / 2);
+    leftLens.translate(-halfWidth + 0.49, gateHeight * 0.72, 0);
+    const rightLens = LAMP_LENS_GEO.clone();
+    rightLens.rotateZ(-Math.PI / 2);
+    rightLens.translate(halfWidth - 0.49, gateHeight * 0.72, 0);
+    return BufferGeometryUtils.mergeGeometries([leftLens, rightLens], false);
+  }, [halfWidth, gateHeight]);
+
+  const spotlightLensesGeo = useMemo(() => {
+    const parts: BufferGeometry[] = [];
+    ([-halfWidth * 0.55, 0, halfWidth * 0.55] as const).forEach((sx) => {
+      const geo = SPOTLIGHT_LENS_GEO.clone();
+      geo.rotateX(Math.PI / 2 + Math.PI / 8);
+      geo.translate(sx, botBarY - 0.24, 0);
+      parts.push(geo);
+    });
+    return BufferGeometryUtils.mergeGeometries(parts, false);
+  }, [halfWidth, botBarY]);
+
+  // Clean up merged geometries on unmount
+  useEffect(() => {
+    return () => {
+      foundationsGeo?.dispose();
+      crashPadsGeo?.dispose();
+      statusLampsGeo?.dispose();
+      spotlightLensesGeo?.dispose();
+    };
+  }, [foundationsGeo, crashPadsGeo, statusLampsGeo, spotlightLensesGeo]);
+
   return (
     <group position={[x, y, z]} rotation={[0, data.rotationY, 0]}>
       {/* ─── 0. SOLID PHYSICS COLLIDERS ─── */}
@@ -369,50 +417,29 @@ export const CheckpointGate = memo(function CheckpointGate({
         castShadow
       />
 
-      {/* ─── 3. ADAPTIVE LEFT PILLAR & GROUND ANCHORS ─── */}
-      <group position={[-halfWidth, leftOffset, 0]}>
-        {/* Deep subterranean concrete foundation (12m deep into the slope) */}
-        <mesh geometry={FOUNDATION_CYL_GEO} material={FOUNDATION_MAT} />
-        {/* Heavy duty hazard crash pad resting flush on the terrain */}
-        <mesh geometry={CRASH_PAD_GEO} material={CRASH_PAD_MAT} castShadow receiveShadow />
-        {/* Vertical steel truss column extending from crash pad to top beam */}
-        <mesh position={[0, 1.3, 0]} geometry={leftColumnGeo} material={STEEL_TRUSS_MAT} castShadow />
-      </group>
+      {/* ─── 3. BATCHED SUBTERRANEAN FOUNDATIONS (1 draw call instead of 2) ─── */}
+      {foundationsGeo && (
+        <mesh geometry={foundationsGeo} material={FOUNDATION_MAT} />
+      )}
 
-      {/* ─── 4. ADAPTIVE RIGHT PILLAR & GROUND ANCHORS ─── */}
-      <group position={[halfWidth, rightOffset, 0]}>
-        {/* Deep subterranean concrete foundation (12m deep into the slope) */}
-        <mesh geometry={FOUNDATION_CYL_GEO} material={FOUNDATION_MAT} />
-        {/* Heavy duty hazard crash pad resting flush on the terrain */}
-        <mesh geometry={CRASH_PAD_GEO} material={CRASH_PAD_MAT} castShadow receiveShadow />
-        {/* Vertical steel truss column extending from crash pad to top beam */}
-        <mesh position={[0, 1.3, 0]} geometry={rightColumnGeo} material={STEEL_TRUSS_MAT} castShadow />
-      </group>
+      {/* ─── 4. BATCHED CRASH PADS (1 draw call instead of 2) ─── */}
+      {crashPadsGeo && (
+        <mesh geometry={crashPadsGeo} material={CRASH_PAD_MAT} castShadow receiveShadow />
+      )}
 
-      {/* ─── 5. STATUS INDICATOR LIGHT LENSES (Left & Right) ─── */}
-      <mesh
-        position={[-halfWidth + 0.49, gateHeight * 0.72, 0]}
-        rotation={[0, 0, Math.PI / 2]}
-        geometry={LAMP_LENS_GEO}
-        material={statusLampMat}
-      />
-      <mesh
-        position={[halfWidth - 0.49, gateHeight * 0.72, 0]}
-        rotation={[0, 0, -Math.PI / 2]}
-        geometry={LAMP_LENS_GEO}
-        material={statusLampMat}
-      />
+      {/* ─── 5. VERTICAL STEEL TRUSS COLUMNS ─── */}
+      <mesh position={[-halfWidth, leftOffset + 1.3, 0]} geometry={leftColumnGeo} material={STEEL_TRUSS_MAT} castShadow />
+      <mesh position={[halfWidth, rightOffset + 1.3, 0]} geometry={rightColumnGeo} material={STEEL_TRUSS_MAT} castShadow />
 
-      {/* ─── 6. DOWN-FACING ROAD ILLUMINATION SPOTLIGHT LENSES ─── */}
-      {([-halfWidth * 0.55, 0, halfWidth * 0.55] as const).map((sx, idx) => (
-        <mesh
-          key={`gate_spot_lens_${idx}`}
-          position={[sx, botBarY - 0.24, 0]}
-          rotation={[Math.PI / 2 + Math.PI / 8, 0, 0]}
-          geometry={SPOTLIGHT_LENS_GEO}
-          material={spotlightMat}
-        />
-      ))}
+      {/* ─── 6. BATCHED STATUS INDICATOR LIGHT LENSES (1 draw call instead of 2) ─── */}
+      {statusLampsGeo && (
+        <mesh geometry={statusLampsGeo} material={statusLampMat} />
+      )}
+
+      {/* ─── 7. BATCHED SPOTLIGHT LENSES (1 draw call instead of 3) ─── */}
+      {spotlightLensesGeo && (
+        <mesh geometry={spotlightLensesGeo} material={spotlightMat} />
+      )}
     </group>
   );
 });

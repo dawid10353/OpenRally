@@ -4,7 +4,8 @@ import {
   Color,
   MeshStandardMaterial,
   type Texture,
-  type Sphere,
+  Sphere,
+  Vector3,
 } from 'three';
 import {
   createFenceGeometry,
@@ -25,7 +26,6 @@ export interface TracksidePropsInstancerProps {
   britishDrystoneTexture: Texture;
   highlandCottageThatchTexture: Texture;
   cabinRedWallTexture: Texture;
-  globalBoundingSphere: Sphere;
 }
 
 /**
@@ -42,37 +42,36 @@ export function TracksidePropsInstancer({
   britishDrystoneTexture,
   highlandCottageThatchTexture,
   cabinRedWallTexture,
-  globalBoundingSphere,
 }: TracksidePropsInstancerProps) {
   const fenceRef = useRef<InstancedMesh>(null);
   const stoneWallRef = useRef<InstancedMesh>(null);
   const hayBaleRef = useRef<InstancedMesh>(null);
   const rallySignRef = useRef<InstancedMesh>(null);
 
-  // Geometries
+  // Geometries with genuine bounding spheres
   const fenceGeo = useMemo(() => {
     const geo = createFenceGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   const stoneWallGeo = useMemo(() => {
     const geo = createStoneWallGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   const hayBaleGeo = useMemo(() => {
     const geo = createHayBaleGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   const rallySignGeo = useMemo(() => {
     const geo = createRallySignGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   // Materials
   const fenceMaterial = useMemo(
@@ -128,6 +127,13 @@ export function TracksidePropsInstancer({
       }
       mesh.instanceMatrix.needsUpdate = true;
       mesh.count = items.length;
+      if (items.length > 0) {
+        mesh.visible = true;
+        mesh.computeBoundingSphere();
+      } else {
+        mesh.visible = false;
+        mesh.boundingSphere = new Sphere(new Vector3(0, 0, 0), -1);
+      }
     };
 
     uploadBatch(fenceRef.current, fences);

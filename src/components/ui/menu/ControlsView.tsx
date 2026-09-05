@@ -1,10 +1,11 @@
+import { useState, useEffect } from 'react';
 import { menuStyles, getFocusStyle } from './menuStyles';
 import type { ControlsTab, MenuView } from './types';
 
 interface ControlsViewProps {
   gamepadConnected: boolean;
   gamepadName: string;
-  gamepadType: 'xbox' | 'dualsense' | 'generic';
+  gamepadType: 'xbox' | 'dualsense' | 'generic' | null;
   controlsTab: ControlsTab;
   focusedIndex: number;
   textColor: string;
@@ -24,8 +25,17 @@ export function ControlsView({
   onSetControlsTab,
   onSelectView,
 }: ControlsViewProps) {
+  const [selectedTab, setSelectedTab] = useState<ControlsTab | 'touch'>(controlsTab);
+
+  useEffect(() => {
+    setSelectedTab(controlsTab);
+  }, [controlsTab]);
+
   return (
-    <div style={{ ...menuStyles.subView, color: textColor }}>
+    <div
+      className="controls-subview menu-scalable-container"
+      style={{ ...menuStyles.subView, color: textColor, width: '100%', minWidth: '540px', maxWidth: '880px' }}
+    >
       <h2 style={menuStyles.subViewTitle}>Controls</h2>
 
       {/* Gamepad Status Banner */}
@@ -58,18 +68,22 @@ export function ControlsView({
         </span>
       </div>
 
-      {/* Tab Switcher */}
+      {/* Tab Switcher (min 44px Touch Targets) */}
       <div style={{ display: 'flex', gap: '6px', width: '100%', marginBottom: '8px' }}>
         <button
           style={{
             ...menuStyles.tabButton,
             flex: 1,
-            padding: '8px 6px',
+            minHeight: '44px',
+            padding: '10px 8px',
             fontSize: '12px',
             fontWeight: 700,
-            ...(controlsTab === 'dualsense' ? menuStyles.activeTabButton : {}),
+            ...(selectedTab === 'dualsense' ? menuStyles.activeTabButton : {}),
           }}
-          onClick={() => onSetControlsTab('dualsense')}
+          onClick={() => {
+            onSetControlsTab('dualsense');
+            setSelectedTab('dualsense');
+          }}
         >
           DualSense (PS5)
         </button>
@@ -77,12 +91,16 @@ export function ControlsView({
           style={{
             ...menuStyles.tabButton,
             flex: 1,
-            padding: '8px 6px',
+            minHeight: '44px',
+            padding: '10px 8px',
             fontSize: '12px',
             fontWeight: 700,
-            ...(controlsTab === 'xbox' ? menuStyles.activeTabButton : {}),
+            ...(selectedTab === 'xbox' ? menuStyles.activeTabButton : {}),
           }}
-          onClick={() => onSetControlsTab('xbox')}
+          onClick={() => {
+            onSetControlsTab('xbox');
+            setSelectedTab('xbox');
+          }}
         >
           Xbox Controller
         </button>
@@ -90,25 +108,135 @@ export function ControlsView({
           style={{
             ...menuStyles.tabButton,
             flex: 1,
-            padding: '8px 6px',
+            minHeight: '44px',
+            padding: '10px 8px',
             fontSize: '12px',
             fontWeight: 700,
-            ...(controlsTab === 'keyboard' ? menuStyles.activeTabButton : {}),
+            ...(selectedTab === 'keyboard' ? menuStyles.activeTabButton : {}),
           }}
-          onClick={() => onSetControlsTab('keyboard')}
+          onClick={() => {
+            onSetControlsTab('keyboard');
+            setSelectedTab('keyboard');
+          }}
         >
           Keyboard
         </button>
+        <button
+          data-testid="controls-tab-touch"
+          style={{
+            ...menuStyles.tabButton,
+            flex: 1,
+            minHeight: '44px',
+            padding: '10px 8px',
+            fontSize: '12px',
+            fontWeight: 700,
+            ...(selectedTab === 'touch' ? menuStyles.activeTabButton : {}),
+          }}
+          onClick={() => setSelectedTab('touch')}
+        >
+          Touch Screen
+        </button>
       </div>
 
-      {controlsTab === 'dualsense' ? (
-        <div style={{
-          ...menuStyles.controlsHelp,
-          background: 'rgba(15, 23, 42, 0.65)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: '12px',
-          color: '#CBD5E1',
-        }}>
+      {selectedTab === 'touch' ? (
+        <div
+          className="controls-help-grid"
+          style={{
+            ...menuStyles.controlsHelp,
+            background: 'rgba(15, 23, 42, 0.65)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '12px',
+            color: '#CBD5E1',
+          }}
+        >
+          {/* Header Description */}
+          <div
+            style={{
+              padding: '8px 4px 12px 4px',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+              marginBottom: '8px',
+            }}
+          >
+            <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+              Ergonomic on-screen two-thumb driving layout for Android and mobile touch devices.
+              Supports multi-touch, floating analog joystick, and haptic feedback.
+            </span>
+          </div>
+
+          <div style={menuStyles.controlRow}>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.touchBadge}>JOYSTICK</span> Steering (Default)
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Touch & Drag anywhere in Left Zone</span>
+          </div>
+
+          <div style={menuStyles.controlRow}>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.touchBadge}>◄ / ►</span> Steering (Buttons)
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Discrete Left & Right touch pads</span>
+          </div>
+
+          <div style={menuStyles.controlRow}>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.touchBadgeGas}>▲ GAS</span> Throttle
+            </strong>
+            <span style={{ color: '#67E8F9' }}>Right Outer Pedal (Hold for full gas)</span>
+          </div>
+
+          <div style={menuStyles.controlRow}>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.touchBadgeBrake}>▼ BRAKE</span> Brake / Reverse
+            </strong>
+            <span style={{ color: '#FCA5A5' }}>Right Inner Pedal (Reverses when stopped)</span>
+          </div>
+
+          <div style={menuStyles.controlRow}>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.touchBadgeDrift}>DRIFT</span> Handbrake
+            </strong>
+            <span style={{ color: '#FDE68A' }}>Thumb roll above throttle for hairpins</span>
+          </div>
+
+          <div style={menuStyles.controlRow}>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.touchBadgeUtil}>❚❚ PAUSE</span> Pause Menu
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Top-Left on-screen button</span>
+          </div>
+
+          <div style={menuStyles.controlRow}>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.touchBadgeUtil}>↺ RESET</span> Recover Vehicle
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Instant respawn on track</span>
+          </div>
+
+          <div style={menuStyles.controlRow}>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.touchBadgeUtil}>📷 CAMERA</span> Cycle View
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Chase / Close / Bumper / Orbit</span>
+          </div>
+
+          <div style={menuStyles.controlRow}>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.touchBadge}>VIBRATE</span> Haptic Feedback
+            </strong>
+            <span style={{ color: '#94A3B8' }}>Pedal touch & drift vibration</span>
+          </div>
+        </div>
+      ) : selectedTab === 'dualsense' ? (
+        <div
+          className="controls-help-grid"
+          style={{
+            ...menuStyles.controlsHelp,
+            background: 'rgba(15, 23, 42, 0.65)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '12px',
+            color: '#CBD5E1',
+          }}
+        >
           <div style={menuStyles.controlRow}>
             <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={styles.badge}>L-STICK</span> Steering (Analog)
@@ -177,13 +305,16 @@ export function ControlsView({
           </div>
         </div>
       ) : controlsTab === 'xbox' ? (
-        <div style={{
-          ...menuStyles.controlsHelp,
-          background: 'rgba(15, 23, 42, 0.65)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: '12px',
-          color: '#CBD5E1',
-        }}>
+        <div
+          className="controls-help-grid"
+          style={{
+            ...menuStyles.controlsHelp,
+            background: 'rgba(15, 23, 42, 0.65)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '12px',
+            color: '#CBD5E1',
+          }}
+        >
           <div style={menuStyles.controlRow}>
             <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={styles.badge}>LS</span> Steering
@@ -252,13 +383,16 @@ export function ControlsView({
           </div>
         </div>
       ) : (
-        <div style={{
-          ...menuStyles.controlsHelp,
-          background: 'rgba(15, 23, 42, 0.65)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: '12px',
-          color: '#CBD5E1',
-        }}>
+        <div
+          className="controls-help-grid"
+          style={{
+            ...menuStyles.controlsHelp,
+            background: 'rgba(15, 23, 42, 0.65)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '12px',
+            color: '#CBD5E1',
+          }}
+        >
           <div style={menuStyles.controlRow}>
             <strong style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <kbd style={styles.kbd}>W</kbd>
@@ -315,8 +449,9 @@ export function ControlsView({
           ...menuStyles.secondaryButton,
           color: textColor,
           borderColor: 'rgba(255, 255, 255, 0.1)',
-          marginTop: '20px', 
+          marginTop: '12px', 
           width: '100%',
+          minHeight: '44px',
           justifyContent: 'center',
           ...getFocusStyle(focusedIndex === 0),
         }} 
@@ -458,5 +593,50 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '4px',
     boxShadow: '0 2px 0 #0F172A',
     fontFamily: 'monospace',
+  },
+  touchBadge: {
+    padding: '3px 8px',
+    borderRadius: '6px',
+    background: 'rgba(0, 212, 255, 0.2)',
+    border: '1px solid rgba(0, 212, 255, 0.5)',
+    color: '#00d4ff',
+    fontSize: '11px',
+    fontWeight: 800,
+  },
+  touchBadgeGas: {
+    padding: '3px 8px',
+    borderRadius: '6px',
+    background: 'rgba(0, 212, 255, 0.3)',
+    border: '1px solid #00d4ff',
+    color: '#67e8f9',
+    fontSize: '11px',
+    fontWeight: 800,
+  },
+  touchBadgeBrake: {
+    padding: '3px 8px',
+    borderRadius: '6px',
+    background: 'rgba(239, 68, 68, 0.3)',
+    border: '1px solid #ef4444',
+    color: '#fca5a5',
+    fontSize: '11px',
+    fontWeight: 800,
+  },
+  touchBadgeDrift: {
+    padding: '3px 8px',
+    borderRadius: '6px',
+    background: 'rgba(245, 158, 11, 0.3)',
+    border: '1px solid #f59e0b',
+    color: '#fde68a',
+    fontSize: '11px',
+    fontWeight: 800,
+  },
+  touchBadgeUtil: {
+    padding: '3px 8px',
+    borderRadius: '6px',
+    background: 'rgba(255, 255, 255, 0.15)',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+    color: '#ffffff',
+    fontSize: '11px',
+    fontWeight: 800,
   },
 };

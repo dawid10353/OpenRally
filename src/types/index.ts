@@ -42,4 +42,5 @@ export type {
   LevelPreset,
 } from './level';
 export type { RacingStore } from './racing';
+export * from './settings';
 

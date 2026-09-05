@@ -1,0 +1,115 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { shouldEnableCanvasShadows } from '../GameCanvas';
+import { useSettingsStore } from '@/store/settingsStore';
+
+describe('Graphics Pipeline & Settings Scaling', () => {
+  const storageMock = (() => {
+    let store: Record<string, string> = {};
+    return {
+      getItem: (key: string) => store[key] ?? null,
+      setItem: (key: string, val: string) => {
+        store[key] = String(val);
+      },
+      removeItem: (key: string) => {
+        delete store[key];
+      },
+      clear: () => {
+        store = {};
+      },
+    };
+  })();
+
+  beforeEach(() => {
+    storageMock.clear();
+    vi.stubGlobal('localStorage', storageMock);
+    useSettingsStore.setState({
+      graphicsQuality: 'very_high',
+      shadowsEnabled: true,
+      postProcessingEnabled: true,
+      antiAliasing: 'smaa',
+      graphicsConfiguredByUser: false,
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  describe('shouldEnableCanvasShadows', () => {
+    it('enables shadows on high and very_high when shadowsEnabled is true', () => {
+      expect(shouldEnableCanvasShadows(true, 'very_high')).toBe(true);
+      expect(shouldEnableCanvasShadows(true, 'high')).toBe(true);
+      expect(shouldEnableCanvasShadows(true, 'medium')).toBe(true);
+    });
+
+    it('strictly suppresses shadows when graphics quality is low even if shadowsEnabled is true', () => {
+      expect(shouldEnableCanvasShadows(true, 'low')).toBe(false);
+    });
+
+    it('suppresses shadows across all quality levels when shadowsEnabled is false', () => {
+      expect(shouldEnableCanvasShadows(false, 'very_high')).toBe(false);
+      expect(shouldEnableCanvasShadows(false, 'high')).toBe(false);
+      expect(shouldEnableCanvasShadows(false, 'medium')).toBe(false);
+      expect(shouldEnableCanvasShadows(false, 'low')).toBe(false);
+    });
+  });
+
+  describe('settingsStore graphics preset scaling', () => {
+    it('disables shadows, AA, and post-processing when switching to low', () => {
+      useSettingsStore.getState().setGraphicsQuality('low');
+      const state = useSettingsStore.getState();
+
+      expect(state.graphicsQuality).toBe('low');
+      expect(state.shadowsEnabled).toBe(false);
+      expect(state.postProcessingEnabled).toBe(false);
+      expect(state.antiAliasing).toBe('off');
+    });
+
+    it('restores shadows and post-processing when switching back to very_high', () => {
+      useSettingsStore.getState().setGraphicsQuality('low');
+      expect(useSettingsStore.getState().shadowsEnabled).toBe(false);
+
+      useSettingsStore.getState().setGraphicsQuality('very_high');
+      const state = useSettingsStore.getState();
+
+      expect(state.graphicsQuality).toBe('very_high');
+      expect(state.shadowsEnabled).toBe(true);
+      expect(state.postProcessingEnabled).toBe(true);
+    });
+
+    it('enables balanced shadows without heavy AA on medium preset', () => {
+      useSettingsStore.getState().setGraphicsQuality('low');
+      useSettingsStore.getState().setGraphicsQuality('medium');
+      const state = useSettingsStore.getState();
+
+      expect(state.graphicsQuality).toBe('medium');
+      expect(state.shadowsEnabled).toBe(true);
+      expect(state.antiAliasing).toBe('off');
+    });
+  });
+
+  describe('PostProcessingErrorBoundary containment', () => {
+    it('catches and isolates rendering exceptions without throwing to caller', async () => {
+      const { PostProcessingErrorBoundary } = await import('../PostProcessingErrorBoundary');
+      const boundary = new PostProcessingErrorBoundary({
+        children: null,
+      });
+      expect(boundary.state.hasError).toBe(false);
+
+      const state = PostProcessingErrorBoundary.getDerivedStateFromError(new Error('WebGL Framebuffer Incomplete'));
+      expect(state.hasError).toBe(true);
+      expect(state.errorMessage).toBe('WebGL Framebuffer Incomplete');
+
+      const onErrorMock = vi.fn();
+      const boundaryWithCallback = new PostProcessingErrorBoundary({
+        children: null,
+        onError: onErrorMock,
+      });
+
+      boundaryWithCallback.componentDidCatch(new Error('Shader Compilation Timeout'), {
+        componentStack: 'in EffectComposer\n in GameCanvas',
+      });
+      expect(onErrorMock).toHaveBeenCalled();
+    });
+  });
+});

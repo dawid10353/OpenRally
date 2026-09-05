@@ -244,6 +244,58 @@ describe('Tire Ribbon System', () => {
       expect(buffer.getSegmentCount()).toBe(0);
       expect(buffer.getActiveIndicesCount()).toBe(0);
     });
+
+    it('tracks topologyDirty flag on push, pruning, and reset', () => {
+      const buffer = new TireRibbonBuffer({ maxSegments: 10, lifetime: 5, minDistance: 0.1 });
+      const normal = new Vector3(0, 1, 0);
+
+      // On init, topologyDirty is true
+      expect(buffer.topologyDirty).toBe(true);
+      buffer.topologyDirty = false;
+
+      // Adding first contact point records lastPosition
+      buffer.addContactPoint(new Vector3(0, 0, 0), normal, 'mud', 5, 0, true, 1.0);
+      expect(buffer.topologyDirty).toBe(false);
+
+      // Adding second contact point pushes a segment and sets topologyDirty
+      buffer.addContactPoint(new Vector3(0, 0, 1), normal, 'mud', 5, 0, true, 1.1);
+      expect(buffer.topologyDirty).toBe(true);
+
+      // Updating lifetime without pruning does NOT mark topology dirty (fading only)
+      buffer.topologyDirty = false;
+      buffer.updateLifetime(1.2);
+      expect(buffer.topologyDirty).toBe(false);
+
+      // Advancing time past lifetime causes pruning, marking topologyDirty true
+      buffer.updateLifetime(7.0);
+      expect(buffer.topologyDirty).toBe(true);
+
+      // Reset marks topologyDirty true
+      buffer.topologyDirty = false;
+      buffer.reset();
+      expect(buffer.topologyDirty).toBe(true);
+    });
+
+    it('notifyAirborne sets wasAirborne to prevent connecting separated segments', () => {
+      const buffer = new TireRibbonBuffer({ maxSegments: 10, minDistance: 0.1 });
+      const normal = new Vector3(0, 1, 0);
+
+      buffer.addContactPoint(new Vector3(0, 0, 0), normal, 'mud', 5, 0, true, 1.0);
+      buffer.addContactPoint(new Vector3(0, 0, 1), normal, 'mud', 5, 0, true, 1.1);
+      expect(buffer.getSegmentCount()).toBe(1);
+
+      // Simulate airborne/stopped tire by calling notifyAirborne
+      buffer.notifyAirborne();
+
+      // Next contact point is disconnected from the pre-jump point
+      buffer.addContactPoint(new Vector3(0, 0, 2), normal, 'mud', 5, 0, true, 2.0);
+      buffer.addContactPoint(new Vector3(0, 0, 3), normal, 'mud', 5, 0, true, 2.1);
+      buffer.updateLifetime(2.1);
+
+      // 3 segments total, 1 quad connecting 2->3 (no quad connecting 1->2)
+      expect(buffer.getSegmentCount()).toBe(3);
+      expect(buffer.getActiveIndicesCount()).toBe(6);
+    });
   });
 
   describe('Surface Track Profiles', () => {

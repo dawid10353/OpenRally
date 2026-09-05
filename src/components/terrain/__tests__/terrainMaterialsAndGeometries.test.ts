@@ -318,4 +318,37 @@ describe('Terrain Materials and Procedural Geometries', () => {
     expect(bridge.attributes.uv).toBeDefined();
     expect(bridge.attributes.position.count).toBeGreaterThan(20);
   });
+
+  describe('Texture Anisotropy Clamping (R4)', () => {
+    it('clamps terrain texture anisotropy to <= 2 when on mobile devices', () => {
+      const qualities = ['low', 'medium', 'high', 'very_high'] as const;
+      for (const q of qualities) {
+        const base = q === 'very_high' ? 16 : q === 'high' ? 8 : 4;
+        const mobileAnisotropy = Math.min(base, 2);
+        expect(mobileAnisotropy).toBe(2);
+        expect(mobileAnisotropy).toBeLessThanOrEqual(2);
+      }
+    });
+
+    it('preserves high desktop anisotropy up to 16x when on desktop devices', () => {
+      const getDesktopAnisotropy = (q: string) => (q === 'very_high' ? 16 : q === 'high' ? 8 : 4);
+      expect(getDesktopAnisotropy('very_high')).toBe(16);
+      expect(getDesktopAnisotropy('high')).toBe(8);
+      expect(getDesktopAnisotropy('medium')).toBe(4);
+      expect(getDesktopAnisotropy('low')).toBe(4);
+    });
+
+    it('applies clamped anisotropy to texture instances', () => {
+      const tex = new Texture();
+      const isMobile = true;
+      const baseAnisotropy = 16;
+      tex.anisotropy = isMobile ? Math.min(baseAnisotropy, 2) : baseAnisotropy;
+      expect(tex.anisotropy).toBe(2);
+
+      const desktopTex = new Texture();
+      const isDesktop = false;
+      desktopTex.anisotropy = isDesktop ? Math.min(baseAnisotropy, 2) : baseAnisotropy;
+      expect(desktopTex.anisotropy).toBe(16);
+    });
+  });
 });

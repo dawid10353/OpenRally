@@ -257,8 +257,8 @@ export function Minimap() {
 const styles: Record<string, React.CSSProperties> = {
   container: {
     position: 'absolute',
-    top: '20px',
-    right: '20px',
+    top: 'calc(20px + var(--sat))',
+    right: 'calc(20px + var(--sar))',
     width: `${CANVAS_SIZE}px`,
     height: `${CANVAS_SIZE}px`,
     borderRadius: '50%',

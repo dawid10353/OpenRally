@@ -5,4 +5,5 @@ export * from '@/utils/builders';
 export * from '@/utils/trackGenerator';
 export * from '@/utils/diagnostics';
 export * from '@/utils/events';
-
+export * from '@/utils/device';
+export * from '@/utils/input/touch';

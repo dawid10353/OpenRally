@@ -1,4 +1,4 @@
-export { useInputUpdater } from '@/hooks/useInput';
+export { useInputUpdater, blendInputs } from '@/hooks/useInput';
 export { useGamepadManager } from '@/hooks/useGamepadManager';
 export { useChaseCamera } from '@/hooks/useChaseCamera';
 export { useBumperCamera } from '@/hooks/useBumperCamera';

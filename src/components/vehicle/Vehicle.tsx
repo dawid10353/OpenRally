@@ -16,8 +16,10 @@ import { WaterSplashes } from '@/components/vehicle/WaterSplashes';
 import { useGLTF, Clone, Detailed } from '@react-three/drei';
 import { VEHICLE_MODEL_PATH, VEHICLE_WRC_MODEL_PATH } from '@/config/assets';
 import { useGameStore } from '@/store/gameStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { getVehiclePreset } from '@/config/vehicleRegistry';
 import { useTerrainData } from '@/components/terrain/TerrainContext';
+import { isMobileDevice } from '@/utils/device';
 
 /**
  * Main Vehicle component — procedural car from Three.js primitives + GLB models.
@@ -29,7 +31,14 @@ export function Vehicle() {
   const vehiclePreset = getVehiclePreset(selectedVehicleId);
   const { levelPreset } = useTerrainData();
 
-  const { scene } = useGLTF(vehiclePreset.modelPath);
+  const isMobile = isMobileDevice();
+  const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
+  const useOptimized = isMobile || graphicsQuality !== 'very_high';
+  const effectiveModelPath = useOptimized && vehiclePreset.modelPath.endsWith('.glb')
+    ? vehiclePreset.modelPath.replace(/\.glb$/, '_opt.glb')
+    : vehiclePreset.modelPath;
+
+  const { scene } = useGLTF(effectiveModelPath);
   const chassisRef = useRef<RapierRigidBody>(null);
   const visualRef = useRef<Group>(null);
   const wheelObjectsRef = useRef<(Object3D | null)[]>([null, null, null, null]);
@@ -184,3 +193,5 @@ export function Vehicle() {
 
 useGLTF.preload(VEHICLE_MODEL_PATH);
 useGLTF.preload(VEHICLE_WRC_MODEL_PATH);
+useGLTF.preload('/models/vehicles/car_opt.glb');
+useGLTF.preload('/models/vehicles/rally_wrc_opt.glb');

@@ -4,7 +4,8 @@ import {
   Color,
   MeshStandardMaterial,
   type Texture,
-  type Sphere,
+  Sphere,
+  Vector3,
 } from 'three';
 import {
   createRealisticRockGeometry,
@@ -24,7 +25,6 @@ export interface RocksInstancerProps {
   rockTexture: Texture;
   sandTexture: Texture;
   celticStandingStoneTexture: Texture;
-  globalBoundingSphere: Sphere;
 }
 
 /**
@@ -41,37 +41,36 @@ export function RocksInstancer({
   rockTexture,
   sandTexture,
   celticStandingStoneTexture,
-  globalBoundingSphere,
 }: RocksInstancerProps) {
   const rockRef = useRef<InstancedMesh>(null);
   const sandstoneRef = useRef<InstancedMesh>(null);
   const standingStoneRef = useRef<InstancedMesh>(null);
   const stoneCairnRef = useRef<InstancedMesh>(null);
 
-  // Geometries
+  // Geometries with genuine bounding spheres
   const rockGeo = useMemo(() => {
     const geo = createRealisticRockGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   const sandstoneGeo = useMemo(() => {
     const geo = createSandstoneRockGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   const standingStoneGeo = useMemo(() => {
     const geo = createStandingStoneGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   const stoneCairnGeo = useMemo(() => {
     const geo = createStoneCairnGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   // Materials
   const rockMaterial = useMemo(
@@ -127,6 +126,13 @@ export function RocksInstancer({
       }
       mesh.instanceMatrix.needsUpdate = true;
       mesh.count = items.length;
+      if (items.length > 0) {
+        mesh.visible = true;
+        mesh.computeBoundingSphere();
+      } else {
+        mesh.visible = false;
+        mesh.boundingSphere = new Sphere(new Vector3(0, 0, 0), -1);
+      }
     };
 
     uploadBatch(rockRef.current, rocks);

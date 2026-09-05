@@ -126,6 +126,8 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     fontFamily: '"Outfit", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     pointerEvents: 'none',
+    padding: 'calc(20px + var(--sat)) calc(20px + var(--sar)) calc(20px + var(--sab)) calc(20px + var(--sal))',
+    boxSizing: 'border-box',
   },
   content: {
     display: 'flex',

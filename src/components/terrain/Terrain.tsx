@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import {
   PlaneGeometry,
   Color,
@@ -12,6 +12,7 @@ import { useTexture } from '@react-three/drei';
 import { RigidBody, HeightfieldCollider } from '@react-three/rapier';
 import { useTerrainData } from '@/components/terrain/TerrainContext';
 import { useSettingsStore } from '@/store/settingsStore';
+import { isMobileDevice, getClampedAnisotropy } from '@/utils/device';
 import { mapRange } from '@/utils/math';
 import {
   BIOME_COLOR_LOW,
@@ -32,6 +33,7 @@ interface TerrainMaterialOptions {
   snowTrackTexture: Texture;
   isDesert: boolean;
   isSnow: boolean;
+  isMobile?: boolean;
 }
 
 /**
@@ -39,7 +41,17 @@ interface TerrainMaterialOptions {
  * triplanar slope projection for cliffs, and damp mud / packed snow track blending.
  */
 export function createDetailedTerrainMaterial(options: TerrainMaterialOptions): MeshStandardMaterial {
-  const { grassTexture, trackTexture, rockTexture, sandTexture, snowTexture, snowTrackTexture, isDesert, isSnow } = options;
+  const {
+    grassTexture,
+    trackTexture,
+    rockTexture,
+    sandTexture,
+    snowTexture,
+    snowTrackTexture,
+    isDesert,
+    isSnow,
+    isMobile = isMobileDevice(),
+  } = options;
 
   const mat = new MeshStandardMaterial({
     vertexColors: true,
@@ -105,9 +117,49 @@ export function createDetailedTerrainMaterial(options: TerrainMaterialOptions): 
     );
 
     // Apply texture splatting after diffuse color is computed
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <color_fragment>',
-      /* glsl */ `
+    const mobileFragmentChunk = /* glsl */ `
+        #include <color_fragment>
+
+        // Mobile optimized fast ground sampling: 1 macro UV lookup for ground & track
+        vec2 uvMacro = vWorldPosition.xz * 0.055;
+        vec3 baseGround;
+        if (u_isSnow > 0.5) {
+          baseGround = texture2D(u_snowTexture, uvMacro).rgb * 1.08;
+        } else if (u_isDesert > 0.5) {
+          baseGround = texture2D(u_sandTexture, uvMacro).rgb;
+        } else {
+          baseGround = texture2D(u_grassTexture, uvMacro).rgb;
+        }
+
+        // Fast track lookup
+        vec2 uvTrackMacro = vWorldPosition.xz * 0.08;
+        vec3 trackTex;
+        if (u_isSnow > 0.5) {
+          trackTex = texture2D(u_snowTrackTexture, uvTrackMacro).rgb * vec3(0.92, 0.95, 1.0);
+        } else {
+          trackTex = texture2D(u_trackTexture, uvTrackMacro).rgb * vec3(0.95, 0.90, 0.85);
+        }
+
+        // Blend base ground with track
+        vec3 blendedAlbedo = mix(baseGround, trackTex, clamp(vTrackMask * 1.25, 0.0, 1.0));
+
+        // Fast cliff shading without expensive 3-pass triplanar mapping
+        float slope = 1.0 - abs(vWorldNormal.y);
+        float rockFactor = smoothstep(0.30, 0.65, slope);
+        if (rockFactor > 0.01) {
+          vec3 rockTex = texture2D(u_rockTexture, vWorldPosition.xz * 0.22).rgb;
+          if (u_isSnow > 0.5) {
+            rockTex = mix(rockTex * 0.85, vec3(0.95, 0.98, 1.0), clamp(vWorldNormal.y * 0.6, 0.0, 0.6));
+          }
+          blendedAlbedo = mix(blendedAlbedo, rockTex, rockFactor);
+        }
+
+        diffuseColor.rgb = blendedAlbedo;
+        float slopeFactor = 1.0 - slope * (u_slopeDarkening * 0.75);
+        diffuseColor.rgb *= slopeFactor;
+    `;
+
+    const desktopFragmentChunk = /* glsl */ `
         #include <color_fragment>
 
         // Dual-frequency texture coordinates with anti-tiling octave rotation (realistic ~3.5m micro, ~18m macro)
@@ -172,7 +224,11 @@ export function createDetailedTerrainMaterial(options: TerrainMaterialOptions): 
         // Slope darkening — ambient occlusion on steep crevices
         float slopeFactor = 1.0 - slope * (u_slopeDarkening * 0.75);
         diffuseColor.rgb *= slopeFactor;
-      `,
+    `;
+
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <color_fragment>',
+      isMobile ? mobileFragmentChunk : desktopFragmentChunk,
     );
 
     // Modulate roughness: damp mud/packed snow on tracks have glossy specular sheen
@@ -185,28 +241,33 @@ export function createDetailedTerrainMaterial(options: TerrainMaterialOptions): 
       `,
     );
 
-    // Procedural micro-relief normal perturbation from texture luminance gradients
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <normal_fragment_maps>',
-      /* glsl */ `
-        #include <normal_fragment_maps>
-        float microLum = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
-        vec3 dPdx = dFdx(vWorldPosition);
-        vec3 dPdy = dFdy(vWorldPosition);
-        vec3 normCross = cross(dPdx, dPdy);
-        float lenCross = length(normCross);
-        if (lenCross > 0.0001) {
-          vec3 surfNorm = normCross / lenCross;
-          float dhx = dFdx(microLum) * 0.35;
-          float dhy = dFdy(microLum) * 0.35;
-          vec3 grad = dPdx * dhx + dPdy * dhy;
-          vec3 bumpWorld = normalize(surfNorm - grad);
-          vec3 bumpView = normalize((viewMatrix * vec4(bumpWorld, 0.0)).xyz);
-          normal = normalize(mix(normal, bumpView, 0.32));
-        }
-      `,
-    );
+    if (!isMobile) {
+      // Procedural micro-relief normal perturbation from texture luminance gradients
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <normal_fragment_maps>',
+        /* glsl */ `
+          #include <normal_fragment_maps>
+          float microLum = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
+          vec3 dPdx = dFdx(vWorldPosition);
+          vec3 dPdy = dFdy(vWorldPosition);
+          vec3 normCross = cross(dPdx, dPdy);
+          float lenCross = length(normCross);
+          if (lenCross > 0.0001) {
+            vec3 surfNorm = normCross / lenCross;
+            float dhx = dFdx(microLum) * 0.35;
+            float dhy = dFdy(microLum) * 0.35;
+            vec3 grad = dPdx * dhx + dPdy * dhy;
+            vec3 bumpWorld = normalize(surfNorm - grad);
+            vec3 bumpView = normalize((viewMatrix * vec4(bumpWorld, 0.0)).xyz);
+            normal = normalize(mix(normal, bumpView, 0.32));
+          }
+        `,
+      );
+    }
   };
+
+  mat.customProgramCacheKey = () =>
+    `terrain-${isMobile ? 'm' : 'd'}-${isDesert ? 'des' : isSnow ? 'sno' : 'std'}`;
 
   return mat;
 }
@@ -220,6 +281,8 @@ export function createDetailedTerrainMaterial(options: TerrainMaterialOptions): 
 export function Terrain() {
   const { heightmapData, levelData } = useTerrainData();
   const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
+  const shadowsEnabled = useSettingsStore((s) => s.shadowsEnabled);
+  const shouldReceiveShadow = shadowsEnabled && graphicsQuality !== 'low';
 
   // Load AI-generated terrain textures
   const [grassTexture, trackTexture, rockTexture, sandTexture, snowTexture, snowTrackTexture, highlandHeatherTexture] = useTexture([
@@ -232,9 +295,11 @@ export function Terrain() {
     '/textures/terrain/highland_heather.jpg',
   ]);
 
-  // Set repeat wrapping and SRGB color space on all terrain textures
+  // Set repeat wrapping and SRGB color space on all terrain textures (clamped to <= 2 on mobile)
   useMemo(() => {
-    const anisotropy = graphicsQuality === 'very_high' ? 16 : graphicsQuality === 'high' ? 8 : 4;
+    const isMobile = isMobileDevice();
+    const baseAnisotropy = graphicsQuality === 'very_high' ? 16 : graphicsQuality === 'high' ? 8 : 4;
+    const anisotropy = getClampedAnisotropy(baseAnisotropy, isMobile);
     [grassTexture, trackTexture, rockTexture, sandTexture, snowTexture, snowTrackTexture, highlandHeatherTexture].forEach((tex) => {
       tex.wrapS = RepeatWrapping;
       tex.wrapT = RepeatWrapping;
@@ -350,6 +415,8 @@ export function Terrain() {
     return geo;
   }, [heightmapData, levelData, isSnow, isBritain]);
 
+  const isMobile = isMobileDevice();
+
   // Create custom multi-texture material
   const material = useMemo(
     () =>
@@ -362,8 +429,9 @@ export function Terrain() {
         snowTrackTexture,
         isDesert,
         isSnow,
+        isMobile,
       }),
-    [grassTexture, highlandHeatherTexture, trackTexture, rockTexture, sandTexture, snowTexture, snowTrackTexture, isDesert, isSnow, isBritain],
+    [grassTexture, highlandHeatherTexture, trackTexture, rockTexture, sandTexture, snowTexture, snowTrackTexture, isDesert, isSnow, isBritain, isMobile],
   );
 
   // Prepare heights for Rapier HeightfieldCollider
@@ -377,6 +445,19 @@ export function Terrain() {
     }
     return transposed;
   }, [heightmapData]);
+
+  // Clean up GPU buffers and textures on unmount/level change to prevent VRAM accumulation
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+      material.dispose();
+    };
+  }, [geometry, material]);
+
+  // Recompile terrain shader program cleanly whenever shadow receiving state changes
+  useEffect(() => {
+    material.needsUpdate = true;
+  }, [material, shouldReceiveShadow]);
 
   return (
     <RigidBody type="fixed" colliders={false} friction={1.2}>
@@ -392,7 +473,7 @@ export function Terrain() {
           },
         ]}
       />
-      <mesh geometry={geometry} material={material} receiveShadow={graphicsQuality !== 'low'} />
+      <mesh geometry={geometry} material={material} receiveShadow={shouldReceiveShadow} />
     </RigidBody>
   );
 }

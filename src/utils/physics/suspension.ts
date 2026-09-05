@@ -75,7 +75,7 @@ export function applyPitchStabilization(
   const pitchRestoringTorque = -pitchCompressionDelta * pitchStiffness;
 
   // Angular pitch rate damping (around chassis local X axis)
-  const angvel = body.linvel ? body.angvel() : { x: 0, y: 0, z: 0 };
+  const angvel = typeof body.angvel === 'function' ? body.angvel() : { x: 0, y: 0, z: 0 };
   _angvel.set(angvel.x, angvel.y, angvel.z);
   _invQuat.copy(_bodyQuat).invert();
   _localAngvel.copy(_angvel).applyQuaternion(_invQuat);

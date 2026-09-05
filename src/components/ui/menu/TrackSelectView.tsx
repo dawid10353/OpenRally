@@ -27,13 +27,16 @@ export function TrackSelectView({
   onSelectView,
 }: TrackSelectViewProps) {
   return (
-    <div style={{ ...menuStyles.subView, color: textColor, width: '100%', minWidth: '540px', maxWidth: '780px' }}>
+    <div
+      className="track-subview menu-scalable-container"
+      style={{ ...menuStyles.subView, color: textColor, width: '100%', minWidth: '540px', maxWidth: '880px' }}
+    >
       <h2 style={menuStyles.subViewTitle}>Tracks & Stages</h2>
-      <p style={{ ...menuStyles.subtitle, color: subtitleColor, margin: '0 0 16px 0' }}>
+      <p className="track-subtitle-compact" style={{ ...menuStyles.subtitle, color: subtitleColor, margin: '0 0 10px 0', fontSize: '12px' }}>
         Select a rally course and view stage lap records.
       </p>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', width: '100%' }}>
+      <div className="track-grid-layout" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '10px', width: '100%' }}>
         {availableLevels.map((lvl, index) => {
           const isSelected = selectedLevelId === lvl.id;
           const bestTime = bestLapTimes[lvl.id] ?? null;
@@ -42,24 +45,38 @@ export function TrackSelectView({
           return (
             <div
               key={lvl.id}
+              className="track-card-compact"
               style={{
                 ...menuStyles.trackCard,
                 display: 'grid',
-                gridTemplateColumns: '140px 1fr',
-                gap: '16px',
+                gridTemplateColumns: '120px 1fr',
+                gap: '12px',
                 alignItems: 'center',
+                minHeight: '44px',
                 borderColor: isSelected ? '#E31837' : 'rgba(255, 255, 255, 0.08)',
                 background: isSelected
                   ? 'linear-gradient(90deg, rgba(227, 24, 55, 0.18) 0%, rgba(27, 54, 93, 0.12) 100%)'
                   : 'rgba(255, 255, 255, 0.03)',
-                padding: '12px 16px',
+                padding: '10px 12px',
+                boxSizing: 'border-box',
                 ...getFocusStyle(focusedIndex === index),
               }}
               onPointerMove={(e) => onPointerMoveItem(index, e)}
               onClick={() => onSelectTrack(lvl.id)}
             >
               {/* Photographic Stage Thumbnail */}
-              <div style={{ width: '140px', height: '85px', borderRadius: '8px', overflow: 'hidden', position: 'relative', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
+              <div
+                className="track-thumb-compact"
+                style={{
+                  width: '120px',
+                  height: '74px',
+                  borderRadius: '8px',
+                  overflow: 'hidden',
+                  position: 'relative',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                  flexShrink: 0,
+                }}
+              >
                 <img
                   src={bannerUrl}
                   alt={lvl.name}
@@ -69,37 +86,39 @@ export function TrackSelectView({
               </div>
 
               {/* Stage Details */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', overflow: 'hidden' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 700, fontSize: '17px', color: '#F1F5F9' }}>{lvl.name}</span>
+                  <span style={{ fontWeight: 700, fontSize: '15px', color: '#F1F5F9' }}>{lvl.name}</span>
                   <span style={{
                     ...menuStyles.difficultyBadge,
+                    fontSize: '10px',
+                    padding: '2px 6px',
                     background: lvl.difficulty === 'easy' ? '#059669' : lvl.difficulty === 'medium' ? '#D97706' : '#DC2626',
                   }}>
                     {lvl.difficulty.toUpperCase()}
                   </span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '2px 0' }}>
-                  <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '1px 0' }}>
+                  <span style={{ fontSize: '11px', color: '#94A3B8' }}>
                     Surface: <strong style={{ color: '#E2E8F0' }}>{lvl.surfaceDescription}</strong>
                   </span>
                   <span style={{
-                    fontSize: '12px',
+                    fontSize: '11px',
                     fontWeight: 800,
                     color: bestTime ? '#38BDF8' : '#64748B',
                     letterSpacing: '0.5px',
                   }}>
-                    RECORD: {bestTime ? formatLapTime(bestTime) : '--:--.--'}
+                    {bestTime ? formatLapTime(bestTime) : '--:--.--'}
                   </span>
                 </div>
 
-                <p style={{ fontSize: '12px', color: '#94A3B8', margin: 0, lineHeight: 1.35 }}>
+                <p className="track-desc-compact" style={{ fontSize: '11px', color: '#94A3B8', margin: 0, lineHeight: 1.3 }}>
                   {lvl.description}
                 </p>
 
                 {isSelected && (
-                  <span style={{ fontSize: '11px', fontWeight: 800, color: '#E31837', marginTop: '2px', letterSpacing: '1px' }}>
+                  <span style={{ fontSize: '10px', fontWeight: 800, color: '#E31837', marginTop: '1px', letterSpacing: '1px' }}>
                     ✓ ACTIVE STAGE
                   </span>
                 )}
@@ -110,13 +129,15 @@ export function TrackSelectView({
       </div>
 
       <button 
+        className="track-back-btn"
         style={{ 
           ...menuStyles.button, 
           ...menuStyles.secondaryButton,
           color: textColor,
           borderColor: 'rgba(255, 255, 255, 0.1)',
-          marginTop: '20px', 
+          marginTop: '12px', 
           width: '100%',
+          minHeight: '44px',
           justifyContent: 'center',
           ...getFocusStyle(focusedIndex === availableLevels.length),
         }} 

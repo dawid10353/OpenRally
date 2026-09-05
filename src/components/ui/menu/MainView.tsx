@@ -25,10 +25,11 @@ export function MainView({
   onOpenGarage,
 }: MainViewProps) {
   return (
-    <div style={menuStyles.buttonGroup}>
+    <div style={menuStyles.buttonGroup} className={isPause ? "pause-action-list" : "menu-action-grid"}>
       {isPause ? (
         <>
           <button
+            className="pause-action-button"
             style={{
               ...menuStyles.button,
               ...(focusedIndex === 0 ? menuStyles.primaryButton : menuStyles.secondaryButton),
@@ -42,13 +43,14 @@ export function MainView({
               <span style={styles.indexTag}>01 //</span>
               <div style={styles.textCol}>
                 <span style={styles.buttonLabel}>RESUME STAGE</span>
-                <span style={styles.buttonSubLabel}>Continue driving (ESC)</span>
+                <span style={styles.buttonSubLabel} className="menu-action-sublabel">Continue driving (ESC)</span>
               </div>
             </div>
             <span style={{ ...styles.chevron, opacity: focusedIndex === 0 ? 1 : 0.4 }}>►</span>
           </button>
 
           <button
+            className="pause-action-button"
             style={{
               ...menuStyles.button,
               ...menuStyles.secondaryButton,
@@ -62,13 +64,14 @@ export function MainView({
               <span style={styles.indexTag}>02 //</span>
               <div style={styles.textCol}>
                 <span style={styles.buttonLabel}>RESTART STAGE</span>
-                <span style={styles.buttonSubLabel}>Reset car to stage spawn point</span>
+                <span style={styles.buttonSubLabel} className="menu-action-sublabel">Reset car to stage spawn point</span>
               </div>
             </div>
             <span style={{ ...styles.chevron, opacity: focusedIndex === 1 ? 1 : 0.4 }}>►</span>
           </button>
 
           <button
+            className="pause-action-button"
             style={{
               ...menuStyles.button,
               ...menuStyles.secondaryButton,
@@ -82,13 +85,14 @@ export function MainView({
               <span style={styles.indexTag}>03 //</span>
               <div style={styles.textCol}>
                 <span style={styles.buttonLabel}>SETTINGS</span>
-                <span style={styles.buttonSubLabel}>Graphics, audio & simulation</span>
+                <span style={styles.buttonSubLabel} className="menu-action-sublabel">Graphics, audio & simulation</span>
               </div>
             </div>
             <span style={{ ...styles.chevron, opacity: focusedIndex === 2 ? 1 : 0.4 }}>►</span>
           </button>
 
           <button
+            className="pause-action-button"
             style={{
               ...menuStyles.button,
               ...menuStyles.secondaryButton,
@@ -102,13 +106,14 @@ export function MainView({
               <span style={styles.indexTag}>04 //</span>
               <div style={styles.textCol}>
                 <span style={styles.buttonLabel}>CONTROLS</span>
-                <span style={styles.buttonSubLabel}>Gamepad & keyboard mapping</span>
+                <span style={styles.buttonSubLabel} className="menu-action-sublabel">Gamepad & keyboard mapping</span>
               </div>
             </div>
             <span style={{ ...styles.chevron, opacity: focusedIndex === 3 ? 1 : 0.4 }}>►</span>
           </button>
 
           <button
+            className="pause-action-button"
             style={{
               ...menuStyles.button,
               ...menuStyles.secondaryButton,
@@ -123,7 +128,7 @@ export function MainView({
               <span style={{ ...styles.indexTag, color: '#EF4444' }}>05 //</span>
               <div style={styles.textCol}>
                 <span style={{ ...styles.buttonLabel, color: '#F87171' }}>RETURN TO MAIN MENU</span>
-                <span style={styles.buttonSubLabel}>Abandon current stage</span>
+                <span style={styles.buttonSubLabel} className="menu-action-sublabel">Abandon current stage</span>
               </div>
             </div>
             <span style={{ ...styles.chevron, color: '#EF4444', opacity: focusedIndex === 4 ? 1 : 0.4 }}>✕</span>
@@ -132,6 +137,7 @@ export function MainView({
       ) : (
         <>
           <button
+            className="menu-action-button"
             style={{
               ...menuStyles.button,
               ...(focusedIndex === 0 ? menuStyles.primaryButton : menuStyles.secondaryButton),
@@ -145,13 +151,14 @@ export function MainView({
               <span style={styles.indexTag}>01 //</span>
               <div style={styles.textCol}>
                 <span style={focusedIndex === 0 ? styles.buttonLabelPrimary : styles.buttonLabel}>START RALLY</span>
-                <span style={focusedIndex === 0 ? styles.buttonSubLabelPrimary : styles.buttonSubLabel}>Free Roam & Time Attack</span>
+                <span style={focusedIndex === 0 ? styles.buttonSubLabelPrimary : styles.buttonSubLabel} className="menu-action-sublabel">Free Roam & Time Attack</span>
               </div>
             </div>
             <span style={{ ...styles.chevron, opacity: focusedIndex === 0 ? 1 : 0.3 }}>►</span>
           </button>
 
           <button
+            className="menu-action-button"
             style={{
               ...menuStyles.button,
               ...menuStyles.secondaryButton,
@@ -165,13 +172,14 @@ export function MainView({
               <span style={styles.indexTag}>02 //</span>
               <div style={styles.textCol}>
                 <span style={styles.buttonLabel}>GARAGE</span>
-                <span style={styles.buttonSubLabel}>Inspect & select vehicles</span>
+                <span style={styles.buttonSubLabel} className="menu-action-sublabel">Inspect & select vehicles</span>
               </div>
             </div>
             <span style={{ ...styles.chevron, opacity: focusedIndex === 1 ? 1 : 0.3 }}>►</span>
           </button>
 
           <button
+            className="menu-action-button"
             style={{
               ...menuStyles.button,
               ...menuStyles.secondaryButton,
@@ -185,13 +193,14 @@ export function MainView({
               <span style={styles.indexTag}>03 //</span>
               <div style={styles.textCol}>
                 <span style={styles.buttonLabel}>TRACKS & STAGES</span>
-                <span style={styles.buttonSubLabel}>Circuits & stage lap records</span>
+                <span style={styles.buttonSubLabel} className="menu-action-sublabel">Circuits & stage lap records</span>
               </div>
             </div>
             <span style={{ ...styles.chevron, opacity: focusedIndex === 2 ? 1 : 0.3 }}>►</span>
           </button>
 
           <button
+            className="menu-action-button"
             style={{
               ...menuStyles.button,
               ...menuStyles.secondaryButton,
@@ -205,13 +214,14 @@ export function MainView({
               <span style={styles.indexTag}>04 //</span>
               <div style={styles.textCol}>
                 <span style={styles.buttonLabel}>OPTIONS</span>
-                <span style={styles.buttonSubLabel}>Graphics, audio & simulation</span>
+                <span style={styles.buttonSubLabel} className="menu-action-sublabel">Graphics, audio & simulation</span>
               </div>
             </div>
             <span style={{ ...styles.chevron, opacity: focusedIndex === 3 ? 1 : 0.3 }}>►</span>
           </button>
 
           <button
+            className="menu-action-button"
             style={{
               ...menuStyles.button,
               ...menuStyles.secondaryButton,
@@ -225,13 +235,14 @@ export function MainView({
               <span style={styles.indexTag}>05 //</span>
               <div style={styles.textCol}>
                 <span style={styles.buttonLabel}>CONTROLS</span>
-                <span style={styles.buttonSubLabel}>DualSense, Xbox & keyboard mappings</span>
+                <span style={styles.buttonSubLabel} className="menu-action-sublabel">DualSense, Xbox & keyboard mappings</span>
               </div>
             </div>
             <span style={{ ...styles.chevron, opacity: focusedIndex === 4 ? 1 : 0.3 }}>►</span>
           </button>
 
           <button
+            className="menu-action-button"
             style={{
               ...menuStyles.button,
               ...menuStyles.secondaryButton,
@@ -245,7 +256,7 @@ export function MainView({
               <span style={styles.indexTag}>06 //</span>
               <div style={styles.textCol}>
                 <span style={styles.buttonLabel}>CREDITS</span>
-                <span style={styles.buttonSubLabel}>Game creator & open-source source</span>
+                <span style={styles.buttonSubLabel} className="menu-action-sublabel">Game creator & open-source source</span>
               </div>
             </div>
             <span style={{ ...styles.chevron, opacity: focusedIndex === 5 ? 1 : 0.3 }}>►</span>

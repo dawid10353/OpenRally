@@ -157,10 +157,13 @@ export function useChaseCamera(
       1 - Math.pow(FOV_SMOOTH_BASE, delta * 60),
     );
 
-    // Apply FOV if perspective camera
+    // Apply FOV if perspective camera and gate updateProjectionMatrix to avoid dirtying frustum planes every frame
     if ('fov' in camera) {
-      (camera as PerspectiveCamera).fov = currentFovRef.current;
-      (camera as PerspectiveCamera).updateProjectionMatrix();
+      const persCamera = camera as PerspectiveCamera;
+      if (Math.abs(persCamera.fov - currentFovRef.current) > 0.02) {
+        persCamera.fov = currentFovRef.current;
+        persCamera.updateProjectionMatrix();
+      }
     }
   });
 }

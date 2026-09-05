@@ -1,9 +1,6 @@
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Environment } from '@react-three/drei';
 import type { VehiclePreset } from '@/types/vehicle';
 import type { LevelPreset } from '@/types/level';
 import { formatLapTime } from './menuStyles';
-import { CarModelDisplay } from './CarModelDisplay';
 
 export const STAGE_BANNERS: Record<string, string> = {
   level1_island: '/images/stages/island_circuit.jpg',
@@ -18,7 +15,7 @@ interface HeroShowcaseProps {
   bestLapTime: number | null;
   gamepadConnected: boolean;
   gamepadName: string;
-  gamepadType: 'xbox' | 'dualsense' | 'generic';
+  gamepadType: 'xbox' | 'dualsense' | 'generic' | null;
   onOpenGarage: () => void;
   onOpenTracks: () => void;
 }
@@ -36,9 +33,9 @@ export function HeroShowcase({
   const stageBanner = STAGE_BANNERS[level.id] || STAGE_BANNERS.level1_island;
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="hero-showcase-container">
       {/* Active Vehicle Card */}
-      <div style={styles.card}>
+      <div style={styles.card} className="hero-showcase-card">
         <div style={styles.cardHeader}>
           <span style={styles.cardSectionTag}>01 // ACTIVE MACHINE</span>
           <button style={styles.cardActionLink} onClick={onOpenGarage}>
@@ -46,30 +43,49 @@ export function HeroShowcase({
           </button>
         </div>
 
-        {/* Interactive 3D Turntable */}
-        <div style={styles.carCanvasContainer}>
-          <Canvas shadows dpr={[1, 2]} camera={{ position: [3.8, 1.8, -5.2], fov: 42 }}>
-            <color attach="background" args={['#0c121e']} />
-            <ambientLight intensity={0.9} />
-            <directionalLight position={[8, 10, 8]} intensity={2.2} castShadow />
-            <directionalLight position={[-8, 6, -8]} intensity={0.7} color="#3B82F6" />
-            <group position={[0, 0.1, 0]}>
-              <CarModelDisplay preset={vehicle} />
-            </group>
-            <OrbitControls
-              enablePan={false}
-              enableZoom={true}
-              minDistance={2.6}
-              maxDistance={8.0}
-              minPolarAngle={Math.PI / 12}
-              maxPolarAngle={Math.PI / 2 - 0.05}
-              enableDamping={true}
-              dampingFactor={0.08}
-              target={[0, 0.35, 0]}
-            />
-            <Environment preset="city" />
-          </Canvas>
-          <div style={styles.turntableHint}>DRAG TO ROTATE • SCROLL TO ZOOM</div>
+        {/* Performant 2D Vehicle Showcase Card (Interactive 3D viewing in Garage) */}
+        <div
+          style={styles.carShowcaseContainer}
+          onClick={onOpenGarage}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onOpenGarage();
+            }
+          }}
+          title="Click to inspect vehicle in 3D Garage"
+        >
+          <div style={styles.showcaseHeaderRow}>
+            <span style={styles.specBadge}>{vehicle.category.toUpperCase()} SPEC</span>
+            <span style={styles.inspectLink}>3D GARAGE ➜</span>
+          </div>
+
+          <div style={styles.showcaseGraphicRow}>
+            <div style={styles.emblemWrapper}>
+              <img
+                src="/openrally_emblem.png"
+                alt={vehicle.name}
+                style={styles.showcaseEmblem}
+              />
+            </div>
+            <div style={styles.showcaseCarInfo}>
+              <div style={styles.showcaseBadgeGroup}>
+                <span style={styles.drivePill}>{vehicle.stats.driveType}</span>
+                <span style={styles.chassisPill}>COMPETITION SPEC</span>
+              </div>
+              <span style={styles.showcaseVehicleTitle}>{vehicle.name}</span>
+              <span style={styles.showcaseVehicleSubtitle}>
+                Top Speed {vehicle.config.engine.maxSpeed} km/h • High Output Turbo
+              </span>
+            </div>
+          </div>
+
+          <div style={styles.showcaseFooterRow}>
+            <span style={styles.showcaseHint}>INTERACTIVE 3D INSPECTION IN GARAGE</span>
+            <span style={styles.showcaseSpeedVal}>{vehicle.config.engine.maxSpeed} KM/H</span>
+          </div>
         </div>
 
         <div style={styles.vehicleTitleRow}>
@@ -77,7 +93,7 @@ export function HeroShowcase({
           <span style={styles.driveBadge}>{vehicle.stats.driveType}</span>
         </div>
 
-        <p style={styles.vehicleDesc}>{vehicle.description}</p>
+        <p style={styles.vehicleDesc} className="hero-vehicle-desc">{vehicle.description}</p>
 
         {/* Telemetry Stat Grid */}
         <div style={styles.telemetryGrid}>
@@ -107,7 +123,7 @@ export function HeroShowcase({
                 style={{
                   ...styles.meterFill,
                   width: `${(vehicle.stats.acceleration / 10) * 100}%`,
-                  background: 'linear-gradient(90deg, #EF4444, #F87171)',
+                  background: 'linear-gradient(90deg, #10B981, #34D399)',
                 }}
               />
             </div>
@@ -123,14 +139,14 @@ export function HeroShowcase({
                 style={{
                   ...styles.meterFill,
                   width: `${(vehicle.stats.handling / 10) * 100}%`,
-                  background: 'linear-gradient(90deg, #10B981, #34D399)',
+                  background: 'linear-gradient(90deg, #8B5CF6, #A78BFA)',
                 }}
               />
             </div>
           </div>
 
           <div style={styles.telemetryItem}>
-            <span style={styles.statLabel}>OFFROAD AGILITY</span>
+            <span style={styles.statLabel}>OFFROAD</span>
             <span style={styles.statNumber}>
               {vehicle.stats.offroad.toFixed(1)} <span style={styles.statUnit}>/ 10</span>
             </span>
@@ -148,7 +164,7 @@ export function HeroShowcase({
       </div>
 
       {/* Active Stage Card with Photographic Banner */}
-      <div style={styles.card}>
+      <div style={styles.card} className="hero-showcase-compact-stage">
         <div style={styles.cardHeader}>
           <span style={styles.cardSectionTag}>02 // SELECTED STAGE</span>
           <button style={styles.cardActionLink} onClick={onOpenTracks}>
@@ -278,28 +294,142 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     letterSpacing: '1px',
     cursor: 'pointer',
-    padding: '2px 6px',
-    borderRadius: '4px',
+    padding: '10px 14px',
+    minHeight: '44px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    borderRadius: '6px',
     transition: 'color 0.15s ease',
+    touchAction: 'manipulation',
+    boxSizing: 'border-box',
   },
-  carCanvasContainer: {
+  carShowcaseContainer: {
     position: 'relative',
     width: '100%',
     height: '170px',
     borderRadius: '10px',
     overflow: 'hidden',
-    border: '1px solid rgba(255, 255, 255, 0.06)',
-    cursor: 'grab',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    background: 'radial-gradient(ellipse at 30% 20%, rgba(27, 43, 76, 0.75) 0%, rgba(11, 16, 29, 0.95) 100%)',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    padding: '12px 14px',
+    boxSizing: 'border-box',
+    cursor: 'pointer',
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 8px 24px rgba(0, 0, 0, 0.35)',
+    transition: 'border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease',
   },
-  turntableHint: {
-    position: 'absolute',
-    bottom: '6px',
-    right: '8px',
+  showcaseHeaderRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  specBadge: {
     fontSize: '10px',
-    fontWeight: 700,
+    fontWeight: 800,
+    letterSpacing: '1.2px',
+    color: '#E31837',
+    background: 'rgba(227, 24, 55, 0.12)',
+    border: '1px solid rgba(227, 24, 55, 0.3)',
+    borderRadius: '4px',
+    padding: '2px 7px',
+  },
+  inspectLink: {
+    fontSize: '10px',
+    fontWeight: 800,
     letterSpacing: '1px',
+    color: '#38BDF8',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+  },
+  showcaseGraphicRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '16px',
+    padding: '4px 0',
+  },
+  emblemWrapper: {
+    width: '68px',
+    height: '68px',
+    borderRadius: '12px',
+    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(0, 0, 0, 0.4) 100%)',
+    border: '1px solid rgba(255, 255, 255, 0.12)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
+  },
+  showcaseEmblem: {
+    width: '46px',
+    height: '46px',
+    objectFit: 'contain',
+    filter: 'drop-shadow(0 2px 8px rgba(227, 24, 55, 0.4))',
+  },
+  showcaseCarInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    overflow: 'hidden',
+  },
+  showcaseBadgeGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  drivePill: {
+    fontSize: '9px',
+    fontWeight: 800,
+    letterSpacing: '0.8px',
+    color: '#FFFFFF',
+    background: 'linear-gradient(90deg, #991B1B, #E31837)',
+    borderRadius: '3px',
+    padding: '1px 5px',
+  },
+  chassisPill: {
+    fontSize: '9px',
+    fontWeight: 700,
+    letterSpacing: '0.8px',
+    color: '#94A3B8',
+  },
+  showcaseVehicleTitle: {
+    fontSize: '18px',
+    fontWeight: 800,
+    letterSpacing: '0.5px',
+    color: '#F8FAFC',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  showcaseVehicleSubtitle: {
+    fontSize: '11px',
+    fontWeight: 600,
+    color: '#94A3B8',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
+  showcaseFooterRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+    paddingTop: '6px',
+  },
+  showcaseHint: {
+    fontSize: '9px',
+    fontWeight: 700,
+    letterSpacing: '0.8px',
     color: 'rgba(255, 255, 255, 0.4)',
-    pointerEvents: 'none',
+    textTransform: 'uppercase',
+  },
+  showcaseSpeedVal: {
+    fontSize: '11px',
+    fontWeight: 800,
+    color: '#38BDF8',
+    letterSpacing: '0.5px',
   },
   vehicleTitleRow: {
     display: 'flex',

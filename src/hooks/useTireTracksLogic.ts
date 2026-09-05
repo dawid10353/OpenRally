@@ -9,7 +9,11 @@ import {
   TireRibbonBuffer,
   sampleTerrainHeightAndNormal,
 } from '@/utils/physics/tireRibbon';
-import { TIRE_TRACK_QUALITY_PRESETS } from '@/config/particles';
+import {
+  TIRE_TRACK_QUALITY_PRESETS,
+  TIRE_TRACK_MOBILE_PRESETS,
+} from '@/config/particles';
+import { isMobileDevice } from '@/utils/device';
 
 // Reusable scratch objects to avoid per-frame allocations
 const _wheelPos = new Vector3();
@@ -35,8 +39,9 @@ export function useTireTracksLogic(
     return Array.from({ length: 4 }, () => new BufferGeometry());
   }, []);
 
-  // Preset configuration based on active graphics quality
-  const qualityPreset = TIRE_TRACK_QUALITY_PRESETS[graphicsQuality] ?? TIRE_TRACK_QUALITY_PRESETS.medium;
+  // Preset configuration based on active graphics quality and mobile device scaling
+  const presets = useMemo(() => (isMobileDevice() ? TIRE_TRACK_MOBILE_PRESETS : TIRE_TRACK_QUALITY_PRESETS), []);
+  const qualityPreset = presets[graphicsQuality] ?? presets.medium;
 
   // Initialize 4 separate zero-GC ring buffers
   const ribbonBuffers = useMemo(() => {
@@ -78,6 +83,18 @@ export function useTireTracksLogic(
     const linvel = chassis.linvel();
     const speedMps = Math.sqrt(linvel.x * linvel.x + linvel.z * linvel.z);
 
+    // Early exit if vehicle is stationary (< 0.2 m/s) and all ribbon buffers are empty
+    if (speedMps < 0.2) {
+      let hasAnySegments = false;
+      for (let i = 0; i < 4; i++) {
+        if (ribbonBuffers[i].getSegmentCount() > 0) {
+          hasAnySegments = true;
+          break;
+        }
+      }
+      if (!hasAnySegments) return;
+    }
+
     // Calculate slip intensity from lateral speed and slip angle
     const lateralSpeed = Math.abs(gameState.lateralSpeed);
     const slipAngle = Math.abs(gameState.slipAngle);
@@ -92,30 +109,35 @@ export function useTireTracksLogic(
       // Wheel suspension compression check: when on ground, wheel.position.y > -0.49
       const isGrounded = wheel.position.y > -0.49;
 
-      wheel.getWorldPosition(_wheelPos);
+      // Skip terrain height interpolations when stopped (< 0.2 m/s) or airborne
+      if (speedMps < 0.2 || !isGrounded) {
+        buf.notifyAirborne();
+      } else {
+        wheel.getWorldPosition(_wheelPos);
 
-      // Sample terrain elevation at the wheel's world location
-      sampleTerrainHeightAndNormal(
-        _wheelPos.x,
-        _wheelPos.z,
-        heightmapData,
-        levelData,
-        _contactPos,
-        _contactNormal,
-        buf.config.normalOffset,
-      );
+        // Sample terrain elevation at the wheel's world location
+        sampleTerrainHeightAndNormal(
+          _wheelPos.x,
+          _wheelPos.z,
+          heightmapData,
+          levelData,
+          _contactPos,
+          _contactNormal,
+          buf.config.normalOffset,
+        );
 
-      buf.addContactPoint(
-        _contactPos,
-        _contactNormal,
-        surfaceType,
-        speedMps,
-        slipRatio,
-        isGrounded,
-        currentTime,
-        heightmapData,
-        levelData,
-      );
+        buf.addContactPoint(
+          _contactPos,
+          _contactNormal,
+          surfaceType,
+          speedMps,
+          slipRatio,
+          isGrounded,
+          currentTime,
+          heightmapData,
+          levelData,
+        );
+      }
 
       const hasActive = buf.updateLifetime(currentTime);
 
@@ -126,14 +148,24 @@ export function useTireTracksLogic(
         const alphaAttr = geo.attributes.ribbonAlpha;
         const idxAttr = geo.index;
 
-        if (posAttr) posAttr.needsUpdate = true;
-        if (uvAttr) uvAttr.needsUpdate = true;
-        if (colAttr) colAttr.needsUpdate = true;
-        if (alphaAttr) alphaAttr.needsUpdate = true;
-        if (idxAttr) idxAttr.needsUpdate = true;
+        // Gate VBO buffer re-uploads behind topologyDirty flag
+        if (buf.topologyDirty) {
+          if (posAttr) posAttr.needsUpdate = true;
+          if (uvAttr) uvAttr.needsUpdate = true;
+          if (colAttr) colAttr.needsUpdate = true;
+          if (idxAttr) idxAttr.needsUpdate = true;
+          buf.topologyDirty = false;
+        }
+
+        if (hasActive && alphaAttr) {
+          alphaAttr.needsUpdate = true;
+        }
 
         geo.setDrawRange(0, buf.getActiveIndicesCount());
       } else {
+        if (buf.topologyDirty) {
+          buf.topologyDirty = false;
+        }
         geo.setDrawRange(0, 0);
       }
     }
@@ -141,3 +173,4 @@ export function useTireTracksLogic(
 
   return { meshRefs, geometries };
 }
+

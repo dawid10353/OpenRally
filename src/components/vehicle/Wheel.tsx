@@ -1,6 +1,8 @@
 import { forwardRef } from 'react';
 import type { Object3D } from 'three';
 import { useGLTF, Clone, Detailed } from '@react-three/drei';
+import { isMobileDevice } from '@/utils/device';
+import { useSettingsStore } from '@/store/settingsStore';
 
 interface WheelProps {
   radius?: number;
@@ -17,8 +19,13 @@ export const Wheel = forwardRef<Object3D, WheelProps>(function Wheel(
   { isRightSide = false },
   ref,
 ) {
-  // Wczytujemy model koła
-  const { scene } = useGLTF('/models/vehicles/wheel.glb');
+  const isMobile = isMobileDevice();
+  const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
+  const useOptimized = isMobile || graphicsQuality !== 'very_high';
+  const modelUrl = useOptimized ? '/models/vehicles/wheel_opt.glb' : '/models/vehicles/wheel.glb';
+
+  // Wczytujemy model koła (zoptymalizowany dla urządzeń mobilnych / balanced)
+  const { scene } = useGLTF(modelUrl);
 
   return (
     <group ref={ref}>
@@ -54,3 +61,4 @@ export const Wheel = forwardRef<Object3D, WheelProps>(function Wheel(
 
 // Preload, aby zapobiec opóźnieniom w renderowaniu
 useGLTF.preload('/models/vehicles/wheel.glb');
+useGLTF.preload('/models/vehicles/wheel_opt.glb');

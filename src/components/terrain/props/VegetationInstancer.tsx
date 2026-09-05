@@ -6,7 +6,8 @@ import {
   MeshStandardMaterial,
   type Texture,
   type IUniform,
-  type Sphere,
+  Sphere,
+  Vector3,
 } from 'three';
 import {
   createTrunkGeometry,
@@ -33,7 +34,6 @@ export interface VegetationInstancerProps {
   leafyBranchTexture: Texture;
   desertBarkTexture: Texture;
   desertAcaciaBranchTexture: Texture;
-  globalBoundingSphere: Sphere;
 }
 
 /**
@@ -54,7 +54,6 @@ export function VegetationInstancer({
   leafyBranchTexture,
   desertBarkTexture,
   desertAcaciaBranchTexture,
-  globalBoundingSphere,
 }: VegetationInstancerProps) {
   const pineTrunkRef = useRef<InstancedMesh>(null);
   const pineFoliageRef = useRef<InstancedMesh>(null);
@@ -65,42 +64,42 @@ export function VegetationInstancer({
 
   const foliageShaderUniformsRef = useRef<Record<string, IUniform>[]>([]);
 
-  // Procedural Geometries
+  // Procedural Geometries with genuine bounding spheres
   const pineTrunkGeo = useMemo(() => {
     const geo = createTrunkGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   const pineFoliageGeo = useMemo(() => {
     const geo = createPineFoliageGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   const birchTrunkGeo = useMemo(() => {
     const geo = createBirchTrunkGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   const birchFoliageGeo = useMemo(() => {
     const geo = createBirchFoliageGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   const desertTrunkGeo = useMemo(() => {
     const geo = createDesertTrunkGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   const desertFoliageGeo = useMemo(() => {
     const geo = createDesertFoliageGeometry();
-    geo.boundingSphere = globalBoundingSphere.clone();
+    geo.computeBoundingSphere();
     return geo;
-  }, [globalBoundingSphere]);
+  }, []);
 
   // Materials
   const pineTrunkMaterial = useMemo(
@@ -181,6 +180,13 @@ export function VegetationInstancer({
       }
       mesh.instanceMatrix.needsUpdate = true;
       mesh.count = items.length;
+      if (items.length > 0) {
+        mesh.visible = true;
+        mesh.computeBoundingSphere();
+      } else {
+        mesh.visible = false;
+        mesh.boundingSphere = new Sphere(new Vector3(0, 0, 0), -1);
+      }
     };
 
     uploadBatch(pineTrunkRef.current, pineTrees);

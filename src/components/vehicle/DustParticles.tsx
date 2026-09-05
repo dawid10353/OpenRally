@@ -34,6 +34,7 @@ const createDustTexture = () => {
 const dustTexture = createDustTexture();
 import {
   MAX_PARTICLES,
+  MOBILE_MAX_PARTICLES,
   SMOKE_COLOR,
   DRIFT_ANGVEL_THRESHOLD,
   DRIVING_SPEED_THRESHOLD,
@@ -41,6 +42,7 @@ import {
   DRIFT_PARTICLE_LIFETIME,
   DRIVE_PARTICLE_LIFETIME,
 } from '@/config/particles';
+import { isMobileDevice } from '@/utils/device';
 import { useGameStore } from '@/store/gameStore';
 import { getSurfaceDefinition } from '@/config/surfaceRegistry';
 
@@ -64,15 +66,20 @@ interface DustParticlesProps {
 
 export function DustParticles({ wheelsRef, chassisRef }: DustParticlesProps) {
   const meshRef = useRef<InstancedMesh>(null);
-  const particleIndexRef = useRef(0);
   const timeAccumulator = useRef(0);
+  const wasRenderingRef = useRef(false);
+
+  const poolSize = useMemo(
+    () => (isMobileDevice() ? MOBILE_MAX_PARTICLES : MAX_PARTICLES),
+    [],
+  );
 
   // Opacity array for smooth fading
-  const opacityArray = useMemo(() => new Float32Array(MAX_PARTICLES).fill(0), []);
+  const opacityArray = useMemo(() => new Float32Array(poolSize).fill(0), [poolSize]);
 
   // Initialize particles pool
   const particles = useMemo(() => {
-    return Array.from({ length: MAX_PARTICLES }, () => ({
+    return Array.from({ length: poolSize }, () => ({
       active: false,
       position: new Vector3(),
       velocity: new Vector3(),
@@ -83,7 +90,22 @@ export function DustParticles({ wheelsRef, chassisRef }: DustParticlesProps) {
       rotationAngle: 0,
       rotationSpeed: 0,
     })) as Particle[];
-  }, []);
+  }, [poolSize]);
+
+  // Dense active index tracking and O(1) free index stack
+  const freeIndices = useMemo(() => {
+    const arr = new Int32Array(poolSize);
+    for (let i = 0; i < poolSize; i++) {
+      arr[i] = i;
+    }
+    return arr;
+  }, [poolSize]);
+  const activeIndices = useMemo(() => new Int32Array(poolSize), [poolSize]);
+
+  const freeIndicesRef = useRef(freeIndices);
+  const activeIndicesRef = useRef(activeIndices);
+  const freeCountRef = useRef(poolSize);
+  const activeCountRef = useRef(0);
 
   const dummy = useMemo(() => new Object3D(), []);
 
@@ -99,6 +121,16 @@ export function DustParticles({ wheelsRef, chassisRef }: DustParticlesProps) {
     const angvel = body.angvel();
     const isDrifting = Math.abs(angvel.y) > DRIFT_ANGVEL_THRESHOLD && speed > DRIVING_SPEED_THRESHOLD;
     const isDriving = speed > DRIVING_SPEED_THRESHOLD;
+
+    // Early exit when no particles are active and vehicle is not driving/drifting
+    if (activeCountRef.current === 0 && !isDriving && !isDrifting) {
+      if (wasRenderingRef.current) {
+        meshRef.current.count = 0;
+        meshRef.current.instanceMatrix.needsUpdate = true;
+        wasRenderingRef.current = false;
+      }
+      return;
+    }
 
     // Emit new particles using a time accumulator to guarantee continuous flow without gaps
     timeAccumulator.current += delta;
@@ -119,15 +151,18 @@ export function DustParticles({ wheelsRef, chassisRef }: DustParticlesProps) {
 
         for (let e = 0; e < emissionsToDo; e++) {
           // Emit from all wheels
-          [0, 1, 2, 3].forEach((wheelIdx) => {
+          for (let wheelIdx = 0; wheelIdx < 4; wheelIdx++) {
             const wheel = wheels[wheelIdx];
-            if (!wheel) return;
+            if (!wheel) continue;
 
             // Check if wheel is touching the ground (suspension compressed)
             const isGrounded = wheel.position.y > -0.49;
-            if (!isGrounded) return;
+            if (!isGrounded) continue;
 
-            const p = particles[particleIndexRef.current];
+            if (freeCountRef.current <= 0) break; // pool exhausted
+
+            const pIdx = freeIndicesRef.current[--freeCountRef.current];
+            const p = particles[pIdx];
             p.active = true;
             // Get wheel world position
             wheel.getWorldPosition(p.position);
@@ -135,7 +170,8 @@ export function DustParticles({ wheelsRef, chassisRef }: DustParticlesProps) {
             // Do not emit dust if the wheel is in the water
             if (p.position.y - 0.35 <= -8.0) {
               p.active = false;
-              return;
+              freeIndicesRef.current[freeCountRef.current++] = pIdx;
+              continue;
             }
             p.position.y -= GROUND_OFFSET;
 
@@ -157,8 +193,8 @@ export function DustParticles({ wheelsRef, chassisRef }: DustParticlesProps) {
             p.rotationAngle = Math.random() * Math.PI * 2;
             p.rotationSpeed = (Math.random() - 0.5) * 2;
 
-            particleIndexRef.current = (particleIndexRef.current + 1) % MAX_PARTICLES;
-          });
+            activeIndicesRef.current[activeCountRef.current++] = pIdx;
+          }
         }
       }
     } else {
@@ -166,59 +202,66 @@ export function DustParticles({ wheelsRef, chassisRef }: DustParticlesProps) {
       timeAccumulator.current = 0;
     }
 
-    // Update and render active particles packed continuously
-    let activeCount = 0;
-    for (let i = 0; i < MAX_PARTICLES; i++) {
-      const p = particles[i];
-      if (p.active) {
-        p.life += delta;
-        if (p.life >= p.maxLife) {
-          p.active = false;
-          continue;
-        }
+    // Dense particle update loop with in-place compaction
+    const count = activeCountRef.current;
+    let writeIdx = 0;
 
-        // Air resistance (drag) and upward lift
-        p.velocity.x *= Math.pow(0.05, delta); // slow down quickly laterally
-        p.velocity.z *= Math.pow(0.05, delta);
-        p.velocity.y += delta * 1.5; // slight upward drift
+    for (let i = 0; i < count; i++) {
+      const pIdx = activeIndicesRef.current[i];
+      const p = particles[pIdx];
 
-        p.position.addScaledVector(p.velocity, delta);
-        p.rotationAngle += p.rotationSpeed * delta;
-        
-        const progress = p.life / p.maxLife;
-        
-        // Smooth fade in and fade out using opacity instead of imploding scale
-        let currentOpacity = 0;
-        if (progress < 0.2) {
-          // Fade in (0 to 1)
-          currentOpacity = progress / 0.2;
-        } else if (progress > 0.6) {
-          // Fade out smoothly (1 to 0) using an easing curve
-          const t = (progress - 0.6) / 0.4;
-          currentOpacity = 1 - (t * t); 
-        } else {
-          currentOpacity = 1;
-        }
-
-        // Keep expanding, don't shrink! (minimal expansion)
-        const currentScale = p.scale * (1 + progress * 1.5);
-
-        // Billboarding: face camera + individual particle rotation
-        _q.setFromAxisAngle(_axisZ, p.rotationAngle);
-        dummy.quaternion.copy(state.camera.quaternion).multiply(_q);
-        
-        _scale.set(currentScale, currentScale, currentScale);
-        dummy.matrix.compose(p.position, dummy.quaternion, _scale);
-
-        meshRef.current.setMatrixAt(activeCount, dummy.matrix);
-        meshRef.current.setColorAt(activeCount, p.color);
-        opacityArray[activeCount] = currentOpacity;
-        activeCount++;
+      p.life += delta;
+      if (p.life >= p.maxLife) {
+        p.active = false;
+        freeIndicesRef.current[freeCountRef.current++] = pIdx;
+        continue;
       }
+
+      // Air resistance (drag) and upward lift
+      p.velocity.x *= Math.pow(0.05, delta); // slow down quickly laterally
+      p.velocity.z *= Math.pow(0.05, delta);
+      p.velocity.y += delta * 1.5; // slight upward drift
+
+      p.position.addScaledVector(p.velocity, delta);
+      p.rotationAngle += p.rotationSpeed * delta;
+      
+      const progress = p.life / p.maxLife;
+      
+      // Smooth fade in and fade out using opacity instead of imploding scale
+      let currentOpacity = 0;
+      if (progress < 0.2) {
+        // Fade in (0 to 1)
+        currentOpacity = progress / 0.2;
+      } else if (progress > 0.6) {
+        // Fade out smoothly (1 to 0) using an easing curve
+        const t = (progress - 0.6) / 0.4;
+        currentOpacity = 1 - (t * t); 
+      } else {
+        currentOpacity = 1;
+      }
+
+      // Keep expanding, don't shrink! (minimal expansion)
+      const currentScale = p.scale * (1 + progress * 1.5);
+
+      // Billboarding: face camera + individual particle rotation
+      _q.setFromAxisAngle(_axisZ, p.rotationAngle);
+      dummy.quaternion.copy(state.camera.quaternion).multiply(_q);
+      
+      _scale.set(currentScale, currentScale, currentScale);
+      dummy.matrix.compose(p.position, dummy.quaternion, _scale);
+
+      meshRef.current.setMatrixAt(writeIdx, dummy.matrix);
+      meshRef.current.setColorAt(writeIdx, p.color);
+      opacityArray[writeIdx] = currentOpacity;
+
+      activeIndicesRef.current[writeIdx] = pIdx;
+      writeIdx++;
     }
 
-    meshRef.current.count = activeCount;
-    if (activeCount > 0) {
+    activeCountRef.current = writeIdx;
+    meshRef.current.count = writeIdx;
+
+    if (writeIdx > 0) {
       meshRef.current.instanceMatrix.needsUpdate = true;
       if (meshRef.current.instanceColor) {
         meshRef.current.instanceColor.needsUpdate = true;
@@ -226,11 +269,16 @@ export function DustParticles({ wheelsRef, chassisRef }: DustParticlesProps) {
       if (meshRef.current.geometry && meshRef.current.geometry.attributes.instanceOpacity) {
         meshRef.current.geometry.attributes.instanceOpacity.needsUpdate = true;
       }
+      wasRenderingRef.current = true;
+    } else if (wasRenderingRef.current) {
+      meshRef.current.instanceMatrix.needsUpdate = true;
+      wasRenderingRef.current = false;
     }
   });
 
   return (
-    <instancedMesh ref={meshRef} args={[undefined, undefined, MAX_PARTICLES]} frustumCulled={false}>
+    <instancedMesh ref={meshRef} args={[undefined, undefined, poolSize]} frustumCulled={false}>
+
       <planeGeometry args={[1.5, 1.5]}>
         <instancedBufferAttribute
           attach="attributes-instanceOpacity"

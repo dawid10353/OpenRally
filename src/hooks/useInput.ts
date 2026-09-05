@@ -10,6 +10,12 @@ import {
   GAMEPAD_STEER_SPEED,
 } from '@/config/input';
 import { sampleGamepad, resetGamepadEdgeState, detectGamepadType } from '@/utils/input/gamepad';
+import {
+  getTouchInputState,
+  setTouchInput,
+  setLastInputType,
+  type TouchInputState,
+} from '@/utils/input/touch';
 
 export const activeKeys = new Set<string>();
 
@@ -27,19 +33,116 @@ export function isLookBackActive(): boolean {
   return activeKeys.has('KeyB') || _lookBackRequested;
 }
 
+const _cameraLookResult = { x: 0, y: 0 };
+
 /**
  * Returns the current orbit camera look offset vector from the Right Analog Stick.
  * x: Horizontal pan [-1.0 (Left) to +1.0 (Right)]
  * y: Vertical tilt [-1.0 (Up) to +1.0 (Down)]
  */
 export function getCameraLook(): { x: number; y: number } {
-  return { x: _cameraLookX, y: _cameraLookY };
+  _cameraLookResult.x = _cameraLookX;
+  _cameraLookResult.y = _cameraLookY;
+  return _cameraLookResult;
+}
+
+export interface BlendInputsOptions {
+  dt: number;
+  prevSteering: number;
+  keys?: Set<string>;
+  gp?: {
+    steering?: number;
+    throttle?: number;
+    brake?: number;
+    handbrake?: boolean;
+    resetHeld?: boolean;
+    resetToggle?: boolean;
+    cameraToggle?: boolean;
+    pauseToggle?: boolean;
+  };
+  touch?: Partial<TouchInputState>;
+}
+
+export interface MergedInputResult {
+  state: InputState;
+  targetSteering: number;
+  steerSpeed: number;
+}
+
+/**
+ * Pure blending function combining Keyboard, Gamepad, and Touch input sources.
+ * Steering: Left is +1.0, Right is -1.0 (OpenRally standard). Clamped to [-1.0, 1.0].
+ * Throttle & Brake: Maximum of keyboard digital values, gamepad analog triggers, and touch.
+ * Handbrake & Reset: Logical OR across all active input modalities.
+ */
+export function blendInputs({
+  dt,
+  prevSteering,
+  keys = activeKeys,
+  gp = {},
+  touch = getTouchInputState(),
+}: BlendInputsOptions): MergedInputResult {
+  const gpSteering = gp.steering ?? 0;
+  const gpThrottle = gp.throttle ?? 0;
+  const gpBrake = gp.brake ?? 0;
+  const gpHandbrake = Boolean(gp.handbrake);
+  const gpReset = Boolean(gp.resetHeld || gp.resetToggle);
+  const gpCameraToggle = Boolean(gp.cameraToggle);
+
+  const touchSteering = touch.steering ?? 0;
+  const touchThrottle = touch.throttle ?? 0;
+  const touchBrake = touch.brake ?? 0;
+  const touchHandbrake = Boolean(touch.handbrake);
+  const touchReset = Boolean(touch.reset);
+  const touchCameraToggle = Boolean(touch.cameraToggle);
+
+  const kbThrottle = keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0;
+  const kbBrake = keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0;
+  const kbSteer =
+    (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0) +
+    (keys.has('KeyD') || keys.has('ArrowRight') ? -1 : 0);
+
+  const throttle = Math.max(kbThrottle, gpThrottle, touchThrottle);
+  const brake = Math.max(kbBrake, gpBrake, touchBrake);
+  const handbrake = keys.has('Space') || gpHandbrake || touchHandbrake;
+  const reset = keys.has('KeyR') || gpReset || touchReset;
+  const cameraToggle = Boolean(gpCameraToggle || touchCameraToggle);
+
+  // Determine steering speed:
+  // Analog inputs (gamepad stick or touch steering) use responsive GAMEPAD_STEER_SPEED.
+  // Pure digital keyboard inputs use STEER_SPEED.
+  let steerSpeed = STEER_SPEED;
+  if (Math.abs(gpSteering) > 0.001 || Math.abs(touchSteering) > 0.001) {
+    steerSpeed = GAMEPAD_STEER_SPEED;
+  } else if (kbSteer !== 0) {
+    steerSpeed = STEER_SPEED;
+  }
+
+  const combinedSteer = kbSteer + gpSteering + touchSteering;
+  const targetSteering = Math.max(-1.0, Math.min(1.0, combinedSteer));
+
+  const steerLerp = 1 - Math.exp(-steerSpeed * dt);
+  const newSteering = lerp(prevSteering, targetSteering, steerLerp);
+  const clampedSteering = Math.abs(newSteering) < STEER_DEADZONE ? 0 : newSteering;
+
+  return {
+    state: {
+      steering: clampedSteering,
+      throttle,
+      brake,
+      handbrake,
+      cameraToggle,
+      reset,
+    },
+    targetSteering,
+    steerSpeed,
+  };
 }
 
 /**
  * Returns a function that updates and returns the current InputState.
  * Designed to be called inside useFrame with delta time.
- * Handles both Keyboard and Xbox / Gamepad inputs seamlessly.
+ * Handles Keyboard, Gamepad, and Touch inputs seamlessly.
  */
 export function useInputUpdater(): (dt: number) => InputState {
   const stateRef = useRef<InputState>({
@@ -62,6 +165,7 @@ export function useInputUpdater(): (dt: number) => InputState {
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      setLastInputType('keyboard');
       activeKeys.add(e.code);
 
       // Camera cycle
@@ -180,13 +284,35 @@ export function useInputUpdater(): (dt: number) => InputState {
       setGamepadConnected(gp.connected, gp.name, gp.type);
     }
 
-    // In-game driving hotkeys from Gamepad (only active when playing)
-    if (gp.pauseToggle) {
-      setGameState('paused');
+    // Switch input mode to gamepad if gamepad activity is detected
+    if (
+      gp.throttle > 0.05 ||
+      gp.brake > 0.05 ||
+      Math.abs(gp.steering) > 0.05 ||
+      gp.handbrake ||
+      gp.resetHeld ||
+      gp.resetToggle ||
+      gp.cameraToggle ||
+      gp.pauseToggle
+    ) {
+      setLastInputType('gamepad');
     }
 
-    if (gp.cameraToggle) {
+    // In-game driving hotkeys from Gamepad or Touch (only active when playing)
+    const touch = getTouchInputState();
+
+    if (gp.pauseToggle || touch.pause) {
+      setGameState('paused');
+      if (touch.pause) {
+        setTouchInput({ pause: false });
+      }
+    }
+
+    if (gp.cameraToggle || touch.cameraToggle) {
       cycleCameraMode();
+      if (touch.cameraToggle) {
+        setTouchInput({ cameraToggle: false });
+      }
     }
 
     if (gp.telemetryToggle) {
@@ -198,49 +324,19 @@ export function useInputUpdater(): (dt: number) => InputState {
     _cameraLookX = gp.cameraLookX;
     _cameraLookY = gp.cameraLookY;
 
-    const keys = activeKeys;
+    const merged = blendInputs({
+      dt,
+      prevSteering: stateRef.current.steering,
+      keys: activeKeys,
+      gp,
+      touch,
+    });
 
-    // Keyboard digital targets
-    const kbThrottle = keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0;
-    const kbBrake = keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0;
-    const kbSteer =
-      (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0) +
-      (keys.has('KeyD') || keys.has('ArrowRight') ? -1 : 0);
-
-    // Combine throttle & brake (Gamepad analog triggers + Keyboard)
-    const throttle = Math.max(kbThrottle, gp.throttle);
-    const brake = Math.max(kbBrake, gp.brake);
-    const handbrake = keys.has('Space') || gp.handbrake;
-    const reset = keys.has('KeyR') || gp.resetHeld || gp.resetToggle;
-
-    // Steering calculation:
-    // If gamepad analog stick is active, use responsive gamepad interpolation
-    // If keyboard is being pressed, use keyboard steering speed
-    let targetSteering = 0;
-    let steerSpeed = STEER_SPEED;
-
-    if (Math.abs(gp.steering) > 0.001) {
-      targetSteering = gp.steering;
-      steerSpeed = GAMEPAD_STEER_SPEED;
-    } else if (kbSteer !== 0) {
-      targetSteering = kbSteer;
-      steerSpeed = STEER_SPEED;
+    if (touch.reset) {
+      setTouchInput({ reset: false });
     }
 
-    const steerLerp = 1 - Math.exp(-steerSpeed * dt);
-    const prevSteering = stateRef.current.steering;
-    const newSteering = lerp(prevSteering, targetSteering, steerLerp);
-
-    stateRef.current = {
-      steering: Math.abs(newSteering) < STEER_DEADZONE ? 0 : newSteering,
-      throttle,
-      brake,
-      handbrake,
-      cameraToggle: false,
-      reset,
-    };
-
+    stateRef.current = merged.state;
     return stateRef.current;
   }, [cycleCameraMode, setGameState, setGamepadConnected, setTelemetryEnabled]);
 }
-

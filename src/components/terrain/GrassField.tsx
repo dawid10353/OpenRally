@@ -1,9 +1,10 @@
-import { useMemo, useRef, useLayoutEffect } from 'react';
+import { useMemo, useRef, useLayoutEffect, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import {
   Color,
   Object3D,
   DoubleSide,
+  FrontSide,
   BufferGeometry,
   Float32BufferAttribute,
   Vector3,
@@ -19,6 +20,7 @@ import { useTerrainData } from '@/components/terrain/TerrainContext';
 import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { mapRange } from '@/utils/math';
+import { isMobileDevice, getClampedAnisotropy } from '@/utils/device';
 import { getInterpolatedHeight } from '@/utils/terrainCompiler';
 import {
   GRASS_HEIGHT_MIN,
@@ -174,6 +176,20 @@ function GrassChunkMesh({ geometry, material, chunk, onMeshRegister }: GrassChun
 }
 
 export function GrassField() {
+  const storeQuality = useSettingsStore((s) => s.graphicsQuality);
+  const graphicsQuality = useSettingsStore.getState().graphicsQuality ?? storeQuality;
+
+  // In Low graphics mode on mobile (or generally when graphicsQuality === 'low'),
+  // completely disable grass rendering to eliminate all grass clusters, 36 draw calls,
+  // and fill-rate-destroying fragment alpha discard penalty
+  if (graphicsQuality === 'low') {
+    return null;
+  }
+
+  return <GrassFieldContent />;
+}
+
+function GrassFieldContent() {
   const { heightmapData, levelData } = useTerrainData();
   const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
 
@@ -185,11 +201,13 @@ export function GrassField() {
   ]);
 
   useMemo(() => {
+    const isMobile = isMobileDevice();
+    const anisotropy = getClampedAnisotropy(4, isMobile);
     [grassTuftTex, wildflowerTex, desertTuftTex].forEach((tex) => {
       tex.wrapS = RepeatWrapping;
       tex.wrapT = RepeatWrapping;
       tex.colorSpace = SRGBColorSpace;
-      tex.anisotropy = 4;
+      tex.anisotropy = anisotropy;
       tex.needsUpdate = true;
     });
   }, [grassTuftTex, wildflowerTex, desertTuftTex]);
@@ -241,11 +259,16 @@ export function GrassField() {
     let placed = 0;
     let attempt = 0;
 
+    const isMobile = isMobileDevice();
     const baseCount =
-      isSnow
+      isSnow || graphicsQuality === 'low'
         ? 0
-        : graphicsQuality === 'low'
-        ? 14000
+        : isMobile
+        ? graphicsQuality === 'medium'
+          ? 3500
+          : graphicsQuality === 'high'
+          ? 18000
+          : 32000
         : graphicsQuality === 'medium'
         ? 36000
         : graphicsQuality === 'high'
@@ -346,9 +369,10 @@ export function GrassField() {
 
     const activeTexture = isDesert ? desertTuftTex : grassTuftTex;
 
+    const isMobile = isMobileDevice();
     const mat = new MeshLambertMaterial({
       map: activeTexture,
-      side: DoubleSide,
+      side: isMobile ? FrontSide : DoubleSide,
       transparent: true,
       color: 0xffffff,
     });
@@ -491,14 +515,36 @@ export function GrassField() {
       const camPos = state.camera.position;
       if (camPos.distanceToSquared(lastCamPosRef.current) > 1.0) {
         lastCamPosRef.current.copy(camPos);
-        const maxDistSq =
-          graphicsQuality === 'very_high'
-            ? 340 * 340
+        const isMobile = isMobileDevice();
+        const drawDistance = useSettingsStore.getState().drawDistance ?? (isMobile ? 'medium' : 'far');
+        const drawDistMultiplier =
+          drawDistance === 'short'
+            ? 0.5
+            : drawDistance === 'medium'
+            ? 0.8
+            : drawDistance === 'far'
+            ? 1.0
+            : 1.35;
+
+        const baseDist =
+          isMobile
+            ? graphicsQuality === 'very_high'
+              ? 200
+              : graphicsQuality === 'high'
+              ? 150
+              : graphicsQuality === 'medium'
+              ? 110
+              : 75
+            : graphicsQuality === 'very_high'
+            ? 340
             : graphicsQuality === 'high'
-            ? 220 * 220
+            ? 220
             : graphicsQuality === 'medium'
-            ? 160 * 160
-            : 110 * 110;
+            ? 160
+            : 110;
+
+        const effectiveDist = baseDist * drawDistMultiplier;
+        const maxDistSq = effectiveDist * effectiveDist;
 
         chunksData.forEach((chunk, idx) => {
           const mesh = meshRefs.current[idx];
@@ -516,6 +562,14 @@ export function GrassField() {
       }
     }
   });
+
+  // Clean up grass geometry and custom material on unmount/level change
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+      material.dispose();
+    };
+  }, [geometry, material]);
 
   return (
     <group>

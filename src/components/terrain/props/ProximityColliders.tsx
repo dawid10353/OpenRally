@@ -7,6 +7,7 @@ import {
   CuboidCollider,
 } from '@react-three/rapier';
 import { useGameStore } from '@/store/gameStore';
+import { isMobileDevice } from '@/utils/device';
 import type { PropItem, ProximityCollidersProps } from './types';
 
 export function ProximityColliders({
@@ -110,10 +111,14 @@ export function ProximityColliders({
     const cz = Math.floor(carPos[2] / CELL_SIZE);
     const cellKey = `${cx}_${cz}`;
 
+    const isMobile = isMobileDevice();
+    const distanceThresholdSq = isMobile ? 400 : 100; // 20m threshold on mobile vs 10m on desktop
+    const queryRadiusSq = (isMobile ? 85 : 95) ** 2;
+
     const dx = carPos[0] - lastCarPosRef.current[0];
     const dz = carPos[2] - lastCarPosRef.current[1];
 
-    if (dx * dx + dz * dz > 100 || cellKey !== lastCellKeyRef.current) {
+    if (dx * dx + dz * dz > distanceThresholdSq || cellKey !== lastCellKeyRef.current) {
       lastCarPosRef.current[0] = carPos[0];
       lastCarPosRef.current[1] = carPos[2];
       lastCellKeyRef.current = cellKey;
@@ -144,7 +149,7 @@ export function ProximityColliders({
             for (let i = 0; i < cell.length; i++) {
               const item = cell[i];
               const distSq = (item.position[0] - carPos[0]) ** 2 + (item.position[2] - carPos[2]) ** 2;
-              if (distSq < 95 * 95) {
+              if (distSq < queryRadiusSq) {
                 if (item.type === 'cabin') {
                   sc.cabins.push(item);
                 } else if (item.type === 'fence') {

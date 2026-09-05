@@ -1,5 +1,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
+/* === Safe Area Inset Custom Properties === */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+}
+
 /* === Global Reset === */
 *,
 *::before,
@@ -12,13 +20,25 @@
 html,
 body,
 #root {
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  position: fixed;
+  inset: 0;
   overflow: hidden;
   background: #0a0a1e;
   font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Global Touch & Gesture Lockdown */
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* === Loading Screen Animations === */
@@ -48,9 +68,305 @@ body,
   color: #ffffff;
 }
 
-/* === Canvas container === */
+/* === Interactive Elements & Canvas === */
+canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none;
+}
+
 .game-container {
   position: relative;
   width: 100%;
   height: 100%;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
+
+/* === Safe Area Inset Utility Classes === */
+.safe-area-inset-top {
+  padding-top: var(--sat);
+}
+.safe-area-inset-right {
+  padding-right: var(--sar);
+}
+.safe-area-inset-bottom {
+  padding-bottom: var(--sab);
+}
+.safe-area-inset-left {
+  padding-left: var(--sal);
+}
+.safe-area-padding {
+  padding-top: var(--sat);
+  padding-right: var(--sar);
+  padding-bottom: var(--sab);
+  padding-left: var(--sal);
+}
+
+/* === Portrait Orientation Guard === */
+.portrait-orientation-guard {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1000000;
+  background: #0a0a1e;
+  color: #ffffff;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: calc(24px + var(--sat)) calc(24px + var(--sar)) calc(24px + var(--sab)) calc(24px + var(--sal));
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  pointer-events: auto;
+}
+
+/* Guard activates when the viewport is in portrait mode on mobile/tablet viewports */
+@media screen and (orientation: portrait) and (max-width: 1024px) {
+  .portrait-orientation-guard {
+    display: flex !important;
+  }
+}
+
+.portrait-guard-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 320px;
+  gap: 16px;
+}
+
+.portrait-guard-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: rgba(0, 212, 255, 0.08);
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  color: #00d4ff;
+  animation: rotatePhone 2.2s ease-in-out infinite;
+}
+
+.portrait-guard-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffffff;
+  margin: 0;
+}
+
+.portrait-guard-desc {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+}
+
+@keyframes rotatePhone {
+  0%, 15% {
+    transform: rotate(0deg);
+  }
+  50%, 65% {
+    transform: rotate(-90deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+/* === Responsive Mobile Landscape HUD Adaptations === */
+@media (max-height: 520px) and (orientation: landscape) {
+  /* Scale minimap slightly on compact phone screens so track view remains prominent */
+  #hud .minimap-container,
+  #hud > div:has(canvas:not(#game-canvas)) {
+    transform: scale(0.85);
+    transform-origin: top right;
+  }
+}
+
+/* === Responsive Mobile Landscape Menu & UI Redesign (Heights 360px–412px) === */
+@media (max-height: 500px) and (orientation: landscape) {
+  /* Main Menu Dashboard */
+  .menu-dashboard-layout {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 16px !important;
+    align-items: center !important;
+  }
+  .menu-brand-header {
+    padding-bottom: 6px !important;
+    gap: 8px !important;
+  }
+  .menu-brand-logo {
+    max-height: 34px !important;
+  }
+  .menu-action-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px 8px !important;
+  }
+  .menu-action-grid button {
+    padding: 8px 12px !important;
+    min-height: 44px !important;
+  }
+  .menu-action-sublabel {
+    display: none !important;
+  }
+  .hero-showcase-container {
+    gap: 8px !important;
+  }
+  .hero-showcase-card {
+    padding: 10px 14px !important;
+    gap: 6px !important;
+  }
+  .hero-showcase-turntable {
+    height: 105px !important;
+  }
+
+  /* Pause Menu 2-Column Split */
+  .pause-split-layout {
+    display: grid !important;
+    grid-template-columns: 42% 58% !important;
+    gap: 14px !important;
+    align-items: center !important;
+    width: 100% !important;
+  }
+  .pause-banner-card {
+    height: 100% !important;
+    min-height: 180px !important;
+    padding: 12px 14px !important;
+  }
+  .pause-action-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+  }
+  .pause-action-list button {
+    padding: 8px 12px !important;
+    min-height: 44px !important;
+  }
+
+  /* Garage Side-by-Side 2-Column Split */
+  .garage-split-layout {
+    display: grid !important;
+    grid-template-columns: 48% 52% !important;
+    gap: 14px !important;
+    align-items: center !important;
+    width: 100% !important;
+  }
+  .garage-canvas-box {
+    height: 220px !important;
+  }
+  .garage-details-box {
+    margin-top: 0 !important;
+  }
+
+  /* Track Selection 2x2 Grid */
+  .track-grid-layout {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+  .track-card-compact {
+    padding: 8px 10px !important;
+    grid-template-columns: 95px 1fr !important;
+    gap: 10px !important;
+  }
+  .track-thumb-compact {
+    width: 95px !important;
+    height: 62px !important;
+  }
+  .track-desc-compact {
+    display: none !important;
+  }
+
+  /* Controls 2-Column Layout */
+  .controls-help-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px 12px !important;
+    padding: 10px 14px !important;
+  }
+
+  /* Overlay scroll prevention */
+  .overlay-menu-container {
+    overflow-y: hidden !important;
+    overscroll-behavior: none !important;
+    scrollbar-width: none !important;
+  }
+  .overlay-menu-container::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  /* Settings 2-Column Responsive Layout */
+  .settings-options-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px 10px !important;
+    width: 100% !important;
+  }
+  .settings-options-grid .settings-option-span-2 {
+    grid-column: span 2 !important;
+  }
+
+  /* Compact descriptions and cards */
+  .hero-showcase-compact-stage {
+    display: none !important;
+  }
+  .hero-vehicle-desc {
+    display: none !important;
+  }
+  .garage-desc-compact {
+    display: none !important;
+  }
+  .mode-card-desc {
+    display: none !important;
+  }
+  .track-subtitle-compact {
+    display: none !important;
+  }
+  .pause-card-compact {
+    padding: 8px 18px !important;
+    gap: 8px !important;
+  }
+
+  /* Dynamic Menu Scalable Container */
+  .menu-scalable-container {
+    max-height: calc(100dvh - var(--sat) - var(--sab) - 10px) !important;
+    transform-origin: center center;
+    flex-shrink: 0;
+  }
+}
+
+/* Dynamic Scaling tiers for ultra-compact mobile landscape screens */
+@media (max-height: 440px) and (orientation: landscape) {
+  .menu-scalable-container {
+    transform: scale(0.92);
+  }
+}
+
+@media (max-height: 390px) and (orientation: landscape) {
+  .menu-scalable-container {
+    transform: scale(0.85);
+  }
+}
+
+@media (max-height: 350px) and (orientation: landscape) {
+  .menu-scalable-container {
+    transform: scale(0.78);
+  }
+}
+
+
+

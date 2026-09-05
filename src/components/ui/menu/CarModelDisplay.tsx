@@ -1,10 +1,19 @@
 import { useGLTF, Clone } from '@react-three/drei';
 import { Wheel } from '@/components/vehicle/Wheel';
 import type { VehiclePreset } from '@/types';
+import { isMobileDevice } from '@/utils/device';
+import { useSettingsStore } from '@/store/settingsStore';
 import { menuStyles } from './menuStyles';
 
 export function CarModelDisplay({ preset }: { preset: VehiclePreset }) {
-  const { scene } = useGLTF(preset.modelPath);
+  const isMobile = isMobileDevice();
+  const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
+  const useOptimized = isMobile || graphicsQuality !== 'very_high';
+  const effectiveModelPath = useOptimized && preset.modelPath.endsWith('.glb')
+    ? preset.modelPath.replace(/\.glb$/, '_opt.glb')
+    : preset.modelPath;
+
+  const { scene } = useGLTF(effectiveModelPath);
   const offset = preset.modelPositionOffset ?? [0, 0.2, 0.1];
   const scale = preset.modelScale ?? [4.5, 4.5, 4.5];
 

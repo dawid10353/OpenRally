@@ -1,5 +1,7 @@
-import { useEffect, useRef, memo } from 'react';
+import { useEffect, useRef, useState, memo } from 'react';
 import { useGameStore } from '@/store/gameStore';
+import { useSettingsStore } from '@/store/settingsStore';
+import { getLastInputType, isTouchDevice, type InputType } from '@/utils/input/touch';
 
 /**
  * Authentic Rally Twin-Gauge Cluster (Speedometer & Tachometer).
@@ -7,6 +9,37 @@ import { useGameStore } from '@/store/gameStore';
  */
 export const AnalogGauges = memo(function AnalogGauges() {
   const gameState = useGameStore((s) => s.gameState);
+  const storeTouchControlMode = useSettingsStore((s) => s.touchControlMode);
+  const touchControlMode = useSettingsStore.getState().touchControlMode ?? storeTouchControlMode;
+  const [activeInputType, setActiveInputType] = useState<InputType>(() => getLastInputType());
+
+  useEffect(() => {
+    const handleInputSwitch = (e?: Event) => {
+      if (e && 'detail' in e && typeof (e as CustomEvent).detail?.modality === 'string') {
+        setActiveInputType((e as CustomEvent).detail.modality);
+      } else {
+        setActiveInputType(getLastInputType());
+      }
+    };
+    window.addEventListener('pointerdown', handleInputSwitch, { passive: true });
+    window.addEventListener('touchstart', handleInputSwitch, { passive: true });
+    window.addEventListener('keydown', handleInputSwitch, { passive: true });
+    window.addEventListener('openrally-input-switch', handleInputSwitch as EventListener);
+    return () => {
+      window.removeEventListener('pointerdown', handleInputSwitch);
+      window.removeEventListener('touchstart', handleInputSwitch);
+      window.removeEventListener('keydown', handleInputSwitch);
+      window.removeEventListener('openrally-input-switch', handleInputSwitch as EventListener);
+    };
+  }, []);
+
+  const effectiveInputType = getLastInputType() || activeInputType;
+  const isTouchActive =
+    touchControlMode === 'always' ||
+    (touchControlMode === 'auto' &&
+      (effectiveInputType === 'touch' || isTouchDevice()) &&
+      effectiveInputType !== 'keyboard' &&
+      effectiveInputType !== 'gamepad');
 
   const speedTextRef = useRef<HTMLSpanElement>(null);
   const rpmTextRef = useRef<HTMLSpanElement>(null);
@@ -61,8 +94,28 @@ export const AnalogGauges = memo(function AnalogGauges() {
     return () => unsubGame();
   }, [gameState]);
 
+  const clusterStyle: React.CSSProperties = {
+    ...styles.rallyCluster,
+    ...(isTouchActive
+      ? {
+          left: '50%',
+          top: 'calc(14px + var(--sat, 0px))',
+          bottom: 'auto',
+          right: 'auto',
+          transform: 'translateX(-50%) scale(0.42)',
+          transformOrigin: 'top center',
+        }
+      : {
+          bottom: 'calc(20px + var(--sab))',
+          right: 'calc(20px + var(--sar))',
+          left: 'auto',
+          top: 'auto',
+          transform: 'none',
+        }),
+  };
+
   return (
-    <div id="rally-cluster" style={styles.rallyCluster}>
+    <div id="rally-cluster" style={clusterStyle}>
       <svg viewBox="0 0 340 175" style={styles.clusterSvg}>
         <defs>
           {/* Dark Rally Pod Bezel Gradient */}
@@ -291,8 +344,8 @@ export const AnalogGauges = memo(function AnalogGauges() {
 const styles: Record<string, React.CSSProperties> = {
   rallyCluster: {
     position: 'absolute',
-    bottom: '20px',
-    right: '20px',
+    bottom: 'calc(20px + var(--sab))',
+    right: 'calc(20px + var(--sar))',
     width: '340px',
     height: '175px',
     boxShadow: '0 12px 40px rgba(0,0,0,0.85)',

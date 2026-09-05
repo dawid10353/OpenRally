@@ -1,10 +1,12 @@
 import {
   Color,
   DoubleSide,
+  FrontSide,
   MeshLambertMaterial,
   type Texture,
   type IUniform,
 } from 'three';
+import { isMobileDevice } from '@/utils/device';
 
 /**
  * Creates custom foliage material with GPU wind displacement shader.
@@ -15,9 +17,10 @@ export function createFoliageWindMaterial(
   isBroadleaf: boolean,
   registerUniforms: (uniforms: Record<string, IUniform>) => void,
 ): MeshLambertMaterial {
+  const isMobile = isMobileDevice();
   const mat = new MeshLambertMaterial({
     map: tex,
-    side: DoubleSide,
+    side: isMobile ? FrontSide : DoubleSide,
     alphaTest: 0.12,
     transparent: false,
     depthWrite: true,

@@ -8,6 +8,7 @@ import {
 import { useTexture } from '@react-three/drei';
 import { useTerrainData } from '@/components/terrain/TerrainContext';
 import { useSettingsStore } from '@/store/settingsStore';
+import { isMobileDevice, getClampedAnisotropy } from '@/utils/device';
 import {
   usePropsData,
   ProximityColliders,
@@ -16,6 +17,7 @@ import {
   ArchitectureInstancer,
   TracksidePropsInstancer,
 } from './props';
+import type { PropItem } from './props/types';
 
 // Re-export all procedural geometry builders for 100% test suite and project-wide compatibility
 export {
@@ -48,8 +50,53 @@ export {
   createStoneBridgeGeometry,
 } from './props/geometries';
 
-// Global bounding sphere for frustum culling optimization
-const GLOBAL_BOUNDING_SPHERE = new Sphere(new Vector3(0, 0, 0), 1200);
+/**
+ * Evaluates whether terrain prop instanced meshes should cast and receive shadows.
+ *
+ * Performance Rationale (Mobile GPU optimization):
+ * The terrain features up to 27 distinct instanced meshes across 4 categories (vegetation,
+ * rocks, architecture, and trackside props). Casting shadows from all props requires an additional
+ * shadow map pass, causing severe fill-rate and draw call overhead on mobile GPUs.
+ *
+ * - On mobile (`isMobile === true`): Prop shadows are strictly disabled across all quality
+ *   levels (including Balanced 'medium', 'high', and 'very_high').
+ * - On desktop (`isMobile === false`): Prop shadows are enabled for all modes except 'low'.
+ *
+ * @param isMobile Whether the current runtime environment is a mobile/touch device.
+ * @param graphicsQuality The current graphics quality setting ('low' | 'medium' | 'high' | 'very_high').
+ * @returns boolean True if prop meshes should cast and receive shadows; false otherwise.
+ */
+export function canPropsCastShadow(isMobile: boolean, graphicsQuality: string): boolean {
+  return !isMobile && graphicsQuality !== 'low';
+}
+
+/**
+ * Computes a genuine bounding sphere encompassing all placed instances for a prop group.
+ */
+export function computeInstanceBoundingSphere(items: PropItem[], geometryRadius = 5): Sphere {
+  const sphere = new Sphere();
+  if (!items || items.length === 0) {
+    sphere.radius = -1;
+    return sphere;
+  }
+  const min = new Vector3(Infinity, Infinity, Infinity);
+  const max = new Vector3(-Infinity, -Infinity, -Infinity);
+  const pos = new Vector3();
+  for (let i = 0; i < items.length; i++) {
+    pos.setFromMatrixPosition(items[i].matrix);
+    min.min(pos);
+    max.max(pos);
+  }
+  sphere.center.addVectors(min, max).multiplyScalar(0.5);
+  let maxDistSq = 0;
+  for (let i = 0; i < items.length; i++) {
+    pos.setFromMatrixPosition(items[i].matrix);
+    const dSq = pos.distanceToSquared(sphere.center);
+    if (dSq > maxDistSq) maxDistSq = dSq;
+  }
+  sphere.radius = Math.sqrt(maxDistSq) + geometryRadius;
+  return sphere;
+}
 
 /**
  * Clean orchestrator component for all GPU-instanced terrain props,
@@ -109,6 +156,8 @@ export function PropsInstancer() {
   ]);
 
   useMemo(() => {
+    const isMobile = isMobileDevice();
+    const anisotropy = getClampedAnisotropy(4, isMobile);
     [
       pineBarkTexture,
       pineBranchTexture,
@@ -136,7 +185,7 @@ export function PropsInstancer() {
       tex.wrapS = RepeatWrapping;
       tex.wrapT = RepeatWrapping;
       tex.colorSpace = SRGBColorSpace;
-      tex.anisotropy = 4;
+      tex.anisotropy = anisotropy;
       tex.needsUpdate = true;
     });
   }, [
@@ -167,7 +216,8 @@ export function PropsInstancer() {
   const levelId = levelData.id.toLowerCase();
   const isDesert = levelId.includes('desert');
   const isSnow = levelId.includes('sweden') || levelId.includes('snow') || levelId.includes('winter');
-  const canShadow = graphicsQuality !== 'low';
+  const isMobile = isMobileDevice();
+  const canShadow = canPropsCastShadow(isMobile, graphicsQuality);
 
   // Compute terrain ground-snapped matrices and categorized collections
   const categorized = usePropsData();
@@ -210,7 +260,6 @@ export function PropsInstancer() {
         leafyBranchTexture={leafyBranchTexture}
         desertBarkTexture={desertBarkTexture}
         desertAcaciaBranchTexture={desertAcaciaBranchTexture}
-        globalBoundingSphere={GLOBAL_BOUNDING_SPHERE}
       />
 
       {/* 2. GPU-Instanced Rocks & Megaliths (Granite, Sandstone, Standing Stones, Cairns) */}
@@ -224,7 +273,6 @@ export function PropsInstancer() {
         rockTexture={rockTexture}
         sandTexture={sandTexture}
         celticStandingStoneTexture={celticStandingStoneTexture}
-        globalBoundingSphere={GLOBAL_BOUNDING_SPHERE}
       />
 
       {/* 3. GPU-Instanced Architecture (Cabins, Cottages, Fortress, Bridges) */}
@@ -249,7 +297,6 @@ export function PropsInstancer() {
         castleStoneTexture={castleStoneTexture}
         britishDrystoneTexture={britishDrystoneTexture}
         highlandCottageThatchTexture={highlandCottageThatchTexture}
-        globalBoundingSphere={GLOBAL_BOUNDING_SPHERE}
       />
 
       {/* 4. GPU-Instanced Trackside Props (Fences, Dyke Walls, Hay Bales, Rally Signs) */}
@@ -264,7 +311,6 @@ export function PropsInstancer() {
         britishDrystoneTexture={britishDrystoneTexture}
         highlandCottageThatchTexture={highlandCottageThatchTexture}
         cabinRedWallTexture={cabinRedWallTexture}
-        globalBoundingSphere={GLOBAL_BOUNDING_SPHERE}
       />
     </>
   );

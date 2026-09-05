@@ -129,8 +129,8 @@ export function TelemetryHUD() {
     <div
       style={{
         position: 'absolute',
-        top: 10,
-        left: 10,
+        top: 'calc(10px + var(--sat))',
+        left: 'calc(10px + var(--sal))',
         backgroundColor: 'rgba(10, 14, 23, 0.85)',
         backdropFilter: 'blur(8px)',
         border: '1px solid rgba(0, 229, 255, 0.3)',

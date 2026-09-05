@@ -1,8 +1,17 @@
 import { Color } from 'three';
 
 // ─── Pool Size ───────────────────────────────────────────────────────
-/** Maximum number of simultaneously active dust/smoke particles */
+/** Maximum number of simultaneously active dust/smoke particles (desktop) */
 export const MAX_PARTICLES = 400;
+
+/** Mobile pool size for dust/smoke particles to reduce CPU overhead and VBO memory footprint */
+export const MOBILE_MAX_PARTICLES = 150;
+
+/** Maximum number of water splash particles (desktop) */
+export const WATER_MAX_PARTICLES = 500;
+
+/** Mobile pool size for water splash particles */
+export const WATER_MOBILE_MAX_PARTICLES = 250;
 
 // ─── Colors ──────────────────────────────────────────────────────────
 /** Color used for dust kicked up during normal driving */
@@ -74,6 +83,33 @@ export const TIRE_TRACK_QUALITY_PRESETS = {
     maxSegments: 2500,
     lifetime: 35,
     minDistance: 0.12,
+  },
+} as const;
+
+/**
+ * Mobile-scaled quality presets for tire ribbon buffers.
+ * Reduces segment memory overhead and geometry VBO upload pressure on mobile GPUs.
+ */
+export const TIRE_TRACK_MOBILE_PRESETS = {
+  low: {
+    maxSegments: 250,
+    lifetime: 6,
+    minDistance: 0.35,
+  },
+  medium: {
+    maxSegments: 350,
+    lifetime: 8,
+    minDistance: 0.28,
+  },
+  high: {
+    maxSegments: 500,
+    lifetime: 12,
+    minDistance: 0.22,
+  },
+  very_high: {
+    maxSegments: 750,
+    lifetime: 16,
+    minDistance: 0.18,
   },
 } as const;
 

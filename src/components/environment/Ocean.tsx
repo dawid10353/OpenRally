@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import {
   PlaneGeometry,
@@ -16,6 +16,7 @@ import {
 import { useTexture } from '@react-three/drei';
 import { useTerrainData } from '@/components/terrain/TerrainContext';
 import { useSettingsStore } from '@/store/settingsStore';
+import { isMobileDevice, getClampedAnisotropy } from '@/utils/device';
 import {
   WATER_COLOR,
   WATER_SIZE,
@@ -41,10 +42,11 @@ export function Ocean() {
   const [iceTexture] = useTexture(['/textures/terrain/ice_lake.jpg']);
 
   useMemo(() => {
+    const isMobile = isMobileDevice();
     iceTexture.wrapS = RepeatWrapping;
     iceTexture.wrapT = RepeatWrapping;
     iceTexture.colorSpace = SRGBColorSpace;
-    iceTexture.anisotropy = 8;
+    iceTexture.anisotropy = getClampedAnisotropy(8, isMobile);
     iceTexture.needsUpdate = true;
   }, [iceTexture]);
 
@@ -69,11 +71,13 @@ export function Ocean() {
   }, [heightmapData]);
 
   const waterMesh = useMemo(() => {
+    // On mobile, clamp segments to 8 (128 tris) since wave motion is 100% in fragment shader with 0 vertex displacement
+    const effectiveSegments = isMobileDevice() ? Math.min(segmentsCount, 8) : segmentsCount;
     const geometry = new PlaneGeometry(
       WATER_SIZE,
       WATER_SIZE,
-      segmentsCount,
-      segmentsCount,
+      effectiveSegments,
+      effectiveSegments,
     );
 
     const commonUniforms = {
@@ -288,6 +292,27 @@ export function Ocean() {
 
     return mesh;
   }, [terrainHeightmap, levelData, segmentsCount, iceTexture, isSnow]);
+
+  // Explicitly dispose GPU resources (textures, geometries, materials) on unmount
+  // to prevent VRAM accumulation because <primitive /> bypasses R3F auto-disposal.
+  // terrainHeightmap is decoupled from waterMesh so graphics quality changes
+  // do not inadvertently dispose the shared heightmap texture while the stage is active.
+  useEffect(() => {
+    return () => {
+      terrainHeightmap.dispose();
+    };
+  }, [terrainHeightmap]);
+
+  useEffect(() => {
+    return () => {
+      waterMesh.geometry.dispose();
+      if (Array.isArray(waterMesh.material)) {
+        waterMesh.material.forEach((m) => m.dispose());
+      } else {
+        waterMesh.material.dispose();
+      }
+    };
+  }, [waterMesh]);
 
   useFrame((state, delta) => {
     // Anchor ocean directly under camera to give infinite ocean horizon

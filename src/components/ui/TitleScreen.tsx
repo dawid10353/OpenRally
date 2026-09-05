@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { getActiveGamepad, sampleGamepad } from '@/utils/input/gamepad';
 
+let _unlockAudioCtx: AudioContext | null = null;
+
 /**
  * Minimalist Title Screen ("Press Any Key To Start").
  * Unlocks the WebAudio context silently on user gesture and transitions into the Main Menu.
@@ -13,14 +15,18 @@ export function TitleScreen() {
   const [isFadingOut, setIsFadingOut] = useState(false);
   const startedRef = useRef(false);
 
-  // Silently resume audio context to satisfy browser autoplay policy
+  // Silently resume shared audio context to satisfy browser autoplay policy without allocating orphaned contexts
   const unlockAudioContext = useCallback(() => {
     try {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      if (ctx.state === 'suspended') {
-        ctx.resume();
+      if (typeof window === 'undefined') return;
+      if (!_unlockAudioCtx) {
+        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        if (AudioCtx) {
+          _unlockAudioCtx = new AudioCtx();
+        }
+      }
+      if (_unlockAudioCtx && _unlockAudioCtx.state === 'suspended') {
+        _unlockAudioCtx.resume().catch(() => {});
       }
     } catch {
       // Ignored
@@ -153,6 +159,8 @@ const styles: Record<string, React.CSSProperties> = {
     userSelect: 'none',
     cursor: 'pointer',
     transition: 'opacity 0.3s ease-out',
+    padding: 'calc(20px + var(--sat)) calc(20px + var(--sar)) calc(20px + var(--sab)) calc(20px + var(--sal))',
+    boxSizing: 'border-box',
   },
   content: {
     display: 'flex',
