@@ -11,8 +11,14 @@ export default defineConfig({
     }
   },
   server: {
+    host: true,
+    allowedHosts: true,
     watch: {
       usePolling: true, // Fix for WSL watching files on /mnt/c/
     }
+  },
+  preview: {
+    host: true,
+    allowedHosts: true,
   }
 })
