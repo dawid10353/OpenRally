@@ -16,10 +16,10 @@ if [ -s "$NVM_DIR/nvm.sh" ]; then
   \. "$NVM_DIR/nvm.sh"
 fi
 
-# Configure Java and Android SDK paths
+# Configure Java and Android SDK paths dynamically without hardcoded usernames
 export JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-21-openjdk-amd64}"
-export ANDROID_HOME="${ANDROID_HOME:-/home/dawid/android-sdk}"
-export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/home/dawid/android-sdk}"
+export ANDROID_HOME="${ANDROID_HOME:-${HOME}/android-sdk}"
+export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-${HOME}/android-sdk}"
 export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/35.0.0:$JAVA_HOME/bin:$PATH"
 
 echo "Node version:    $(node -v 2>/dev/null || echo 'not found')"
@@ -45,16 +45,28 @@ fi
 echo "Compiled APK created: $SOURCE_APK ($(stat -c%s "$SOURCE_APK") bytes)"
 
 echo "=== [5/5] Dual Exporting APK Binary ==="
-# Destination 1: Windows user directory (C:\Users\dawid\Documents\OpenRally\OpenRally.apk)
-WIN_DEST_DIR="${WIN_APK_DIR:-/mnt/c/Users/dawid/Documents/OpenRally}"
-DEST_WIN="$WIN_DEST_DIR/OpenRally.apk"
+# Destination 1: Optional Windows user directory (resolved dynamically in WSL with zero hardcoded user paths)
+WIN_DEST_DIR=""
+if [ -n "${WIN_APK_DIR:-}" ]; then
+  WIN_DEST_DIR="$WIN_APK_DIR"
+elif command -v cmd.exe >/dev/null 2>&1 && command -v wslpath >/dev/null 2>&1; then
+  WIN_USER_PROFILE="$(cmd.exe /c "echo %USERPROFILE%" 2>/dev/null | tr -d '\r\n' || true)"
+  if [ -n "$WIN_USER_PROFILE" ]; then
+    RESOLVED_WIN_PATH="$(wslpath "$WIN_USER_PROFILE/Documents/OpenRally" 2>/dev/null || true)"
+    if [ -n "$RESOLVED_WIN_PATH" ]; then
+      WIN_DEST_DIR="$RESOLVED_WIN_PATH"
+    fi
+  fi
+fi
 
-if [ -d "$WIN_DEST_DIR" ]; then
+DEST_WIN=""
+if [ -n "$WIN_DEST_DIR" ]; then
   mkdir -p "$WIN_DEST_DIR"
+  DEST_WIN="$WIN_DEST_DIR/OpenRally.apk"
   cp -f "$SOURCE_APK" "$DEST_WIN"
   echo "✓ Exported to Destination 1 (Windows Host): $DEST_WIN ($(stat -c%s "$DEST_WIN") bytes)"
 else
-  echo "WARNING: Windows mount directory not found at $WIN_DEST_DIR. Skipping Destination 1."
+  echo "ℹ Windows export destination not available in current environment. Skipping Destination 1."
 fi
 
 # Destination 2: Project dist directory (dist/openrally.apk)
@@ -64,4 +76,8 @@ cp -f "$SOURCE_APK" "$DEST_DIST"
 echo "✓ Exported to Destination 2 (Dist Folder):  $DEST_DIST ($(stat -c%s "$DEST_DIST") bytes)"
 
 echo "=== Build & Dual Export Completed Successfully! ==="
-ls -lh "$SOURCE_APK" "$DEST_DIST" "${DEST_WIN:-}"
+if [ -n "$DEST_WIN" ] && [ -f "$DEST_WIN" ]; then
+  ls -lh "$SOURCE_APK" "$DEST_DIST" "$DEST_WIN"
+else
+  ls -lh "$SOURCE_APK" "$DEST_DIST"
+fi

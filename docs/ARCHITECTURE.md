@@ -155,7 +155,7 @@ The game state is divided into three isolated stores in `src/store/`:
 All contributors (AI and human) must strictly adhere to the following enterprise engineering standards:
 
 1. **High Cohesion, Low Coupling & Dependency Inversion**:
-   - Subsystems communicate exclusively through clearly typed contracts (interfaces) or the decoupled [Game Event Bus](file:///home/dawid/OpenRally/src/utils/events/eventBus.ts).
+   - Subsystems communicate exclusively through clearly typed contracts (interfaces) or the decoupled [Game Event Bus](../src/utils/events/eventBus.ts).
    - Direct mutations of foreign state or cross-domain leaks are forbidden.
 
 2. **Garbage Collection (GC) Neutrality in Hot Simulation Loops**:

@@ -22,6 +22,10 @@ import {
 
 describe('Adversarial M8 Challenge (Challenger 2): APK Binary & Validator Stress Tests', () => {
   const { distApk, windowsApk } = getDualExportPaths();
+  const sdkHome = process.env.ANDROID_HOME || path.join(process.env.HOME || '', 'android-sdk');
+  const aaptTool = path.join(sdkHome, 'build-tools/35.0.0/aapt');
+  const zipalignTool = path.join(sdkHome, 'build-tools/35.0.0/zipalign');
+  const apksignerTool = path.join(sdkHome, 'build-tools/35.0.0/apksigner');
 
   describe('Suite 1: APK-8 Dual Export & Binary Specification Invariants', () => {
     it('M8-ADV-1.1: Live export deliverables exist at both dist/ and Windows host destinations', () => {
@@ -78,8 +82,8 @@ describe('Adversarial M8 Challenge (Challenger 2): APK Binary & Validator Stress
       expect(isSizeAcceptable).toBe(false);
 
       // Simulation of size mismatch between export locations
-      const distSimSize = 254498845;
-      const winSimSize = 254498800; // 45 bytes truncated
+      const distSimSize: number = 254498845;
+      const winSimSize: number = 254498800; // 45 bytes truncated
       const sizesMatch = distSimSize === winSimSize;
       expect(sizesMatch).toBe(false);
     });
@@ -97,7 +101,6 @@ describe('Adversarial M8 Challenge (Challenger 2): APK Binary & Validator Stress
     });
 
     it('M8-ADV-2.2: Live aapt dump badging validates AndroidManifest binary XML in both export APKs', () => {
-      const aaptTool = '/home/dawid/android-sdk/build-tools/35.0.0/aapt';
       if (!fs.existsSync(aaptTool)) {
         return; // Skip if aapt is unavailable in host environment
       }
@@ -142,7 +145,6 @@ describe('Adversarial M8 Challenge (Challenger 2): APK Binary & Validator Stress
     });
 
     it('M8-ADV-3.2: Direct zipalign -c 4 verifies 4-byte boundary alignment on all uncompressed resources', () => {
-      const zipalignTool = '/home/dawid/android-sdk/build-tools/35.0.0/zipalign';
       if (!fs.existsSync(zipalignTool)) {
         return;
       }
@@ -156,7 +158,6 @@ describe('Adversarial M8 Challenge (Challenger 2): APK Binary & Validator Stress
     });
 
     it('M8-ADV-3.3: Direct apksigner verify --verbose confirms APK Signature Scheme v2 cryptographic validity', () => {
-      const apksignerTool = '/home/dawid/android-sdk/build-tools/35.0.0/apksigner';
       if (!fs.existsSync(apksignerTool)) {
         return;
       }
@@ -172,9 +173,6 @@ describe('Adversarial M8 Challenge (Challenger 2): APK Binary & Validator Stress
     });
 
     it('M8-ADV-3.4: Adversarially unaligned or unsigned ZIP files fail zipalign and apksigner verification', () => {
-      const zipalignTool = '/home/dawid/android-sdk/build-tools/35.0.0/zipalign';
-      const apksignerTool = '/home/dawid/android-sdk/build-tools/35.0.0/apksigner';
-
       // Create synthetic APK (standard ZIP without Android 4-byte page-alignment or v2 signature block)
       const syntheticBuffer = createSyntheticApkBuffer();
       const tempSynthetic = path.resolve(process.cwd(), 'tests/e2e/helpers/.tmp_unaligned_unsigned.apk');

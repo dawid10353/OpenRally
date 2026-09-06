@@ -316,16 +316,16 @@ describe('Tier 1: Feature Coverage (F1 - F8)', () => {
     });
 
     it('F5-4: "always" mode keeps touch overlay visible regardless of last input type', () => {
-      const mode = 'always';
-      const lastInput = 'keyboard';
+      const mode: string = 'always';
+      const lastInput: string = 'keyboard';
       const isVisible = mode === 'always' || (mode === 'auto' && lastInput === 'touch');
 
       expect(isVisible).toBe(true);
     });
 
     it('F5-5: "off" mode forces touch overlay hidden even on touch devices', () => {
-      const mode = 'off';
-      const lastInput = 'touch';
+      const mode: string = 'off';
+      const lastInput: string = 'touch';
       const isVisible = mode === 'always' || (mode === 'auto' && lastInput === 'touch');
 
       expect(isVisible).toBe(false);
@@ -342,8 +342,8 @@ describe('Tier 1: Feature Coverage (F1 - F8)', () => {
     });
 
     it('F6-2: Android SDK Command-line Tools directory structure contract validates latest subpath', () => {
-      const androidHome = '/home/dawid/android-sdk';
-      const cmdlineToolsPath = path.join(androidHome, 'cmdline-tools/latest/bin/sdkmanager');
+      const defaultSdk = process.env.ANDROID_HOME || path.join(process.env.HOME || '', 'android-sdk');
+      const cmdlineToolsPath = path.join(defaultSdk, 'cmdline-tools/latest/bin/sdkmanager');
       expect(cmdlineToolsPath).toContain('cmdline-tools/latest/bin/sdkmanager');
     });
 
@@ -363,12 +363,13 @@ describe('Tier 1: Feature Coverage (F1 - F8)', () => {
     });
 
     it('F6-5: Toolchain environment variables contract standardizes ANDROID_HOME and PATH', () => {
+      const defaultSdk = process.env.ANDROID_HOME || path.join(process.env.HOME || '', 'android-sdk');
       const expectedEnv = {
-        ANDROID_HOME: '/home/dawid/android-sdk',
-        ANDROID_SDK_ROOT: '/home/dawid/android-sdk',
+        ANDROID_HOME: defaultSdk,
+        ANDROID_SDK_ROOT: defaultSdk,
       };
-      expect(expectedEnv.ANDROID_HOME).toBe('/home/dawid/android-sdk');
-      expect(expectedEnv.ANDROID_SDK_ROOT).toBe('/home/dawid/android-sdk');
+      expect(expectedEnv.ANDROID_HOME).toBe(defaultSdk);
+      expect(expectedEnv.ANDROID_SDK_ROOT).toBe(defaultSdk);
     });
   });
 

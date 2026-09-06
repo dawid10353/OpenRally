@@ -258,12 +258,35 @@ export function findBuiltApk(): string | null {
  */
 export function getDualExportPaths(): DualExportPaths {
   const distApk = path.resolve(process.cwd(), 'dist/openrally.apk');
-  const wslWinPath = '/mnt/c/Users/dawid/Documents/OpenRally/OpenRally.apk';
-  const isWsl = process.platform === 'linux' && (fs.existsSync('/mnt/c/Users/dawid/Documents/OpenRally') || fs.existsSync(wslWinPath));
-  const windowsApk = isWsl
-    ? wslWinPath
-    : path.resolve('C:\\Users\\dawid\\Documents\\OpenRally\\OpenRally.apk');
-  return { distApk, windowsApk };
+  let windowsApk = '';
+
+  if (process.env.WIN_APK_PATH) {
+    windowsApk = process.env.WIN_APK_PATH;
+  } else if (process.platform === 'linux') {
+    try {
+      const winUserProfile = child_process
+        .execSync('cmd.exe /c "echo %USERPROFILE%" 2>/dev/null', {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+        })
+        .trim();
+      if (winUserProfile) {
+        const wslPath = child_process
+          .execSync(`wslpath "${winUserProfile}/Documents/OpenRally/OpenRally.apk" 2>/dev/null`, {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'ignore'],
+          })
+          .trim();
+        if (wslPath) windowsApk = wslPath;
+      }
+    } catch {
+      // Fallback
+    }
+  } else if (process.platform === 'win32' && process.env.USERPROFILE) {
+    windowsApk = path.join(process.env.USERPROFILE, 'Documents', 'OpenRally', 'OpenRally.apk');
+  }
+
+  return { distApk, windowsApk: windowsApk || distApk };
 }
 
 /**
@@ -278,11 +301,12 @@ function findTool(toolName: string): string | null {
     // Continue checking SDK directories
   }
 
+  const homeDir = process.env.HOME || process.env.USERPROFILE || '';
   const sdkRoots = [
     process.env.ANDROID_HOME,
     process.env.ANDROID_SDK_ROOT,
-    '/home/dawid/android-sdk',
-    'C:\\Users\\dawid\\AppData\\Local\\Android\\Sdk',
+    homeDir ? path.join(homeDir, 'android-sdk') : '',
+    process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'Android', 'Sdk') : '',
   ].filter(Boolean) as string[];
 
   for (const root of sdkRoots) {

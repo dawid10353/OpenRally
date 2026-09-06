@@ -10,9 +10,9 @@
 
 ## Architecture & Guides Reference (Read First!)
 Detailed developer guides for AI agents are available in the `/docs/` folder:
-- **[Architecture & Data Flow](file:///home/dawid/OpenRally/docs/ARCHITECTURE.md)**: Coordinates (+Y Up, +Z Forward, +X Right), execution loops, registry pattern, and subsystem overview.
-- **[Extension Guides (Cookbook)](file:///home/dawid/OpenRally/docs/EXTENSION_GUIDES.md)**: Step-by-step instructions for adding new vehicles (GLB), maps/tracks, surfaces, and UI telemetry.
-- **[Debugging & Testing Guide](file:///home/dawid/OpenRally/docs/DEBUGGING_AND_TESTING.md)**: Verification workflow, physics wireframe debugging, and common pitfalls.
+- **[Architecture & Data Flow](docs/ARCHITECTURE.md)**: Coordinates (+Y Up, +Z Forward, +X Right), execution loops, registry pattern, and subsystem overview.
+- **[Extension Guides (Cookbook)](docs/EXTENSION_GUIDES.md)**: Step-by-step instructions for adding new vehicles (GLB), maps/tracks, surfaces, and UI telemetry.
+- **[Debugging & Testing Guide](docs/DEBUGGING_AND_TESTING.md)**: Verification workflow, physics wireframe debugging, and common pitfalls.
 
 ---
 

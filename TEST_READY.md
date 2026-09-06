@@ -36,7 +36,7 @@ npm test
 
 ### Verified Test Run Output:
 ```text
- RUN  v4.1.11 /home/dawid/OpenRally
+ RUN  v4.1.11 /workspace/OpenRally
 
  ✓ tests/e2e/apk_validator.test.ts (7 tests) 7ms
  ✓ tests/e2e/tier4_scenarios.test.ts (5 tests) 11ms

@@ -314,9 +314,10 @@ describe('Tier 2: Boundary & Corner Cases (F1 - F8)', () => {
         'touch', 'keyboard', 'gamepad', 'touch', 'keyboard', 'touch'
       ];
 
+      const mod = touchMod as { setLastInputType?: (t: string) => void };
       for (const input of sequence) {
-        if ('setLastInputType' in (touchMod as Record<string, unknown>)) {
-          (touchMod as { setLastInputType: (t: string) => void }).setLastInputType(input);
+        if (typeof mod.setLastInputType === 'function') {
+          mod.setLastInputType(input);
           expect(touchMod.getLastInputType()).toBe(input);
         }
       }
@@ -372,9 +373,10 @@ describe('Tier 2: Boundary & Corner Cases (F1 - F8)', () => {
   // --------------------------------------------------------------------------
   describe('F6: Toolchain Boundaries & Missing Path Diagnostics', () => {
     it('T2-F6-1: Missing ANDROID_HOME environment variable triggers diagnostic fallback', () => {
+      const fallbackSdk = path.join(process.env.HOME || '/opt', 'android-sdk');
       const envCopy: Record<string, string | undefined> = {};
-      const resolvedPath = envCopy.ANDROID_HOME || '/home/dawid/android-sdk';
-      expect(resolvedPath).toBe('/home/dawid/android-sdk');
+      const resolvedPath = envCopy.ANDROID_HOME || fallbackSdk;
+      expect(resolvedPath).toBe(fallbackSdk);
     });
 
     it('T2-F6-2: Incompatible Java runtime version (< 17) is detected and rejected', () => {
