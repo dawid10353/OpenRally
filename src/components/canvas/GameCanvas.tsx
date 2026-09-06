@@ -3,7 +3,7 @@ import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
 import { EffectComposer, Bloom, Vignette, SMAA, ToneMapping } from '@react-three/postprocessing';
 import { ToneMappingMode } from 'postprocessing';
-import { ACESFilmicToneMapping, HalfFloatType, PCFShadowMap, PCFSoftShadowMap } from 'three';
+import { ACESFilmicToneMapping, HalfFloatType, PCFShadowMap, PCFSoftShadowMap, BasicShadowMap } from 'three';
 import { Terrain } from '@/components/terrain/Terrain';
 import { GrassField } from '@/components/terrain/GrassField';
 import { PropsInstancer } from '@/components/terrain/PropsInstancer';
@@ -19,7 +19,7 @@ import { useSettingsStore, saveSettingsToStorage } from '@/store/settingsStore';
 import { useGameStore } from '@/store/gameStore';
 import { getLevelPreset } from '@/config/levelRegistry';
 import { SKY_CONFIG, FOG_CONFIG, POSTPROCESSING_CONFIG } from '@/config/environment';
-import { calculateDprConfig, isMobileDevice } from '@/utils/device';
+import { calculateDprConfig, isMobileDevice, isMobileOrAndroid } from '@/utils/device';
 import type { DrawDistance } from '@/types';
 
 export interface MobileFramePacerProps {
@@ -157,6 +157,23 @@ export function shouldEnableCanvasShadows(
 }
 
 /**
+ * Returns the shadow configuration for the Canvas:
+ * - false if shadows are disabled or graphics quality is 'low'
+ * - 'basic' on mobile / Android (e.g. Google Pixel 10 Pro) to strictly comply with OpenGL ES 3.0 NearestFilter DepthTexture specs
+ * - 'percentage' on desktop for hardware-accelerated PCF shadows
+ */
+export function getCanvasShadowsType(
+  shadowsEnabled: boolean,
+  graphicsQuality: string,
+  isMobile: boolean = isMobileOrAndroid(),
+): false | 'basic' | 'percentage' {
+  if (!shouldEnableCanvasShadows(shadowsEnabled, graphicsQuality)) {
+    return false;
+  }
+  return isMobile ? 'basic' : 'percentage';
+}
+
+/**
  * Main game canvas — wraps the R3F Canvas with Physics, scene objects,
  * dynamic level environments, and post-processing effects.
  */
@@ -174,7 +191,7 @@ export function GameCanvas() {
   const gameState = useGameStore((s) => s.gameState);
   const selectedLevelId = useGameStore((s) => s.selectedLevelId);
 
-  const isMobile = isMobileDevice();
+  const isMobile = isMobileOrAndroid();
 
   // On low quality (performance mode), bypass EffectComposer to eliminate fill-rate overhead.
   // On medium, high, and very_high, post-processing is active whenever enabled by user.
@@ -246,13 +263,20 @@ export function GameCanvas() {
       }}
       onCreated={({ gl }) => {
         if (gl.shadowMap) {
-          gl.shadowMap.type = PCFShadowMap;
-          // Intercept assignments so R3F never resets gl.shadowMap.type to deprecated PCFSoftShadowMap
-          let currentType: typeof PCFShadowMap = PCFShadowMap;
+          const targetType = isMobile ? BasicShadowMap : PCFShadowMap;
+          gl.shadowMap.type = targetType;
+          let currentType: number = targetType;
+          // Intercept assignments so R3F never resets gl.shadowMap.type to incompatible shadow types
           Object.defineProperty(gl.shadowMap, 'type', {
             get: () => currentType,
             set: (val: number) => {
-              currentType = val === PCFSoftShadowMap ? PCFShadowMap : (val as typeof PCFShadowMap);
+              if (isMobile) {
+                // On mobile devices, strictly lock to BasicShadowMap (NearestFilter DepthTexture)
+                // LinearFilter depth sampling violates OpenGL ES 3.0 and crashes Tensor G5 / Mali GPUs
+                currentType = BasicShadowMap;
+              } else {
+                currentType = val === PCFSoftShadowMap ? PCFShadowMap : val;
+              }
             },
             configurable: true,
             enumerable: true,
@@ -267,12 +291,29 @@ export function GameCanvas() {
             // Prevent crash-loop on mobile by resetting shadows if context loss occurs
             try {
               const { shadowsEnabled } = useSettingsStore.getState();
-              if (shadowsEnabled && isMobileDevice()) {
+              if (shadowsEnabled && isMobile) {
                 useSettingsStore.setState({ shadowsEnabled: false });
                 saveSettingsToStorage({ shadowsEnabled: false });
               }
             } catch {
               // Ignore
+            }
+
+            // Automatic recovery from WebGL context loss on mobile:
+            // Prevents permanent white-screen lockup by refreshing the WebGL context cleanly
+            try {
+              if (typeof window !== 'undefined' && isMobile) {
+                const recoveryKey = 'openrally_last_context_loss_time';
+                const lastRecovery = Number(sessionStorage.getItem(recoveryKey) || 0);
+                const now = Date.now();
+                if (now - lastRecovery > 10000) {
+                  sessionStorage.setItem(recoveryKey, String(now));
+                  console.info('[GameCanvas] Auto-reloading to restore WebGL context on mobile');
+                  window.location.reload();
+                }
+              }
+            } catch {
+              // Ignore session storage errors
             }
           },
           false,

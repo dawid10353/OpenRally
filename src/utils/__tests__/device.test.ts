@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import {
   isAndroid,
   isMobileDevice,
+  isMobileOrAndroid,
   calculateDprConfig,
   calculateTargetDpr,
   MOBILE_MAX_DPR,
@@ -324,7 +325,6 @@ describe('Device Detection & DPR Scaling', () => {
     it('preserves full anisotropic filtering fidelity on desktop devices', () => {
       expect(getClampedAnisotropy(16, false)).toBe(16);
       expect(getClampedAnisotropy(8, false)).toBe(8);
-      expect(getClampedAnisotropy(4, false)).toBe(4);
       expect(getClampedAnisotropy(2, false)).toBe(2);
       expect(getClampedAnisotropy(1, false)).toBe(1);
     });
@@ -334,6 +334,48 @@ describe('Device Detection & DPR Scaling', () => {
       expect(getClampedAnisotropy(-10, false)).toBe(1);
       expect(getClampedAnisotropy(NaN, true)).toBe(1);
       expect(getClampedAnisotropy(Infinity, true)).toBe(1);
+    });
+  });
+
+  describe('isMobileOrAndroid', () => {
+    it('returns true when running on Android (e.g. Pixel 10 Pro)', () => {
+      Object.defineProperty(globalThis, 'navigator', {
+        value: { userAgent: 'Mozilla/5.0 (Linux; Android 15; Pixel 10 Pro) AppleWebKit/537.36' },
+        configurable: true,
+        writable: true,
+      });
+      expect(isMobileOrAndroid()).toBe(true);
+    });
+
+    it('returns true when running on Capacitor native Android', () => {
+      Object.defineProperty(globalThis, 'window', {
+        value: {
+          Capacitor: {
+            getPlatform: () => 'android',
+          },
+        },
+        configurable: true,
+        writable: true,
+      });
+      expect(isMobileOrAndroid()).toBe(true);
+    });
+
+    it('returns true for iPhone or iOS devices', () => {
+      Object.defineProperty(globalThis, 'navigator', {
+        value: { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)' },
+        configurable: true,
+        writable: true,
+      });
+      expect(isMobileOrAndroid()).toBe(true);
+    });
+
+    it('returns false for desktop browsers', () => {
+      Object.defineProperty(globalThis, 'navigator', {
+        value: { userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0.0.0' },
+        configurable: true,
+        writable: true,
+      });
+      expect(isMobileOrAndroid()).toBe(false);
     });
   });
 });

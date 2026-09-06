@@ -179,3 +179,12 @@ export function getClampedAnisotropy(
   return isMobile ? Math.min(baseAnisotropy, 2) : baseAnisotropy;
 }
 
+/**
+ * Detects whether the current environment is a mobile device or running on Android.
+ * Enforces mobile-safe WebGL features (such as BasicShadowMap with NearestFilter DepthTexture)
+ * to strictly adhere to mobile OpenGL ES 3.0 driver limitations.
+ */
+export function isMobileOrAndroid(): boolean {
+  return isMobileDevice() || isAndroid();
+}
+

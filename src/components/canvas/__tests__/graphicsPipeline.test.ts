@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { shouldEnableCanvasShadows } from '../GameCanvas';
+import { shouldEnableCanvasShadows, getCanvasShadowsType } from '../GameCanvas';
 import { useSettingsStore } from '@/store/settingsStore';
 
 describe('Graphics Pipeline & Settings Scaling', () => {
@@ -51,6 +51,27 @@ describe('Graphics Pipeline & Settings Scaling', () => {
       expect(shouldEnableCanvasShadows(false, 'high')).toBe(false);
       expect(shouldEnableCanvasShadows(false, 'medium')).toBe(false);
       expect(shouldEnableCanvasShadows(false, 'low')).toBe(false);
+    });
+  });
+
+  describe('getCanvasShadowsType', () => {
+    it('returns "basic" on mobile devices (e.g. Pixel 10 Pro) when shadows are enabled', () => {
+      expect(getCanvasShadowsType(true, 'very_high', true)).toBe('basic');
+      expect(getCanvasShadowsType(true, 'high', true)).toBe('basic');
+      expect(getCanvasShadowsType(true, 'medium', true)).toBe('basic');
+    });
+
+    it('returns "percentage" on desktop devices when shadows are enabled', () => {
+      expect(getCanvasShadowsType(true, 'very_high', false)).toBe('percentage');
+      expect(getCanvasShadowsType(true, 'high', false)).toBe('percentage');
+      expect(getCanvasShadowsType(true, 'medium', false)).toBe('percentage');
+    });
+
+    it('returns false across all platforms when shadows are disabled or quality is low', () => {
+      expect(getCanvasShadowsType(false, 'very_high', true)).toBe(false);
+      expect(getCanvasShadowsType(false, 'very_high', false)).toBe(false);
+      expect(getCanvasShadowsType(true, 'low', true)).toBe(false);
+      expect(getCanvasShadowsType(true, 'low', false)).toBe(false);
     });
   });
 

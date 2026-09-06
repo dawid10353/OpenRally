@@ -1,11 +1,11 @@
 import { useRef, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { DirectionalLight, Object3D, PCFShadowMap } from 'three';
+import { DirectionalLight, Object3D, PCFShadowMap, BasicShadowMap } from 'three';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useGameStore } from '@/store/gameStore';
 import { LIGHTING_CONFIG, SKY_CONFIG } from '@/config/environment';
 import { getLevelPreset } from '@/config/levelRegistry';
-import { isMobileDevice } from '@/utils/device';
+import { isMobileOrAndroid } from '@/utils/device';
 
 /**
  * Scene lighting setup — ambient + directional sun + hemisphere.
@@ -21,27 +21,34 @@ export function Lights() {
   const targetRef = useRef<Object3D>(new Object3D());
   const gl = useThree((s) => s.gl);
 
-  const isMobile = isMobileDevice();
+  const isMobile = isMobileOrAndroid();
 
-  // Enforce hardware-accelerated PCF shadows across all platforms (never deprecated PCFSoftShadowMap)
+  // Configure shadow map type:
+  // - On mobile (Pixel 10 Pro / Mali GPUs): Enforce BasicShadowMap (NearestFilter on DepthTexture).
+  //   LinearFilter on DepthTexture is strictly forbidden by mobile OpenGL ES 3.0 specs and causes
+  //   driver TDR / white screen crash loops.
+  // - On desktop: Use hardware-accelerated PCFShadowMap.
   useEffect(() => {
     if (gl.shadowMap) {
-      gl.shadowMap.type = PCFShadowMap;
+      gl.shadowMap.type = isMobile ? BasicShadowMap : PCFShadowMap;
       gl.shadowMap.needsUpdate = true;
     }
-  }, [gl, shadowsEnabled, graphicsQuality]);
+  }, [gl, isMobile, shadowsEnabled, graphicsQuality]);
   const levelPreset = getLevelPreset(selectedLevelId);
   const sunPos = levelPreset.environment?.sky?.sunPosition ?? SKY_CONFIG.sunPosition;
 
   // Dynamic shadow map size and range
-  const shadowMapSize =
-    graphicsQuality === 'low'
-      ? 256
-      : graphicsQuality === 'medium'
-      ? 512
-      : graphicsQuality === 'high'
-      ? 1024
-      : (isMobile ? 1024 : 2048);
+  // On mobile (e.g. Pixel 10 Pro), cap shadow map size to 512 to preserve mobile TBDR tile memory
+  // and eliminate GPU watchdog spikes, while providing crisp contact shadows under the vehicle.
+  const shadowMapSize = isMobile
+    ? (graphicsQuality === 'low' ? 256 : 512)
+    : graphicsQuality === 'low'
+    ? 256
+    : graphicsQuality === 'medium'
+    ? 512
+    : graphicsQuality === 'high'
+    ? 1024
+    : 2048;
 
   const shadowRange = isMobile
     ? (graphicsQuality === 'very_high' ? 45 : 35)
@@ -51,8 +58,8 @@ export function Lights() {
 
   const shadowCameraNear = LIGHTING_CONFIG.directional.shadowCameraNear;
   const shadowCameraFar = LIGHTING_CONFIG.directional.shadowCameraFar;
-  const shadowBias = isMobile ? -0.0002 : LIGHTING_CONFIG.directional.shadowBias;
-  const shadowNormalBias = isMobile ? 0.025 : LIGHTING_CONFIG.directional.shadowNormalBias;
+  const shadowBias = isMobile ? -0.0003 : LIGHTING_CONFIG.directional.shadowBias;
+  const shadowNormalBias = isMobile ? 0.03 : LIGHTING_CONFIG.directional.shadowNormalBias;
 
   // Safely adjust shadow map render target size without destroying internal depth target references
   useEffect(() => {
@@ -61,6 +68,22 @@ export function Lights() {
       lightRef.current.shadow.needsUpdate = true;
     }
   }, [shadowMapSize, shadowsEnabled]);
+
+  // Clean up shadow map render target and textures deterministically when shadows are disabled
+  useEffect(() => {
+    if (!shadowsEnabled) {
+      const shadow = lightRef.current?.shadow;
+      const map = shadow?.map;
+      if (shadow && map) {
+        if (map.depthTexture) {
+          map.depthTexture.dispose();
+          map.depthTexture = null;
+        }
+        map.dispose();
+        shadow.map = null;
+      }
+    }
+  }, [shadowsEnabled]);
 
   // Clean up shadow map textures deterministically on unmount
   useEffect(() => {

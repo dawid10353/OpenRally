@@ -2,10 +2,11 @@ import { useRef, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Environment } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
-import { WebGLRenderer, PCFShadowMap, PCFSoftShadowMap } from 'three';
+import { WebGLRenderer, PCFShadowMap, PCFSoftShadowMap, BasicShadowMap } from 'three';
 import type { VehiclePreset } from '@/types';
-import { useSettingsStore } from '@/store/settingsStore';
-import { shouldEnableCanvasShadows } from '@/components/canvas/GameCanvas';
+import { useSettingsStore, saveSettingsToStorage } from '@/store/settingsStore';
+import { shouldEnableCanvasShadows, getCanvasShadowsType } from '@/components/canvas/GameCanvas';
+import { isMobileOrAndroid } from '@/utils/device';
 import { menuStyles, getFocusStyle } from './menuStyles';
 import { CarModelDisplay, StatBar } from './CarModelDisplay';
 import type { MenuView } from './types';
@@ -152,18 +153,24 @@ export function GarageView({
           }}
         >
           <Canvas
-            shadows={shouldEnableCanvasShadows(shadowsEnabled, graphicsQuality)}
-            dpr={[1, 2]}
+            shadows={getCanvasShadowsType(shadowsEnabled, graphicsQuality, isMobileOrAndroid())}
+            dpr={[1, isMobileOrAndroid() ? 1.5 : 2]}
             camera={{ position: [3.8, 2.0, -5.4], fov: 42 }}
             onCreated={({ gl }) => {
               glRef.current = gl;
+              const isMobile = isMobileOrAndroid();
               if (gl.shadowMap) {
-                gl.shadowMap.type = PCFShadowMap;
-                let currentType: typeof PCFShadowMap = PCFShadowMap;
+                const targetType = isMobile ? BasicShadowMap : PCFShadowMap;
+                gl.shadowMap.type = targetType;
+                let currentType: number = targetType;
                 Object.defineProperty(gl.shadowMap, 'type', {
                   get: () => currentType,
                   set: (val: number) => {
-                    currentType = val === PCFSoftShadowMap ? PCFShadowMap : (val as typeof PCFShadowMap);
+                    if (isMobile) {
+                      currentType = BasicShadowMap;
+                    } else {
+                      currentType = val === PCFSoftShadowMap ? PCFShadowMap : val;
+                    }
                   },
                   configurable: true,
                   enumerable: true,
@@ -175,6 +182,15 @@ export function GarageView({
               (e) => {
                 e.preventDefault();
                 console.warn('[GarageView] webglcontextlost handled via preventDefault()');
+                try {
+                  const { shadowsEnabled } = useSettingsStore.getState();
+                  if (shadowsEnabled && isMobile) {
+                    useSettingsStore.setState({ shadowsEnabled: false });
+                    saveSettingsToStorage({ shadowsEnabled: false });
+                  }
+                } catch {
+                  // Ignore
+                }
               },
               false,
             );
@@ -194,9 +210,9 @@ export function GarageView({
               position={[10, 10, 10]}
               intensity={2.2}
               castShadow={shouldEnableCanvasShadows(shadowsEnabled, graphicsQuality)}
-              shadow-bias={-0.0005}
-              shadow-mapSize-width={512}
-              shadow-mapSize-height={512}
+              shadow-bias={isMobileOrAndroid() ? -0.0003 : -0.0005}
+              shadow-mapSize-width={isMobileOrAndroid() ? 512 : 1024}
+              shadow-mapSize-height={isMobileOrAndroid() ? 512 : 1024}
             />
             <directionalLight position={[-8, 6, -8]} intensity={0.7} color="#3B82F6" />
             <group position={[0, 0.15, 0]}>
