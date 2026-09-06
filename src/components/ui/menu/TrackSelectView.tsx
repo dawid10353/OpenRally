@@ -31,9 +31,25 @@ export function TrackSelectView({
       className="track-subview menu-scalable-container"
       style={{ ...menuStyles.subView, color: textColor, width: '100%', minWidth: '540px', maxWidth: '880px' }}
     >
-      <h2 style={menuStyles.subViewTitle}>Tracks & Stages</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+        <h2 style={{ ...menuStyles.subViewTitle, margin: 0 }}>Tracks & Stages</h2>
+        <span
+          style={{
+            padding: '3px 10px',
+            borderRadius: '12px',
+            background: 'rgba(227, 24, 55, 0.15)',
+            border: '1px solid rgba(227, 24, 55, 0.4)',
+            color: '#F87171',
+            fontSize: '11px',
+            fontWeight: 800,
+            letterSpacing: '1px',
+          }}
+        >
+          STEP 1 / 3
+        </span>
+      </div>
       <p className="track-subtitle-compact" style={{ ...menuStyles.subtitle, color: subtitleColor, margin: '0 0 10px 0', fontSize: '12px' }}>
-        Select a rally course and view stage lap records.
+        Select your rally course to begin the race configuration.
       </p>
 
       <div className="track-grid-layout" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '10px', width: '100%' }}>

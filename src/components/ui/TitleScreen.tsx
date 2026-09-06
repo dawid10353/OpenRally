@@ -40,8 +40,9 @@ export function TitleScreen() {
     unlockAudioContext();
 
     setTimeout(() => {
-      setGameState('menu');
-    }, 280);
+      useGameStore.setState({ loadingTarget: 'menu', isSceneReady: false });
+      setGameState('loading');
+    }, 240);
   }, [unlockAudioContext, setGameState]);
 
   // Keyboard & mouse listener

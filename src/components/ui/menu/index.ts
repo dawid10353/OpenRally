@@ -9,4 +9,5 @@ export * from './SettingsView';
 export * from './ControlsView';
 export * from './CreditsView';
 export * from './HeroShowcase';
+export * from './MultiplayerView';
 export * from './useMenuGamepadNavigation';

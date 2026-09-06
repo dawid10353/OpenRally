@@ -14,7 +14,7 @@ import {
   SettingsView,
   ControlsView,
   CreditsView,
-  HeroShowcase,
+  MultiplayerView,
   STAGE_BANNERS,
   formatLapTime,
   useMenuGamepadNavigation,
@@ -164,15 +164,20 @@ export function MenuOverlay() {
   const handleLaunchMode = useCallback((mode: 'freeroam' | 'timeattack') => {
     resetGamepadEdgeState();
     setGameMode(mode);
+    setPreviewVehicleIdInternal(selectedVehicleId);
+    setView('garage');
+  }, [selectedVehicleId, setGameMode, setView]);
+
+  const handleStartRace = useCallback((vehicleId: string) => {
+    resetGamepadEdgeState();
+    setSelectedVehicleId(vehicleId);
+    useGameStore.setState({ loadingTarget: 'gameplay', isSceneReady: false });
     useGameStore.getState().triggerReset(true);
     useRacingStore.getState().resetRace();
     syncBestLapForLevel(selectedLevelId);
-    if (mode === 'timeattack') {
-      useRacingStore.getState().startCountdown();
-    }
     setView('main');
-    setGameState('playing');
-  }, [selectedLevelId, setGameMode, setGameState, setView, syncBestLapForLevel]);
+    setGameState('loading');
+  }, [selectedLevelId, setGameState, setSelectedVehicleId, setView, syncBestLapForLevel]);
 
   const handleReset = useCallback(() => {
     resetGamepadEdgeState();
@@ -189,9 +194,7 @@ export function MenuOverlay() {
   const handleSelectTrack = useCallback((levelId: string) => {
     setSelectedLevelId(levelId);
     syncBestLapForLevel(levelId);
-    useGameStore.getState().triggerReset(true);
-    useRacingStore.getState().resetRace();
-    setView('main');
+    setView('start_mode');
   }, [setSelectedLevelId, setView, syncBestLapForLevel]);
 
   const handleReturnToMainMenu = useCallback(() => {
@@ -206,12 +209,14 @@ export function MenuOverlay() {
       gear: 1,
       heading: currentLevelPreset.spawnRotationY,
       position: [spawnPos[0], spawnPos[1], spawnPos[2]],
+      isSceneReady: false,
+      loadingTarget: 'menu',
     });
     useGameStore.getState().triggerReset(true);
     useRacingStore.getState().resetRace();
     syncBestLapForLevel(selectedLevelId);
     setView('main');
-    setGameState('menu');
+    setGameState('loading');
   }, [currentLevelPreset, selectedLevelId, setGameState, setView, syncBestLapForLevel]);
 
   // Clean up confirmation timer on unmount
@@ -256,6 +261,7 @@ export function MenuOverlay() {
     setPreviewVehicleId,
     setControlsTab,
     handleLaunchMode,
+    handleStartRace,
     handleReset,
     handleSelectTrack,
     handleReturnToMainMenu,
@@ -274,18 +280,18 @@ export function MenuOverlay() {
   return (
     <div
       className="overlay-menu-container"
-      style={isPause ? menuStyles.pauseOverlayMenu : menuStyles.overlayMenu}
+      style={isPause ? menuStyles.pauseOverlayMenu : (view === 'main' ? menuStyles.mainOverlayMenu : menuStyles.overlayMenu)}
       onPointerDown={ensureAudioPlayback}
     >
       <audio ref={audioRef} src="/sounds/menu-music.mp3" autoPlay loop />
       <div
-        className={`menu-scalable-container ${isPause && view === 'main' ? 'pause-card-compact' : ''}`}
-        style={{ ...(isPause && view === 'main' ? menuStyles.pauseCardMenu : menuStyles.cardMenu), color: textColor }}
+        className={`menu-scalable-container ${isPause && view === 'main' ? 'pause-card-compact' : (view === 'main' ? 'main-menu-scalable' : '')}`}
+        style={{ ...(isPause && view === 'main' ? menuStyles.pauseCardMenu : (view === 'main' ? menuStyles.mainCardMenu : menuStyles.cardMenu)), color: textColor }}
       >
         
-        {/* Main Menu Dashboard View */}
+        {/* Main Menu View — Clean Left Column with Live 3D Cinematic Background */}
         {!isPause && view === 'main' && (
-          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '12px' }}>
+          <div className="main-menu-content" style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '380px', gap: '14px' }}>
             {/* Top Brand Header */}
             <div
               className="menu-brand-header"
@@ -294,33 +300,29 @@ export function MenuOverlay() {
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-                paddingBottom: '16px',
-                flexWrap: 'wrap',
+                paddingBottom: '14px',
                 gap: '12px',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <img
                   className="menu-brand-logo"
                   src="/openrally_logo_dark.png"
                   alt="OpenRally"
                   style={{
-                    maxHeight: '62px',
+                    maxHeight: '54px',
                     width: 'auto',
                     objectFit: 'contain',
                     filter: 'drop-shadow(0 4px 16px rgba(227, 24, 55, 0.35))',
                   }}
                 />
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{
-                  padding: '5px 14px',
+                  padding: '4px 10px',
                   borderRadius: '6px',
-                  background: 'rgba(15, 23, 42, 0.75)',
+                  background: 'rgba(15, 23, 42, 0.85)',
                   border: '1px solid rgba(255, 255, 255, 0.12)',
                   color: '#94A3B8',
-                  fontSize: '11px',
+                  fontSize: '10px',
                   fontWeight: 700,
                   letterSpacing: '1.5px',
                   textTransform: 'uppercase',
@@ -330,54 +332,36 @@ export function MenuOverlay() {
               </div>
             </div>
 
-            {/* Split Dashboard: Navigation on left, Showcase on right */}
-            <div className="menu-dashboard-layout" style={menuStyles.dashboardLayout}>
-              {/* Left: Navigation Actions */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '0 4px',
-                  marginBottom: '2px',
-                }}>
-                  <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '1.5px', color: '#94A3B8', textTransform: 'uppercase' }}>
-                    ACTION HUB
-                  </span>
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748B' }}>
-                    SELECT WITH [A] / ENTER
-                  </span>
-                </div>
-
-                <MainView
-                  isPause={false}
-                  focusedIndex={focusedIndex}
-                  textColor={textColor}
-                  onPointerMoveItem={handlePointerMoveItem}
-                  onSelectView={setView}
-                  onResume={() => setGameState('playing')}
-                  onReset={handleReset}
-                  onReturnToMainMenu={handleReturnToMainMenu}
-                  onOpenGarage={() => {
-                    setPreviewVehicleId(selectedVehicleId);
-                    setView('garage');
-                  }}
-                />
+            {/* Navigation Actions Column */}
+            <div className="main-menu-nav-column" style={menuStyles.mainNavColumn}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0 4px',
+                marginBottom: '2px',
+              }}>
+                <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '1.5px', color: '#94A3B8', textTransform: 'uppercase' }}>
+                  ACTION HUB
+                </span>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748B' }}>
+                  SELECT WITH [A] / ENTER
+                </span>
               </div>
 
-              {/* Right: Dynamic Hero Showcase */}
-              <HeroShowcase
-                vehicle={activeVehiclePreset}
-                level={currentLevelPreset}
-                bestLapTime={selectedLevelBest}
-                gamepadConnected={gamepadConnected}
-                gamepadName={gamepadName}
-                gamepadType={gamepadType}
+              <MainView
+                isPause={false}
+                focusedIndex={focusedIndex}
+                textColor={textColor}
+                onPointerMoveItem={handlePointerMoveItem}
+                onSelectView={setView}
+                onResume={() => setGameState('playing')}
+                onReset={handleReset}
+                onReturnToMainMenu={handleReturnToMainMenu}
                 onOpenGarage={() => {
                   setPreviewVehicleId(selectedVehicleId);
                   setView('garage');
                 }}
-                onOpenTracks={() => setView('tracks')}
               />
             </div>
           </div>
@@ -523,12 +507,15 @@ export function MenuOverlay() {
             focusedIndex={focusedIndex}
             textColor={textColor}
             subtitleColor={subtitleColor}
+            currentLevelName={currentLevelPreset.name}
+            gameMode={gameMode}
             onPointerMoveItem={handlePointerMoveItem}
             onSelectPreviewVehicle={setPreviewVehicleId}
             onEquipVehicle={(id) => {
               setSelectedVehicleId(id);
               useGameStore.getState().triggerReset(true);
             }}
+            onStartRace={handleStartRace}
             onSelectView={setView}
           />
         )}
@@ -543,6 +530,15 @@ export function MenuOverlay() {
             subtitleColor={subtitleColor}
             onPointerMoveItem={handlePointerMoveItem}
             onSelectTrack={handleSelectTrack}
+            onSelectView={setView}
+          />
+        )}
+
+        {!isPause && view === 'multiplayer' && (
+          <MultiplayerView
+            focusedIndex={focusedIndex}
+            textColor={textColor}
+            onPointerMoveItem={handlePointerMoveItem}
             onSelectView={setView}
           />
         )}
@@ -563,6 +559,11 @@ export function MenuOverlay() {
             gameMusicVolume={gameMusicVolume}
             sfxVolume={sfxVolume}
             resetConfirmState={resetConfirmState}
+            gamepadConnected={gamepadConnected}
+            gamepadName={gamepadName}
+            gamepadType={gamepadType}
+            controlsTab={controlsTab}
+            onSetControlsTab={setControlsTab}
             focusedIndex={focusedIndex}
             textColor={textColor}
             onPointerMoveItem={handlePointerMoveItem}
@@ -607,85 +608,88 @@ export function MenuOverlay() {
           />
         )}
 
-        {/* Gamepad Navigation Hint Footer */}
-        <div style={{
-          ...menuStyles.gamepadNavFooter,
-          flexDirection: isPause ? 'column' : 'row',
-          gap: isPause ? '10px' : '16px',
-        }}>
+        {/* Gamepad Navigation Hint Footer (hidden in main menu to keep live 3D view clean) */}
+        {(isPause || view !== 'main') && (
           <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '16px',
-            flexWrap: 'wrap',
-            justifyContent: isPause ? 'center' : 'flex-start',
+            ...menuStyles.gamepadNavFooter,
+            ...(isPause && view === 'main' ? menuStyles.pauseGamepadNavFooter : {}),
+            flexDirection: isPause && view === 'main' ? 'column' : 'row',
+            gap: isPause && view === 'main' ? '6px' : '16px',
           }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{
-                padding: '2px 6px',
-                borderRadius: '4px',
-                background: 'rgba(255, 255, 255, 0.1)',
-                fontSize: '10px',
-                fontWeight: 800,
-                letterSpacing: '0.5px',
-                color: '#CBD5E1',
-              }}>
-                D-PAD
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '16px',
+              flexWrap: 'wrap',
+              justifyContent: isPause ? 'center' : 'flex-start',
+            }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  fontSize: '10px',
+                  fontWeight: 800,
+                  letterSpacing: '0.5px',
+                  color: '#CBD5E1',
+                }}>
+                  D-PAD
+                </span>
+                <span>Stick: <strong>Navigate</strong></span>
               </span>
-              <span>Stick: <strong>Navigate</strong></span>
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{
-                background: gamepadType === 'dualsense' ? '#0070d1' : '#107c10',
-                color: '#fff',
-                borderRadius: '50%',
-                width: '18px',
-                height: '18px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '11px',
-                fontWeight: 800,
-              }}>
-                {gamepadType === 'dualsense' ? '✕' : 'A'}
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{
+                  background: gamepadType === 'dualsense' ? '#0070d1' : '#107c10',
+                  color: '#fff',
+                  borderRadius: '50%',
+                  width: '18px',
+                  height: '18px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                }}>
+                  {gamepadType === 'dualsense' ? '✕' : 'A'}
+                </span>
+                <strong>Select / Toggle</strong>
               </span>
-              <strong>Select / Toggle</strong>
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{
-                background: gamepadType === 'dualsense' ? '#e53935' : '#d83b01',
-                color: '#fff',
-                borderRadius: '50%',
-                width: '18px',
-                height: '18px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '11px',
-                fontWeight: 800,
-              }}>
-                {gamepadType === 'dualsense' ? '◯' : 'B'}
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{
+                  background: gamepadType === 'dualsense' ? '#e53935' : '#d83b01',
+                  color: '#fff',
+                  borderRadius: '50%',
+                  width: '18px',
+                  height: '18px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                }}>
+                  {gamepadType === 'dualsense' ? '◯' : 'B'}
+                </span>
+                <strong>{isPause && view === 'main' ? 'Resume' : 'Back'}</strong>
               </span>
-              <strong>{isPause && view === 'main' ? 'Resume' : 'Back'}</strong>
+            </div>
+
+            <span style={{
+              marginLeft: isPause ? '0' : 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              opacity: 0.85,
+              fontSize: '11px',
+              fontWeight: 600,
+              letterSpacing: '0.5px',
+              whiteSpace: 'nowrap',
+            }}>
+              <span>Game by <strong style={{ color: '#FFFFFF' }}>dawid10353 (Dawid Warzocha)</strong></span>
+              <span>•</span>
+              <span style={{ color: '#E31837', fontWeight: 700 }}>OpenRally v1.0.0</span>
             </span>
           </div>
-
-          <span style={{
-            marginLeft: isPause ? '0' : 'auto',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            opacity: 0.85,
-            fontSize: '11px',
-            fontWeight: 600,
-            letterSpacing: '0.5px',
-            whiteSpace: 'nowrap',
-          }}>
-            <span>Game by <strong style={{ color: '#FFFFFF' }}>dawid10353 (Dawid Warzocha)</strong></span>
-            <span>•</span>
-            <span style={{ color: '#E31837', fontWeight: 700 }}>OpenRally v1.0.0</span>
-          </span>
-        </div>
+        )}
 
       </div>
     </div>

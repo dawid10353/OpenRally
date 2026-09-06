@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, Suspense } from 'react';
 import { RigidBody, CuboidCollider } from '@react-three/rapier';
 import type { RapierRigidBody } from '@react-three/rapier';
 import { Group, Object3D } from 'three';
@@ -21,6 +21,62 @@ import { getVehiclePreset } from '@/config/vehicleRegistry';
 import { useTerrainData } from '@/components/terrain/TerrainContext';
 import { isMobileDevice } from '@/utils/device';
 
+interface VehicleVisualModelProps {
+  modelPath: string;
+  positionOffset: [number, number, number];
+  scale: [number, number, number];
+  chassisSize: [number, number, number];
+}
+
+/**
+ * Isolated visual 3D model component wrapped in Suspense so that loading new GLB assets
+ * never unmounts or suspends the physics RigidBody.
+ */
+function VehicleVisualModel({
+  modelPath,
+  positionOffset,
+  scale,
+  chassisSize,
+}: VehicleVisualModelProps) {
+  const { scene } = useGLTF(modelPath);
+
+  return (
+    <Detailed distances={[0, 50, 150]}>
+      {/* LOD 0: Dedicated 3D GLB vehicle model */}
+      <Clone 
+        object={scene} 
+        position={positionOffset} 
+        scale={scale} 
+        rotation={[0, 0, 0]} 
+        castShadow
+        receiveShadow
+      />
+      {/* LOD 1: Simplified box proxy (medium distance) */}
+      <mesh position={[0, 0.8, 0]}>
+        <boxGeometry
+          args={[
+            chassisSize[0],
+            chassisSize[1],
+            chassisSize[2],
+          ]}
+        />
+        <meshStandardMaterial color="#888" roughness={0.6} />
+      </mesh>
+      {/* LOD 2: Far distance box proxy */}
+      <mesh position={[0, 0.8, 0]}>
+        <boxGeometry
+          args={[
+            chassisSize[0],
+            chassisSize[1],
+            chassisSize[2],
+          ]}
+        />
+        <meshBasicMaterial color="#555" />
+      </mesh>
+    </Detailed>
+  );
+}
+
 /**
  * Main Vehicle component — procedural car from Three.js primitives + GLB models.
  * Integrates physics (Rapier raycast vehicle), camera follow, audio, particles,
@@ -38,7 +94,6 @@ export function Vehicle() {
     ? vehiclePreset.modelPath.replace(/\.glb$/, '_opt.glb')
     : vehiclePreset.modelPath;
 
-  const { scene } = useGLTF(effectiveModelPath);
   const chassisRef = useRef<RapierRigidBody>(null);
   const visualRef = useRef<Group>(null);
   const wheelObjectsRef = useRef<(Object3D | null)[]>([null, null, null, null]);
@@ -61,7 +116,7 @@ export function Vehicle() {
   const spawnRotY = levelPreset.spawnRotationY;
 
   return (
-    <group key={selectedVehicleId}>
+    <group>
       <RigidBody
         ref={chassisRef}
         type="dynamic"
@@ -74,8 +129,9 @@ export function Vehicle() {
         canSleep={false}
         ccd={true}
       >
-        {/* Chassis collider — low center of mass at wheel hub height to eliminate wheelies & pitch instability */}
+        {/* Chassis collider — keyed so geometry reconfigures on vehicle switch without unmounting the RigidBody */}
         <CuboidCollider
+          key={selectedVehicleId}
           position={[0, -0.12, 0]}
           args={[
             config.chassisSize[0] / 2,
@@ -86,39 +142,27 @@ export function Vehicle() {
         />
 
         <group ref={visualRef}>
-          <Detailed distances={[0, 50, 150]}>
-            {/* LOD 0: Pełny dedykowany model pojazdu 3D GLB */}
-            <Clone 
-              object={scene} 
-              position={vehiclePreset.modelPositionOffset ?? [0, 0.2, 0.1]} 
-              scale={vehiclePreset.modelScale ?? [4.5, 4.5, 4.5]} 
-              rotation={[0, 0, 0]} 
-              castShadow
-              receiveShadow
+          <Suspense
+            fallback={
+              <mesh position={[0, 0.8, 0]}>
+                <boxGeometry
+                  args={[
+                    config.chassisSize[0],
+                    config.chassisSize[1],
+                    config.chassisSize[2],
+                  ]}
+                />
+                <meshStandardMaterial color="#888" roughness={0.6} />
+              </mesh>
+            }
+          >
+            <VehicleVisualModel
+              modelPath={effectiveModelPath}
+              positionOffset={vehiclePreset.modelPositionOffset ?? [0, 0.2, 0.1]}
+              scale={vehiclePreset.modelScale ?? [4.5, 4.5, 4.5]}
+              chassisSize={config.chassisSize}
             />
-            {/* LOD 1: Uproszczone pudełko udające pojazd (średni dystans) */}
-            <mesh position={[0, 0.8, 0]}>
-              <boxGeometry
-                args={[
-                  config.chassisSize[0],
-                  config.chassisSize[1],
-                  config.chassisSize[2],
-                ]}
-              />
-              <meshStandardMaterial color="#888" roughness={0.6} />
-            </mesh>
-            {/* LOD 2: Daleki dystans */}
-            <mesh position={[0, 0.8, 0]}>
-              <boxGeometry
-                args={[
-                  config.chassisSize[0],
-                  config.chassisSize[1],
-                  config.chassisSize[2],
-                ]}
-              />
-              <meshBasicMaterial color="#555" />
-            </mesh>
-          </Detailed>
+          </Suspense>
 
           {/* Soft contact ambient occlusion shadow directly beneath the chassis */}
           <mesh position={[0, -0.42, 0]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -168,7 +212,7 @@ export function Vehicle() {
         {/* Wheels — inside RigidBody so their local transform is relative to the chassis */}
         {config.wheels.map((wheel, index) => (
           <Wheel
-            key={index}
+            key={`${selectedVehicleId}-${index}`}
             ref={(el) => {
               if (wheelObjectsRef.current) {
                 wheelObjectsRef.current[index] = el;
@@ -176,6 +220,11 @@ export function Vehicle() {
             }}
             radius={wheel.radius}
             isRightSide={wheel.position[0] > 0}
+            position={[
+              wheel.position[0],
+              wheel.position[1] - wheel.suspensionRestLength * 0.5,
+              wheel.position[2],
+            ]}
           />
         ))}
       </RigidBody>

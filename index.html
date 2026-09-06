@@ -6,15 +6,61 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <!-- Mobile Web App & PWA Fullscreen Capabilities -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="screen-orientation" content="landscape" />
+    <meta name="format-detection" content="telephone=no" />
     <meta name="description" content="OpenRally — open-world driving game with physics-based vehicle handling, procedural terrain, and stunning visuals. Built with React Three Fiber." />
     <meta name="theme-color" content="#0a0a1e" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <title>OpenRally</title>
+    <!-- Critical Inline Styles: Prevent Flash of Unstyled Content (FOUC) -->
+    <style>
+      html, body, #root {
+        background-color: #0a0a1e;
+      }
+      #portrait-guard,
+      .portrait-orientation-guard {
+        display: none;
+      }
+      @media screen and (orientation: portrait) and (max-width: 1024px) {
+        #portrait-guard,
+        .portrait-orientation-guard {
+          display: flex;
+          position: fixed;
+          inset: 0;
+          z-index: 1000000;
+          background: #0a0a1e;
+          color: #ffffff;
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+
+    <!-- Portrait Orientation Guard (CSS Web Fallback) -->
+    <div id="portrait-guard" class="portrait-orientation-guard" aria-live="polite">
+      <div class="portrait-guard-content">
+        <div class="portrait-guard-icon-wrapper">
+          <svg class="portrait-guard-icon" viewBox="0 0 24 24" width="72" height="72" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="5" y="2" width="14" height="20" rx="3" />
+            <path d="M12 18h.01" stroke-width="2.5" />
+            <path d="M18 10l3-3m0 0l-3-3m3 3H12" />
+          </svg>
+        </div>
+        <h2 class="portrait-guard-title">PLEASE ROTATE YOUR DEVICE</h2>
+        <p class="portrait-guard-desc">OpenRally requires landscape orientation to drive.</p>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

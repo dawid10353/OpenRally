@@ -1,9 +1,31 @@
+import { Suspense } from 'react';
 import { useGLTF, Clone } from '@react-three/drei';
 import { Wheel } from '@/components/vehicle/Wheel';
 import type { VehiclePreset } from '@/types';
 import { isMobileDevice } from '@/utils/device';
 import { useSettingsStore } from '@/store/settingsStore';
 import { menuStyles } from './menuStyles';
+
+function CarMesh({
+  modelPath,
+  offset,
+  scale,
+}: {
+  modelPath: string;
+  offset: [number, number, number];
+  scale: [number, number, number];
+}) {
+  const { scene } = useGLTF(modelPath);
+  return (
+    <Clone 
+      object={scene} 
+      position={offset} 
+      scale={scale} 
+      castShadow 
+      receiveShadow 
+    />
+  );
+}
 
 export function CarModelDisplay({ preset }: { preset: VehiclePreset }) {
   const isMobile = isMobileDevice();
@@ -13,19 +35,18 @@ export function CarModelDisplay({ preset }: { preset: VehiclePreset }) {
     ? preset.modelPath.replace(/\.glb$/, '_opt.glb')
     : preset.modelPath;
 
-  const { scene } = useGLTF(effectiveModelPath);
   const offset = preset.modelPositionOffset ?? [0, 0.2, 0.1];
   const scale = preset.modelScale ?? [4.5, 4.5, 4.5];
 
   return (
     <group>
-      <Clone 
-        object={scene} 
-        position={offset} 
-        scale={scale} 
-        castShadow 
-        receiveShadow 
-      />
+      <Suspense fallback={null}>
+        <CarMesh
+          modelPath={effectiveModelPath}
+          offset={offset}
+          scale={scale}
+        />
+      </Suspense>
       {preset.config.wheels.map((wheel, index) => {
         // Account for suspension rest length compression under vehicle weight
         // so wheels sit accurately inside the wheel arches without clipping into the body
@@ -34,7 +55,7 @@ export function CarModelDisplay({ preset }: { preset: VehiclePreset }) {
         const wheelY = wheel.position[1] - restSuspensionOffset;
 
         return (
-          <group key={index} position={[wheel.position[0], wheelY, wheel.position[2]]}>
+          <group key={`${preset.id}-${index}`} position={[wheel.position[0], wheelY, wheel.position[2]]}>
             <Wheel isRightSide={wheel.position[0] > 0} radius={wheel.radius} />
           </group>
         );

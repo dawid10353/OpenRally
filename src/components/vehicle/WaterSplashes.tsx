@@ -106,6 +106,7 @@ export function WaterSplashes({ wheelsRef, chassisRef }: WaterSplashesProps) {
     if (!meshRef.current || !chassisRef.current || !wheelsRef.current) return;
 
     const body = chassisRef.current;
+    if (typeof body.isValid === 'function' && !body.isValid()) return;
     const wheels = wheelsRef.current;
 
     const trans = body.translation();

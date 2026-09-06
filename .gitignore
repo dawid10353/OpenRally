@@ -29,3 +29,7 @@ pnpm-debug.log*
 scratch/
 /OpenRally*.mp4
 
+# Temporary preview agent workspaces
+.agents/*
+!.agents/AGENTS.md
+

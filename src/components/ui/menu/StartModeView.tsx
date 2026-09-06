@@ -25,7 +25,23 @@ export function StartModeView({
 }: StartModeViewProps) {
   return (
     <div className="mode-subview menu-scalable-container" style={{ ...menuStyles.subView, color: textColor, width: '100%', minWidth: '560px' }}>
-      <h2 style={{ ...menuStyles.subViewTitle, marginBottom: '6px' }}>Select Game Mode</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+        <h2 style={{ ...menuStyles.subViewTitle, margin: 0 }}>Select Game Mode</h2>
+        <span
+          style={{
+            padding: '3px 10px',
+            borderRadius: '12px',
+            background: 'rgba(227, 24, 55, 0.15)',
+            border: '1px solid rgba(227, 24, 55, 0.4)',
+            color: '#F87171',
+            fontSize: '11px',
+            fontWeight: 800,
+            letterSpacing: '1px',
+          }}
+        >
+          STEP 2 / 3
+        </span>
+      </div>
       
       {/* Selected Track Pill */}
       <div style={{
@@ -101,7 +117,7 @@ export function StartModeView({
               onLaunchMode('freeroam');
             }}
           >
-            Launch Free Roam
+            Select ➜
           </button>
         </div>
 
@@ -162,7 +178,7 @@ export function StartModeView({
               onLaunchMode('timeattack');
             }}
           >
-            Start Time Attack
+            Select ➜
           </button>
         </div>
       </div>
@@ -179,9 +195,9 @@ export function StartModeView({
           ...getFocusStyle(focusedIndex === 2),
         }} 
         onPointerMove={(e) => onPointerMoveItem(2, e)}
-        onClick={() => onSelectView('main')}
+        onClick={() => onSelectView('tracks')}
       >
-        Back
+        Back to Track Selection
       </button>
     </div>
   );

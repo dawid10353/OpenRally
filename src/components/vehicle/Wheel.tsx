@@ -8,6 +8,7 @@ interface WheelProps {
   radius?: number;
   width?: number;
   isRightSide?: boolean;
+  position?: [number, number, number];
 }
 
 /**
@@ -16,7 +17,7 @@ interface WheelProps {
  * The inner group handles spin (X rotation) — animated by the physics hook.
  */
 export const Wheel = forwardRef<Object3D, WheelProps>(function Wheel(
-  { isRightSide = false },
+  { isRightSide = false, position },
   ref,
 ) {
   const isMobile = isMobileDevice();
@@ -28,7 +29,7 @@ export const Wheel = forwardRef<Object3D, WheelProps>(function Wheel(
   const { scene } = useGLTF(modelUrl);
 
   return (
-    <group ref={ref}>
+    <group ref={ref} position={position}>
       {/* Inner group for spin rotation */}
       <group>
         <Detailed distances={[0, 30, 80]}>

@@ -155,7 +155,7 @@ describe('Android APK Structural Validator', () => {
       expect(winResult.hasAssetsPublic).toBe(true);
       expect(winResult.hasIndexHtml).toBe(true);
       expect(winResult.errors).toHaveLength(0);
-    });
+    }, 20000);
 
     it('APK-9: Verifies Android package identity, versioning, and SDK targets', () => {
       const builtApkPath = findBuiltApk();

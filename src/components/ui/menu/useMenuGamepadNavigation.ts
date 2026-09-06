@@ -18,6 +18,7 @@ export interface MenuNavigationOptions {
   readonly setPreviewVehicleId: (id: string) => void;
   readonly setControlsTab: (tab: ControlsTab) => void;
   readonly handleLaunchMode: (mode: 'freeroam' | 'timeattack') => void;
+  readonly handleStartRace?: (vehicleId: string) => void;
   readonly handleReset: () => void;
   readonly handleSelectTrack: (levelId: string) => void;
   readonly handleReturnToMainMenu: () => void;
@@ -37,6 +38,7 @@ export function useMenuGamepadNavigation({
   setPreviewVehicleId,
   setControlsTab,
   handleLaunchMode,
+  handleStartRace,
   handleReset,
   handleSelectTrack,
   handleReturnToMainMenu,
@@ -62,11 +64,12 @@ export function useMenuGamepadNavigation({
   const getItemCount = useCallback((): number => {
     const curView = viewRef.current;
     if (curView === 'main') {
-      return useGameStore.getState().gameState === 'paused' ? 5 : 6;
+      return useGameStore.getState().gameState === 'paused' ? 4 : 4;
     }
+    if (curView === 'tracks') return availableLevels.length + 1;
     if (curView === 'start_mode') return 3;
     if (curView === 'garage') return 2;
-    if (curView === 'tracks') return availableLevels.length + 1;
+    if (curView === 'multiplayer') return 1;
     if (curView === 'options') {
       const isVib = useSettingsStore.getState().vibrationEnabled;
       return isVib ? 13 : 12;
@@ -202,28 +205,12 @@ export function useMenuGamepadNavigation({
         if (curIdx === 0) setGameState('playing');
         else if (curIdx === 1) handleReset();
         else if (curIdx === 2) setView('options');
-        else if (curIdx === 3) setView('controls');
-        else if (curIdx === 4) handleReturnToMainMenu();
+        else if (curIdx === 3) handleReturnToMainMenu();
       } else {
-        if (curIdx === 0) setView('start_mode');
-        else if (curIdx === 1) {
-          setPreviewVehicleId(selectedVehicleId);
-          setView('garage');
-        } else if (curIdx === 2) setView('tracks');
-        else if (curIdx === 3) setView('options');
-        else if (curIdx === 4) setView('controls');
-        else if (curIdx === 5) setView('credits');
-      }
-    } else if (curView === 'start_mode') {
-      if (curIdx === 0) handleLaunchMode('freeroam');
-      else if (curIdx === 1) handleLaunchMode('timeattack');
-      else if (curIdx === 2) setView('main');
-    } else if (curView === 'garage') {
-      if (curIdx === 0) {
-        setSelectedVehicleId(previewVehicleIdRef.current);
-        useGameStore.getState().triggerReset(true);
-      } else if (curIdx === 1) {
-        setView('main');
+        if (curIdx === 0) setView('tracks');
+        else if (curIdx === 1) setView('multiplayer');
+        else if (curIdx === 2) setView('options');
+        else if (curIdx === 3) setView('credits');
       }
     } else if (curView === 'tracks') {
       if (curIdx < availableLevels.length) {
@@ -231,6 +218,25 @@ export function useMenuGamepadNavigation({
       } else {
         setView('main');
       }
+    } else if (curView === 'start_mode') {
+      if (curIdx === 0) handleLaunchMode('freeroam');
+      else if (curIdx === 1) handleLaunchMode('timeattack');
+      else if (curIdx === 2) setView('tracks');
+    } else if (curView === 'garage') {
+      if (curIdx === 0) {
+        if (handleStartRace) {
+          handleStartRace(previewVehicleIdRef.current);
+        } else {
+          setSelectedVehicleId(previewVehicleIdRef.current);
+          useGameStore.getState().triggerReset(true);
+          setView('main');
+          setGameState('playing');
+        }
+      } else if (curIdx === 1) {
+        setView('start_mode');
+      }
+    } else if (curView === 'multiplayer') {
+      setView('main');
     } else if (curView === 'options') {
       const isVib = useSettingsStore.getState().vibrationEnabled;
       const optionsCount = isVib ? 13 : 12;
@@ -262,6 +268,7 @@ export function useMenuGamepadNavigation({
     handleResetRecordsAction,
     handleReturnToMainMenu,
     handleSelectTrack,
+    handleStartRace,
     selectedVehicleId,
     setGameState,
     setSelectedVehicleId,
@@ -273,7 +280,11 @@ export function useMenuGamepadNavigation({
     const curView = viewRef.current;
     const isPaused = useGameStore.getState().gameState === 'paused';
 
-    if (curView !== 'main') {
+    if (curView === 'garage') {
+      setView('start_mode');
+    } else if (curView === 'start_mode') {
+      setView('tracks');
+    } else if (curView !== 'main') {
       setView('main');
     } else if (isPaused) {
       setGameState('playing');

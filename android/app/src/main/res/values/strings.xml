@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">OpenRally</string>
+    <string name="title_activity_main">OpenRally</string>
+    <string name="package_name">com.openrally.app</string>
+    <string name="custom_url_scheme">com.openrally.app</string>
+</resources>

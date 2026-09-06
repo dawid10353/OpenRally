@@ -385,16 +385,14 @@ describe('Adversarial Challenger M2: Empirical Stress Testing of Mobile Landscap
         />
       );
 
-      expect(html).toContain('START RALLY');
-      expect(html).toContain('GARAGE');
-      expect(html).toContain('TRACKS &amp; STAGES');
+      expect(html).toContain('PLAY');
+      expect(html).toContain('MULTIPLAYER');
       expect(html).toContain('OPTIONS');
-      expect(html).toContain('CONTROLS');
       expect(html).toContain('CREDITS');
       expect(html).not.toContain('NaN');
     });
 
-    it('5.2: successfully renders Pause MainView with all 5 pause action buttons', () => {
+    it('5.2: successfully renders Pause MainView with all 4 pause action buttons', () => {
       const html = renderToString(
         <MainView
           isPause={true}
@@ -411,8 +409,7 @@ describe('Adversarial Challenger M2: Empirical Stress Testing of Mobile Landscap
 
       expect(html).toContain('RESUME STAGE');
       expect(html).toContain('RESTART STAGE');
-      expect(html).toContain('SETTINGS');
-      expect(html).toContain('CONTROLS');
+      expect(html).toContain('OPTIONS');
       expect(html).toContain('RETURN TO MAIN MENU');
       expect(html).toContain('pause-action-list');
     });

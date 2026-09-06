@@ -75,6 +75,7 @@ export function useTireTracksLogic(
     const chassis = chassisRef.current;
     const wheels = wheelsRef.current;
     if (!chassis || !wheels) return;
+    if (typeof chassis.isValid === 'function' && !chassis.isValid()) return;
 
     const currentTime = state.clock.elapsedTime;
     const gameState = useGameStore.getState();

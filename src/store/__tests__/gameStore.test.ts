@@ -102,6 +102,17 @@ describe('gameStore', () => {
     expect(useGameStore.getState().gamepadConnected).toBe(false);
     expect(useGameStore.getState().gamepadType).toBeNull();
   });
+
+  it('supports loadingTarget state and transitions between menu and gameplay targets', () => {
+    expect(useGameStore.getState().loadingTarget).toBe('menu');
+
+    useGameStore.getState().setLoadingTarget('gameplay');
+    expect(useGameStore.getState().loadingTarget).toBe('gameplay');
+
+    useGameStore.getState().setLoadingTarget('menu');
+    expect(useGameStore.getState().loadingTarget).toBe('menu');
+  });
 });
+
 
 

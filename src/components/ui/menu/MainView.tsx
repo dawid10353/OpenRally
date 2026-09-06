@@ -10,7 +10,7 @@ interface MainViewProps {
   onResume: () => void;
   onReset: () => void;
   onReturnToMainMenu: () => void;
-  onOpenGarage: () => void;
+  onOpenGarage?: () => void;
 }
 
 export function MainView({
@@ -22,7 +22,6 @@ export function MainView({
   onResume,
   onReset,
   onReturnToMainMenu,
-  onOpenGarage,
 }: MainViewProps) {
   return (
     <div style={menuStyles.buttonGroup} className={isPause ? "pause-action-list" : "menu-action-grid"}>
@@ -84,8 +83,8 @@ export function MainView({
             <div style={styles.buttonContent}>
               <span style={styles.indexTag}>03 //</span>
               <div style={styles.textCol}>
-                <span style={styles.buttonLabel}>SETTINGS</span>
-                <span style={styles.buttonSubLabel} className="menu-action-sublabel">Graphics, audio & simulation</span>
+                <span style={styles.buttonLabel}>OPTIONS</span>
+                <span style={styles.buttonSubLabel} className="menu-action-sublabel">Graphics, audio, controls & gameplay</span>
               </div>
             </div>
             <span style={{ ...styles.chevron, opacity: focusedIndex === 2 ? 1 : 0.4 }}>►</span>
@@ -96,42 +95,21 @@ export function MainView({
             style={{
               ...menuStyles.button,
               ...menuStyles.secondaryButton,
-              color: textColor,
+              color: '#F87171',
+              borderColor: 'rgba(239, 68, 68, 0.3)',
               ...getFocusStyle(focusedIndex === 3),
             }}
             onPointerMove={(e) => onPointerMoveItem(3, e)}
-            onClick={() => onSelectView('controls')}
-          >
-            <div style={styles.buttonContent}>
-              <span style={styles.indexTag}>04 //</span>
-              <div style={styles.textCol}>
-                <span style={styles.buttonLabel}>CONTROLS</span>
-                <span style={styles.buttonSubLabel} className="menu-action-sublabel">Gamepad & keyboard mapping</span>
-              </div>
-            </div>
-            <span style={{ ...styles.chevron, opacity: focusedIndex === 3 ? 1 : 0.4 }}>►</span>
-          </button>
-
-          <button
-            className="pause-action-button"
-            style={{
-              ...menuStyles.button,
-              ...menuStyles.secondaryButton,
-              color: '#F87171',
-              borderColor: 'rgba(239, 68, 68, 0.3)',
-              ...getFocusStyle(focusedIndex === 4),
-            }}
-            onPointerMove={(e) => onPointerMoveItem(4, e)}
             onClick={onReturnToMainMenu}
           >
             <div style={styles.buttonContent}>
-              <span style={{ ...styles.indexTag, color: '#EF4444' }}>05 //</span>
+              <span style={{ ...styles.indexTag, color: '#EF4444' }}>04 //</span>
               <div style={styles.textCol}>
                 <span style={{ ...styles.buttonLabel, color: '#F87171' }}>RETURN TO MAIN MENU</span>
                 <span style={styles.buttonSubLabel} className="menu-action-sublabel">Abandon current stage</span>
               </div>
             </div>
-            <span style={{ ...styles.chevron, color: '#EF4444', opacity: focusedIndex === 4 ? 1 : 0.4 }}>✕</span>
+            <span style={{ ...styles.chevron, color: '#EF4444', opacity: focusedIndex === 3 ? 1 : 0.4 }}>✕</span>
           </button>
         </>
       ) : (
@@ -145,13 +123,13 @@ export function MainView({
               ...getFocusStyle(focusedIndex === 0),
             }}
             onPointerMove={(e) => onPointerMoveItem(0, e)}
-            onClick={() => onSelectView('start_mode')}
+            onClick={() => onSelectView('tracks')}
           >
             <div style={styles.buttonContent}>
               <span style={styles.indexTag}>01 //</span>
               <div style={styles.textCol}>
-                <span style={focusedIndex === 0 ? styles.buttonLabelPrimary : styles.buttonLabel}>START RALLY</span>
-                <span style={focusedIndex === 0 ? styles.buttonSubLabelPrimary : styles.buttonSubLabel} className="menu-action-sublabel">Free Roam & Time Attack</span>
+                <span style={focusedIndex === 0 ? styles.buttonLabelPrimary : styles.buttonLabel}>PLAY</span>
+                <span style={focusedIndex === 0 ? styles.buttonSubLabelPrimary : styles.buttonSubLabel} className="menu-action-sublabel">Select Stage, Game Mode &amp; Vehicle</span>
               </div>
             </div>
             <span style={{ ...styles.chevron, opacity: focusedIndex === 0 ? 1 : 0.3 }}>►</span>
@@ -166,13 +144,13 @@ export function MainView({
               ...getFocusStyle(focusedIndex === 1),
             }}
             onPointerMove={(e) => onPointerMoveItem(1, e)}
-            onClick={onOpenGarage}
+            onClick={() => onSelectView('multiplayer')}
           >
             <div style={styles.buttonContent}>
               <span style={styles.indexTag}>02 //</span>
               <div style={styles.textCol}>
-                <span style={styles.buttonLabel}>GARAGE</span>
-                <span style={styles.buttonSubLabel} className="menu-action-sublabel">Inspect & select vehicles</span>
+                <span style={styles.buttonLabel}>MULTIPLAYER</span>
+                <span style={styles.buttonSubLabel} className="menu-action-sublabel">Online lobbies &amp; local split-screen</span>
               </div>
             </div>
             <span style={{ ...styles.chevron, opacity: focusedIndex === 1 ? 1 : 0.3 }}>►</span>
@@ -187,13 +165,13 @@ export function MainView({
               ...getFocusStyle(focusedIndex === 2),
             }}
             onPointerMove={(e) => onPointerMoveItem(2, e)}
-            onClick={() => onSelectView('tracks')}
+            onClick={() => onSelectView('options')}
           >
             <div style={styles.buttonContent}>
               <span style={styles.indexTag}>03 //</span>
               <div style={styles.textCol}>
-                <span style={styles.buttonLabel}>TRACKS & STAGES</span>
-                <span style={styles.buttonSubLabel} className="menu-action-sublabel">Circuits & stage lap records</span>
+                <span style={styles.buttonLabel}>OPTIONS</span>
+                <span style={styles.buttonSubLabel} className="menu-action-sublabel">Graphics, audio, controls &amp; gameplay</span>
               </div>
             </div>
             <span style={{ ...styles.chevron, opacity: focusedIndex === 2 ? 1 : 0.3 }}>►</span>
@@ -208,58 +186,16 @@ export function MainView({
               ...getFocusStyle(focusedIndex === 3),
             }}
             onPointerMove={(e) => onPointerMoveItem(3, e)}
-            onClick={() => onSelectView('options')}
+            onClick={() => onSelectView('credits')}
           >
             <div style={styles.buttonContent}>
               <span style={styles.indexTag}>04 //</span>
               <div style={styles.textCol}>
-                <span style={styles.buttonLabel}>OPTIONS</span>
-                <span style={styles.buttonSubLabel} className="menu-action-sublabel">Graphics, audio & simulation</span>
+                <span style={styles.buttonLabel}>CREDITS</span>
+                <span style={styles.buttonSubLabel} className="menu-action-sublabel">Game creator &amp; open-source engine</span>
               </div>
             </div>
             <span style={{ ...styles.chevron, opacity: focusedIndex === 3 ? 1 : 0.3 }}>►</span>
-          </button>
-
-          <button
-            className="menu-action-button"
-            style={{
-              ...menuStyles.button,
-              ...menuStyles.secondaryButton,
-              color: textColor,
-              ...getFocusStyle(focusedIndex === 4),
-            }}
-            onPointerMove={(e) => onPointerMoveItem(4, e)}
-            onClick={() => onSelectView('controls')}
-          >
-            <div style={styles.buttonContent}>
-              <span style={styles.indexTag}>05 //</span>
-              <div style={styles.textCol}>
-                <span style={styles.buttonLabel}>CONTROLS</span>
-                <span style={styles.buttonSubLabel} className="menu-action-sublabel">DualSense, Xbox & keyboard mappings</span>
-              </div>
-            </div>
-            <span style={{ ...styles.chevron, opacity: focusedIndex === 4 ? 1 : 0.3 }}>►</span>
-          </button>
-
-          <button
-            className="menu-action-button"
-            style={{
-              ...menuStyles.button,
-              ...menuStyles.secondaryButton,
-              color: textColor,
-              ...getFocusStyle(focusedIndex === 5),
-            }}
-            onPointerMove={(e) => onPointerMoveItem(5, e)}
-            onClick={() => onSelectView('credits')}
-          >
-            <div style={styles.buttonContent}>
-              <span style={styles.indexTag}>06 //</span>
-              <div style={styles.textCol}>
-                <span style={styles.buttonLabel}>CREDITS</span>
-                <span style={styles.buttonSubLabel} className="menu-action-sublabel">Game creator & open-source source</span>
-              </div>
-            </div>
-            <span style={{ ...styles.chevron, opacity: focusedIndex === 5 ? 1 : 0.3 }}>►</span>
           </button>
         </>
       )}

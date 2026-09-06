@@ -3,7 +3,7 @@ import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
 import { EffectComposer, Bloom, Vignette, SMAA, ToneMapping } from '@react-three/postprocessing';
 import { ToneMappingMode } from 'postprocessing';
-import { ACESFilmicToneMapping, HalfFloatType, PCFShadowMap } from 'three';
+import { ACESFilmicToneMapping, HalfFloatType, PCFShadowMap, PCFSoftShadowMap } from 'three';
 import { Terrain } from '@/components/terrain/Terrain';
 import { GrassField } from '@/components/terrain/GrassField';
 import { PropsInstancer } from '@/components/terrain/PropsInstancer';
@@ -15,7 +15,7 @@ import { Vehicle } from '@/components/vehicle/Vehicle';
 import { Lights } from '@/components/canvas/Lights';
 import { PostProcessingErrorBoundary } from '@/components/canvas/PostProcessingErrorBoundary';
 import { Environment, Sky, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei';
-import { useSettingsStore } from '@/store/settingsStore';
+import { useSettingsStore, saveSettingsToStorage } from '@/store/settingsStore';
 import { useGameStore } from '@/store/gameStore';
 import { getLevelPreset } from '@/config/levelRegistry';
 import { SKY_CONFIG, FOG_CONFIG, POSTPROCESSING_CONFIG } from '@/config/environment';
@@ -105,6 +105,21 @@ export function startFramePacingLoop({
  * battery drain, and redundant GPU passes while matching Rapier's 60Hz physics timestep.
  */
 export function MobileFramePacer({ targetFps = 60, enabled = true }: MobileFramePacerProps) {
+  const advance = useThree((state) => state.advance);
+  const clock = useThree((state) => state.clock);
+
+  useEffect(() => {
+    return startFramePacingLoop({ advance, clock, targetFps, enabled });
+  }, [advance, clock, enabled, targetFps]);
+
+  return null;
+}
+
+/**
+ * Paces 3D scene rendering during Menu and Title screens when frameloop is suspended.
+ * Advances the cinematic showcase camera and vehicle turntable smoothly.
+ */
+export function MenuCinematicPacer({ enabled = true, targetFps = 60 }: { enabled?: boolean; targetFps?: number }) {
   const advance = useThree((state) => state.advance);
   const clock = useThree((state) => state.clock);
 
@@ -230,8 +245,18 @@ export function GameCanvas() {
         pointerEvents: isGameplay ? 'auto' : 'none',
       }}
       onCreated={({ gl }) => {
-        if (isMobile && gl.shadowMap) {
+        if (gl.shadowMap) {
           gl.shadowMap.type = PCFShadowMap;
+          // Intercept assignments so R3F never resets gl.shadowMap.type to deprecated PCFSoftShadowMap
+          let currentType: typeof PCFShadowMap = PCFShadowMap;
+          Object.defineProperty(gl.shadowMap, 'type', {
+            get: () => currentType,
+            set: (val: number) => {
+              currentType = val === PCFSoftShadowMap ? PCFShadowMap : (val as typeof PCFShadowMap);
+            },
+            configurable: true,
+            enumerable: true,
+          });
         }
         const canvas = gl.domElement;
         canvas.addEventListener(
@@ -239,6 +264,16 @@ export function GameCanvas() {
           (event) => {
             event.preventDefault();
             console.warn('[GameCanvas] webglcontextlost handled via preventDefault()');
+            // Prevent crash-loop on mobile by resetting shadows if context loss occurs
+            try {
+              const { shadowsEnabled } = useSettingsStore.getState();
+              if (shadowsEnabled && isMobileDevice()) {
+                useSettingsStore.setState({ shadowsEnabled: false });
+                saveSettingsToStorage({ shadowsEnabled: false });
+              }
+            } catch {
+              // Ignore
+            }
           },
           false,
         );
@@ -253,6 +288,7 @@ export function GameCanvas() {
       }}
     >
       <MobileFramePacer targetFps={targetFps} enabled={isMobile && isGameplay} />
+      <MenuCinematicPacer enabled={!isGameplay} targetFps={isMobile ? 30 : 60} />
       <Suspense fallback={null}>
         {!isMobile && <AdaptiveDpr />}
         <AdaptiveEvents />
@@ -298,7 +334,7 @@ export function GameCanvas() {
             gravity={[0, -9.81, 0]} 
             timeStep={1 / 60} 
             debug={debugPhysics} 
-            paused={gameState !== 'playing'}
+            paused={gameState === 'paused'}
           >
             <Terrain />
             <PropsInstancer />

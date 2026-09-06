@@ -30,7 +30,8 @@ export function useBumperCamera(targetRef: React.RefObject<Object3D | null>): vo
   const cameraMode = useGameStore((s) => s.cameraMode);
 
   useFrame((_, delta) => {
-    if (!targetRef.current || cameraMode !== 'bumper') return;
+    const gameState = useGameStore.getState().gameState;
+    if (!targetRef.current || cameraMode !== 'bumper' || gameState === 'menu' || gameState === 'title') return;
 
     const target = targetRef.current;
     const speed = useGameStore.getState().speed;

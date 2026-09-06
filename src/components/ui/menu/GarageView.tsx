@@ -2,7 +2,10 @@ import { useRef, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Environment } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
+import { WebGLRenderer, PCFShadowMap, PCFSoftShadowMap } from 'three';
 import type { VehiclePreset } from '@/types';
+import { useSettingsStore } from '@/store/settingsStore';
+import { shouldEnableCanvasShadows } from '@/components/canvas/GameCanvas';
 import { menuStyles, getFocusStyle } from './menuStyles';
 import { CarModelDisplay, StatBar } from './CarModelDisplay';
 import type { MenuView } from './types';
@@ -15,9 +18,12 @@ interface GarageViewProps {
   focusedIndex: number;
   textColor: string;
   subtitleColor: string;
+  currentLevelName?: string;
+  gameMode?: 'freeroam' | 'timeattack';
   onPointerMoveItem: (index: number, e: React.PointerEvent) => void;
   onSelectPreviewVehicle: (id: string) => void;
   onEquipVehicle: (id: string) => void;
+  onStartRace?: (id: string) => void;
   onSelectView: (view: MenuView) => void;
 }
 
@@ -29,14 +35,19 @@ export function GarageView({
   focusedIndex,
   textColor,
   subtitleColor,
+  currentLevelName,
+  gameMode,
   onPointerMoveItem,
   onSelectPreviewVehicle,
   onEquipVehicle,
+  onStartRace,
   onSelectView,
 }: GarageViewProps) {
   const isEquipped = selectedVehicleId === previewVehicleId;
+  const shadowsEnabled = useSettingsStore((s) => s.shadowsEnabled);
+  const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
   const controlsRef = useRef<OrbitControlsImpl>(null);
-  const glRef = useRef<any>(null);
+  const glRef = useRef<WebGLRenderer | null>(null);
 
   useEffect(() => {
     const controls = controlsRef.current;
@@ -46,7 +57,7 @@ export function GarageView({
       }
       if (glRef.current) {
         try {
-          glRef.current.getExtension('WEBGL_lose_context')?.loseContext();
+          glRef.current.getContext().getExtension('WEBGL_lose_context')?.loseContext();
           glRef.current.dispose();
         } catch {
           // Ignore
@@ -80,7 +91,49 @@ export function GarageView({
       className="garage-subview menu-scalable-container"
       style={{ ...menuStyles.subView, color: textColor, width: '100%', minWidth: '540px', maxWidth: '880px' }}
     >
-      <h2 style={menuStyles.subViewTitle}>Garage</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+        <h2 style={{ ...menuStyles.subViewTitle, margin: 0 }}>Vehicle Selection</h2>
+        <span
+          style={{
+            padding: '3px 10px',
+            borderRadius: '12px',
+            background: 'rgba(227, 24, 55, 0.15)',
+            border: '1px solid rgba(227, 24, 55, 0.4)',
+            color: '#F87171',
+            fontSize: '11px',
+            fontWeight: 800,
+            letterSpacing: '1px',
+          }}
+        >
+          STEP 3 / 3
+        </span>
+      </div>
+
+      {/* Race Configuration Summary Pill */}
+      {(currentLevelName || gameMode) && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            padding: '6px 14px',
+            borderRadius: '16px',
+            marginBottom: '10px',
+            fontSize: '12px',
+            color: '#CBD5E1',
+          }}
+        >
+          {currentLevelName && (
+            <span>STAGE: <strong style={{ color: '#FFFFFF' }}>{currentLevelName}</strong></span>
+          )}
+          {currentLevelName && gameMode && <span>•</span>}
+          {gameMode && (
+            <span>MODE: <strong style={{ color: '#E31837' }}>{gameMode === 'timeattack' ? 'TIME ATTACK' : 'FREE ROAM'}</strong></span>
+          )}
+        </div>
+      )}
 
       {/* Side-by-Side Split: Left Turntable, Right Specs & Actions */}
       <div className="garage-split-layout" style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '12px' }}>
@@ -99,11 +152,23 @@ export function GarageView({
           }}
         >
           <Canvas
-            shadows
+            shadows={shouldEnableCanvasShadows(shadowsEnabled, graphicsQuality)}
             dpr={[1, 2]}
             camera={{ position: [3.8, 2.0, -5.4], fov: 42 }}
             onCreated={({ gl }) => {
               glRef.current = gl;
+              if (gl.shadowMap) {
+                gl.shadowMap.type = PCFShadowMap;
+                let currentType: typeof PCFShadowMap = PCFShadowMap;
+                Object.defineProperty(gl.shadowMap, 'type', {
+                  get: () => currentType,
+                  set: (val: number) => {
+                    currentType = val === PCFSoftShadowMap ? PCFShadowMap : (val as typeof PCFShadowMap);
+                  },
+                  configurable: true,
+                  enumerable: true,
+                });
+              }
               const canvas = gl.domElement;
               canvas.addEventListener(
               'webglcontextlost',
@@ -125,7 +190,14 @@ export function GarageView({
           >
             <color attach="background" args={['#0B101D']} />
             <ambientLight intensity={0.9} />
-            <directionalLight position={[10, 10, 10]} intensity={2.2} castShadow />
+            <directionalLight
+              position={[10, 10, 10]}
+              intensity={2.2}
+              castShadow={shouldEnableCanvasShadows(shadowsEnabled, graphicsQuality)}
+              shadow-bias={-0.0005}
+              shadow-mapSize-width={512}
+              shadow-mapSize-height={512}
+            />
             <directionalLight position={[-8, 6, -8]} intensity={0.7} color="#3B82F6" />
             <group position={[0, 0.15, 0]}>
               <CarModelDisplay preset={previewPreset} />
@@ -237,16 +309,25 @@ export function GarageView({
                 ...menuStyles.button,
                 minHeight: '44px',
                 flex: 1,
-                background: isEquipped ? 'linear-gradient(90deg, #059669, #10B981)' : 'linear-gradient(90deg, #991B1B, #E31837)',
+                background: onStartRace ? 'linear-gradient(90deg, #991B1B, #E31837)' : (isEquipped ? 'linear-gradient(90deg, #059669, #10B981)' : 'linear-gradient(90deg, #991B1B, #E31837)'),
+                boxShadow: onStartRace ? '0 4px 16px rgba(227, 24, 55, 0.4)' : undefined,
                 justifyContent: 'center',
-                fontWeight: 700,
+                fontWeight: 800,
+                fontSize: '15px',
+                letterSpacing: '1px',
                 color: '#FFFFFF',
                 ...getFocusStyle(focusedIndex === 0),
               }}
               onPointerMove={(e) => onPointerMoveItem(0, e)}
-              onClick={() => onEquipVehicle(previewVehicleId)}
+              onClick={() => {
+                if (onStartRace) {
+                  onStartRace(previewVehicleId);
+                } else {
+                  onEquipVehicle(previewVehicleId);
+                }
+              }}
             >
-              {isEquipped ? '✓ EQUIPPED' : 'EQUIP VEHICLE'}
+              {onStartRace ? 'START RACE ►' : (isEquipped ? '✓ EQUIPPED' : 'EQUIP VEHICLE')}
             </button>
             <button
               style={{ 
@@ -255,12 +336,12 @@ export function GarageView({
                 minHeight: '44px',
                 color: textColor, 
                 borderColor: 'rgba(255, 255, 255, 0.1)', 
-                width: '100px',
+                width: '120px',
                 justifyContent: 'center',
                 ...getFocusStyle(focusedIndex === 1),
               }} 
               onPointerMove={(e) => onPointerMoveItem(1, e)}
-              onClick={() => onSelectView('main')}
+              onClick={() => onSelectView('start_mode')}
             >
               Back
             </button>

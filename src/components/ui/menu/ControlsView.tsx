@@ -9,6 +9,7 @@ interface ControlsViewProps {
   controlsTab: ControlsTab;
   focusedIndex: number;
   textColor: string;
+  hideTitleAndBack?: boolean;
   onPointerMoveItem: (index: number, e: React.PointerEvent) => void;
   onSetControlsTab: (tab: ControlsTab) => void;
   onSelectView: (view: MenuView) => void;
@@ -21,6 +22,7 @@ export function ControlsView({
   controlsTab,
   focusedIndex,
   textColor,
+  hideTitleAndBack = false,
   onPointerMoveItem,
   onSetControlsTab,
   onSelectView,
@@ -34,9 +36,9 @@ export function ControlsView({
   return (
     <div
       className="controls-subview menu-scalable-container"
-      style={{ ...menuStyles.subView, color: textColor, width: '100%', minWidth: '540px', maxWidth: '880px' }}
+      style={hideTitleAndBack ? { color: textColor, width: '100%' } : { ...menuStyles.subView, color: textColor, width: '100%', minWidth: '540px', maxWidth: '880px' }}
     >
-      <h2 style={menuStyles.subViewTitle}>Controls</h2>
+      {!hideTitleAndBack && <h2 style={menuStyles.subViewTitle}>Controls</h2>}
 
       {/* Gamepad Status Banner */}
       <div style={{
@@ -443,23 +445,25 @@ export function ControlsView({
         </div>
       )}
 
-      <button 
-        style={{ 
-          ...menuStyles.button, 
-          ...menuStyles.secondaryButton,
-          color: textColor,
-          borderColor: 'rgba(255, 255, 255, 0.1)',
-          marginTop: '12px', 
-          width: '100%',
-          minHeight: '44px',
-          justifyContent: 'center',
-          ...getFocusStyle(focusedIndex === 0),
-        }} 
-        onPointerMove={(e) => onPointerMoveItem(0, e)}
-        onClick={() => onSelectView('main')}
-      >
-        Back
-      </button>
+      {!hideTitleAndBack && (
+        <button 
+          style={{ 
+            ...menuStyles.button, 
+            ...menuStyles.secondaryButton,
+            color: textColor,
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+            marginTop: '12px', 
+            width: '100%',
+            minHeight: '44px',
+            justifyContent: 'center',
+            ...getFocusStyle(focusedIndex === 0),
+          }} 
+          onPointerMove={(e) => onPointerMoveItem(0, e)}
+          onClick={() => onSelectView('main')}
+        >
+          Back
+        </button>
+      )}
     </div>
   );
 }

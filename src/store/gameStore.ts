@@ -48,11 +48,14 @@ interface GameStore {
   gamepadName: string;
   /** Detected gamepad hardware type */
   gamepadType: GamepadType;
+  /** Target destination for current loading sequence ('menu' or 'gameplay') */
+  loadingTarget: 'menu' | 'gameplay';
   /** Whether 3D assets, physics, shaders, and terrain are fully ready and settled */
   isSceneReady: boolean;
 
   // Actions
   setGameState: (state: GameState) => void;
+  setLoadingTarget: (target: 'menu' | 'gameplay') => void;
   setGameMode: (mode: GameMode) => void;
   setSelectedVehicleId: (id: string) => void;
   setSelectedLevelId: (id: string) => void;
@@ -95,6 +98,7 @@ export const useGameStore = create<GameStore>((set) => ({
   gamepadConnected: false,
   gamepadName: '',
   gamepadType: null,
+  loadingTarget: 'menu',
   isSceneReady: false,
 
   setGameState: (gameState) => {
@@ -107,6 +111,7 @@ export const useGameStore = create<GameStore>((set) => ({
           : state.isSceneReady,
     }));
   },
+  setLoadingTarget: (loadingTarget) => set({ loadingTarget }),
   setGameMode: (gameMode) => set({ gameMode }),
   setSelectedVehicleId: (selectedVehicleId) => set({ selectedVehicleId, isSceneReady: false }),
   setSelectedLevelId: (selectedLevelId) => set({ selectedLevelId, isSceneReady: false }),

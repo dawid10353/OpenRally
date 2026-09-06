@@ -49,11 +49,74 @@ export function useChaseCamera(
   const orbitPitchRef = useRef(0);
   const cameraMode = useGameStore((s) => s.cameraMode);
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
+    if (!targetRef.current) return;
+
+    const gameState = useGameStore.getState().gameState;
+    const loadingTarget = useGameStore.getState().loadingTarget;
+    const isMenuOrbit =
+      gameState === 'menu' ||
+      gameState === 'title' ||
+      (gameState === 'loading' && loadingTarget === 'menu');
+
+    // ─── Live 3D Cinematic Showcase Orbit in Main Menu / Title / Menu Loading ───
+    if (isMenuOrbit) {
+      const target = targetRef.current;
+      target.getWorldPosition(_bodyPos);
+
+      const time = state.clock.elapsedTime;
+      const orbitRadius = 5.2;
+      const orbitAngle = time * 0.12; // slow majestic rotation
+
+      const camX = _bodyPos.x + Math.sin(orbitAngle) * orbitRadius;
+      const camZ = _bodyPos.z + Math.cos(orbitAngle) * orbitRadius;
+      const camY = _bodyPos.y + 1.22 + Math.sin(time * 0.25) * 0.12;
+
+      _idealPos.set(camX, camY, camZ);
+      _idealLook.set(_bodyPos.x, _bodyPos.y + 0.55, _bodyPos.z);
+
+      // On desktop / landscape displays, frame vehicle into right 60% of viewport
+      // so left-aligned menu buttons never obscure the car
+      if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+        _offset.subVectors(_idealLook, _idealPos).normalize();
+        const rightX = -_offset.z;
+        const rightZ = _offset.x;
+        _idealLook.x -= rightX * 0.95;
+        _idealLook.z -= rightZ * 0.95;
+      }
+
+      // If camera was uninitialized, or far away from vehicle (e.g. returning from gameplay to menu):
+      // Snap camera directly to ideal orbit position instead of slowly dragging across the map
+      if (idealPosRef.current.lengthSq() === 0 || idealPosRef.current.distanceTo(_idealPos) > 10) {
+        idealPosRef.current.copy(_idealPos);
+        idealLookRef.current.copy(_idealLook);
+      } else {
+        const menuSmoothFactor = 1 - Math.exp(-3.5 * delta);
+        idealPosRef.current.lerp(_idealPos, menuSmoothFactor);
+        idealLookRef.current.lerp(_idealLook, menuSmoothFactor);
+      }
+
+      idealPosRef.current.y = Math.max(idealPosRef.current.y, _bodyPos.y + 0.5);
+
+      camera.position.copy(idealPosRef.current);
+      camera.lookAt(idealLookRef.current);
+
+      const menuFov = 52;
+      currentFovRef.current = menuFov;
+      if ('fov' in camera) {
+        const persCamera = camera as PerspectiveCamera;
+        if (Math.abs(persCamera.fov - menuFov) > 0.02) {
+          persCamera.fov = menuFov;
+          persCamera.updateProjectionMatrix();
+        }
+      }
+      return;
+    }
+
+    if (cameraMode !== 'chase' && cameraMode !== 'chase_close') return;
+
     // Read speed dynamically without causing React re-renders
     const speed = useGameStore.getState().speed;
-
-    if (!targetRef.current || (cameraMode !== 'chase' && cameraMode !== 'chase_close')) return;
 
     const target = targetRef.current;
 
@@ -128,7 +191,7 @@ export function useChaseCamera(
     const posSmoothFactor = 1 - Math.exp(-dynamicPosRate * delta);
     const lookSmoothFactor = 1 - Math.exp(-LOOK_SMOOTH_RATE * delta);
 
-    if (idealPosRef.current.lengthSq() === 0) {
+    if (idealPosRef.current.lengthSq() === 0 || idealPosRef.current.distanceTo(_idealPos) > 15) {
       idealPosRef.current.copy(_idealPos);
       idealLookRef.current.copy(_idealLook);
     } else {

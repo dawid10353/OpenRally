@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useProgress } from '@react-three/drei';
 import { useGameStore } from '@/store/gameStore';
+import { useRacingStore } from '@/store/racingStore';
 import { getLevelPreset } from '@/config/levelRegistry';
 import { getVehiclePreset } from '@/config/vehicleRegistry';
 
@@ -12,39 +13,85 @@ export function LoadingScreen() {
   const { active, progress } = useProgress();
   const gameState = useGameStore((s) => s.gameState);
   const isSceneReady = useGameStore((s) => s.isSceneReady);
+  const loadingTarget = useGameStore((s) => s.loadingTarget);
   const selectedLevelId = useGameStore((s) => s.selectedLevelId);
   const selectedVehicleId = useGameStore((s) => s.selectedVehicleId);
 
   const level = getLevelPreset(selectedLevelId);
   const vehicle = getVehiclePreset(selectedVehicleId);
 
-  const isPlaying = gameState === 'playing';
+  const isRelevantState = gameState === 'loading' || gameState === 'playing';
   const [visible, setVisible] = useState(false);
   const [fadeOut, setFadeOut] = useState(false);
 
-  useEffect(() => {
-    if (!isPlaying) {
-      setVisible(false);
-      setFadeOut(false);
-      return;
-    }
+  const isMenuLoading = gameState === 'loading' && loadingTarget === 'menu';
 
-    // While entering active gameplay:
-    if (!isSceneReady || active || progress < 100) {
+  useEffect(() => {
+    if (gameState === 'loading') {
       setVisible(true);
       setFadeOut(false);
-    } else {
-      // Scene is fully ready (models downloaded, physics settled, shaders compiled)
-      setFadeOut(true);
-      const timer = setTimeout(() => {
-        setVisible(false);
-      }, 700);
-      return () => clearTimeout(timer);
-    }
-  }, [isPlaying, isSceneReady, active, progress]);
 
-  // Loading screen is strictly for loading into gameplay; never render if not in 'playing' state
-  if (!isPlaying || (!visible && isSceneReady)) return null;
+      const isDone = isSceneReady && (!active || progress >= 100);
+      if (isDone) {
+        setFadeOut(true);
+        const timer = setTimeout(() => {
+          setVisible(false);
+          const target = useGameStore.getState().loadingTarget;
+          useGameStore.getState().setGameState(target === 'gameplay' ? 'playing' : 'menu');
+          if (target === 'gameplay' && useGameStore.getState().gameMode === 'timeattack') {
+            useRacingStore.getState().startCountdown();
+          }
+        }, 500);
+        return () => clearTimeout(timer);
+      }
+
+      // Safety timeout guard (max 3s)
+      const safetyTimer = setTimeout(() => {
+        setFadeOut(true);
+        setTimeout(() => {
+          setVisible(false);
+          useGameStore.getState().setSceneReady(true);
+          const target = useGameStore.getState().loadingTarget;
+          useGameStore.getState().setGameState(target === 'gameplay' ? 'playing' : 'menu');
+          if (target === 'gameplay' && useGameStore.getState().gameMode === 'timeattack') {
+            useRacingStore.getState().startCountdown();
+          }
+        }, 500);
+      }, 3000);
+
+      return () => clearTimeout(safetyTimer);
+    }
+
+    if (gameState === 'playing') {
+      if (!isSceneReady || active || progress < 100) {
+        setVisible(true);
+        setFadeOut(false);
+
+        // Safety timeout guard (max 3s) to prevent hanging on loading screen during gameplay
+        const safetyTimer = setTimeout(() => {
+          useGameStore.getState().setSceneReady(true);
+          setFadeOut(true);
+          setTimeout(() => {
+            setVisible(false);
+          }, 600);
+        }, 3000);
+
+        return () => clearTimeout(safetyTimer);
+      } else {
+        setFadeOut(true);
+        const timer = setTimeout(() => {
+          setVisible(false);
+        }, 600);
+        return () => clearTimeout(timer);
+      }
+    }
+
+    setVisible(false);
+    setFadeOut(false);
+  }, [gameState, isSceneReady, active, progress]);
+
+  // Never render if not in loading/playing state and not visible
+  if (!isRelevantState && !visible) return null;
 
   // Format progress for display
   const displayProgress = Math.round(progress) || (isSceneReady ? 100 : 0);
@@ -69,14 +116,16 @@ export function LoadingScreen() {
           />
         </div>
 
-        {/* Stage & Machine Preview Pill */}
-        <div style={styles.stagePill}>
-          <span style={styles.stageLabel}>STAGE:</span>
-          <span style={styles.stageValue}>{level.name}</span>
-          <span style={styles.separator}>•</span>
-          <span style={styles.stageLabel}>MACHINE:</span>
-          <span style={styles.stageValue}>{vehicle.name}</span>
-        </div>
+        {/* Stage & Machine Preview Pill (Only shown when entering gameplay/stage) */}
+        {!isMenuLoading && (
+          <div style={styles.stagePill}>
+            <span style={styles.stageLabel}>STAGE:</span>
+            <span style={styles.stageValue}>{level.name}</span>
+            <span style={styles.separator}>•</span>
+            <span style={styles.stageLabel}>MACHINE:</span>
+            <span style={styles.stageValue}>{vehicle.name}</span>
+          </div>
+        )}
 
         {/* Loading bar */}
         <div style={styles.loadingBar}>
@@ -92,9 +141,13 @@ export function LoadingScreen() {
 
         {/* Status Text */}
         <p style={styles.subtitle}>
-          {displayProgress < 100
-            ? `INITIALIZING SIMULATION • ${displayProgress}%`
-            : 'ENGINE READY • ENTERING STAGE'}
+          {isMenuLoading
+            ? displayProgress < 100
+              ? `INITIALIZING OPENRALLY • ${displayProgress}%`
+              : 'READY • ENTERING MAIN MENU'
+            : displayProgress < 100
+              ? `INITIALIZING SIMULATION • ${displayProgress}%`
+              : 'ENGINE READY • ENTERING STAGE'}
         </p>
 
         {/* Author Credit Badge */}

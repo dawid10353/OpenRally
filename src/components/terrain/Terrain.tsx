@@ -60,6 +60,10 @@ export function createDetailedTerrainMaterial(options: TerrainMaterialOptions): 
     flatShading: false,
   });
 
+  mat.customProgramCacheKey = () => {
+    return `detailed-terrain-${isSnow ? 'snow' : isDesert ? 'desert' : 'grass'}-${isMobile ? 'mobile' : 'desktop'}`;
+  };
+
   mat.onBeforeCompile = (shader) => {
     // Add custom uniforms
     shader.uniforms.u_slopeDarkening = { value: SLOPE_DARKENING_STRENGTH };

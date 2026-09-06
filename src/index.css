@@ -197,7 +197,15 @@ canvas {
 
 /* === Responsive Mobile Landscape Menu & UI Redesign (Heights 360px–412px) === */
 @media (max-height: 500px) and (orientation: landscape) {
-  /* Main Menu Dashboard */
+  /* Main Menu Left-Column & Live 3D View */
+  .main-menu-content {
+    max-width: 320px !important;
+    gap: 8px !important;
+  }
+  .main-menu-nav-column {
+    max-width: 320px !important;
+    gap: 6px !important;
+  }
   .menu-dashboard-layout {
     grid-template-columns: 1fr 1fr !important;
     gap: 16px !important;
@@ -217,20 +225,10 @@ canvas {
   }
   .menu-action-grid button {
     padding: 8px 12px !important;
-    min-height: 44px !important;
+    min-height: 42px !important;
   }
   .menu-action-sublabel {
     display: none !important;
-  }
-  .hero-showcase-container {
-    gap: 8px !important;
-  }
-  .hero-showcase-card {
-    padding: 10px 14px !important;
-    gap: 6px !important;
-  }
-  .hero-showcase-turntable {
-    height: 105px !important;
   }
 
   /* Pause Menu 2-Column Split */

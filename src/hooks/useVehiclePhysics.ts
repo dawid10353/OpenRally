@@ -68,61 +68,87 @@ export function useVehiclePhysics(
   > | null>(null);
   const getInput = useInputUpdater();
 
+  // Safely dispose the active vehicle controller without throwing WASM errors
+  const disposeController = () => {
+    if (vehicleControllerRef.current) {
+      try {
+        world.removeVehicleController(vehicleControllerRef.current);
+      } catch (err) {
+        console.warn('[useVehiclePhysics] Suppressed removeVehicleController error:', err);
+      }
+      vehicleControllerRef.current = null;
+    }
+  };
+
+  // Idempotently configure and attach the vehicle controller to a valid rigid body
+  const setupController = (body: RapierRigidBody) => {
+    if (typeof body.isValid === 'function' && !body.isValid()) return;
+    disposeController();
+
+    try {
+      const controller = world.createVehicleController(body);
+
+      // Add wheels
+      config.wheels.forEach((wheel) => {
+        controller.addWheel(
+          // connection point (chassis-local)
+          { x: wheel.position[0], y: wheel.position[1], z: wheel.position[2] },
+          // suspension direction (downward)
+          { x: 0, y: -1, z: 0 },
+          // axle direction (lateral)
+          { x: -1, y: 0, z: 0 },
+          // suspension rest length
+          wheel.suspensionRestLength,
+          // wheel radius
+          wheel.radius,
+        );
+      });
+
+      // Configure suspension for each wheel
+      for (let i = 0; i < config.wheels.length; i++) {
+        const wheel = config.wheels[i];
+        controller.setWheelSuspensionStiffness(i, wheel.suspensionStiffness);
+        controller.setWheelMaxSuspensionTravel(i, wheel.suspensionTravel);
+        controller.setWheelSuspensionCompression(i, wheel.suspensionDamping * 0.8);
+        controller.setWheelSuspensionRelaxation(i, wheel.suspensionDamping);
+        controller.setWheelMaxSuspensionForce(i, wheel.maxSuspensionForce ?? 12000);
+      }
+
+      vehicleControllerRef.current = controller;
+    } catch (err) {
+      console.error('[useVehiclePhysics] Error setting up vehicle controller:', err);
+    }
+  };
+
+  // Initialize and synchronize the vehicle controller when preset or level changes
   useEffect(() => {
     settleFramesRef.current = 0;
     currentRpmRef.current = 1000;
     isAirborneRef.current = false;
-  }, [levelPreset.id, config]);
 
-  // Initialize the vehicle controller
-  useEffect(() => {
     const body = chassisRef.current;
-    if (!body) return;
-
-    const controller = world.createVehicleController(body);
-
-    // Add wheels
-    config.wheels.forEach((wheel) => {
-      controller.addWheel(
-        // connection point (chassis-local)
-        { x: wheel.position[0], y: wheel.position[1], z: wheel.position[2] },
-        // suspension direction (downward)
-        { x: 0, y: -1, z: 0 },
-        // axle direction (lateral)
-        { x: -1, y: 0, z: 0 },
-        // suspension rest length
-        wheel.suspensionRestLength,
-        // wheel radius
-        wheel.radius,
-      );
-    });
-
-    // Configure suspension for each wheel
-    for (let i = 0; i < config.wheels.length; i++) {
-      const wheel = config.wheels[i];
-      controller.setWheelSuspensionStiffness(i, wheel.suspensionStiffness);
-      controller.setWheelMaxSuspensionTravel(i, wheel.suspensionTravel);
-      controller.setWheelSuspensionCompression(i, wheel.suspensionDamping * 0.8);
-      controller.setWheelSuspensionRelaxation(i, wheel.suspensionDamping);
-      controller.setWheelMaxSuspensionForce(i, wheel.maxSuspensionForce ?? 12000);
+    if (body && (typeof body.isValid !== 'function' || body.isValid())) {
+      setupController(body);
     }
 
-    vehicleControllerRef.current = controller;
-
     return () => {
-      world.removeVehicleController(controller);
-      vehicleControllerRef.current = null;
+      disposeController();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config]);
+  }, [config, levelPreset.id]);
 
   // Frame update: apply forces, read state
   useFrame((_, delta) => {
-    if (useGameStore.getState().gameState !== 'playing') return;
+    const gameState = useGameStore.getState().gameState;
+    const body = chassisRef.current;
+    if (!body || (typeof body.isValid === 'function' && !body.isValid())) return;
+
+    if (!vehicleControllerRef.current) {
+      setupController(body);
+      if (!vehicleControllerRef.current) return;
+    }
 
     const controller = vehicleControllerRef.current;
-    const body = chassisRef.current;
-    if (!controller || !body) return;
 
     // Settle vehicle physics on ground before dismissing loading screen
     if (!useGameStore.getState().isSceneReady) {
@@ -130,6 +156,54 @@ export function useVehiclePhysics(
       if (settleFramesRef.current >= 15) {
         useGameStore.getState().setSceneReady(true);
       }
+    }
+
+    // --- CHECK PENDING RESET FOR ALL STATES (PLAYING, LOADING, PAUSED, MENU) ---
+    const resetState = useGameStore.getState();
+    const spawnPos = levelPreset.spawnPosition;
+    const spawnRotY = levelPreset.spawnRotationY;
+    const fallResetY = levelPreset.fallResetY;
+    const currentBodyPos = body.translation();
+
+    if (currentBodyPos.y < fallResetY || resetState.pendingReset) {
+      body.setTranslation({ x: spawnPos[0], y: spawnPos[1], z: spawnPos[2] }, true);
+
+      _spawnEuler.set(0, spawnRotY, 0);
+      _spawnQuat.setFromEuler(_spawnEuler);
+      body.setRotation({ x: _spawnQuat.x, y: _spawnQuat.y, z: _spawnQuat.z, w: _spawnQuat.w }, true);
+
+      body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+
+      currentRpmRef.current = 1000;
+      isAirborneRef.current = false;
+      settleFramesRef.current = 0;
+
+      emitGameEvent('vehicle_reset', {
+        reason: currentBodyPos.y < fallResetY ? 'out_of_bounds' : 'manual',
+      });
+
+      if (resetState.pendingReset) {
+        resetState.triggerReset(false);
+      }
+
+      if (resetState.gameMode === 'timeattack' && gameState === 'playing') {
+        useRacingStore.getState().startCountdown();
+      }
+    }
+
+    if (gameState !== 'playing') {
+      // In menu, title, loading, or paused states:
+      // Apply parking brake on all wheels so the vehicle remains firmly stationary
+      for (let i = 0; i < config.wheels.length; i++) {
+        controller.setWheelBrake(i, 3000);
+        controller.setWheelEngineForce(i, 0);
+      }
+      // Update vehicle controller raycasts so suspension settles onto terrain
+      controller.updateVehicle(delta);
+      // Synchronize visual wheel positions so wheels attach to arches and touch the ground
+      syncWheelVisuals(controller, wheelRefs, config, 0, delta, 1000, 1);
+      return;
     }
 
     const dt = Math.min(delta, MAX_DELTA);
@@ -304,15 +378,10 @@ export function useVehiclePhysics(
 
     useGameStore.setState(_telemetryState);
 
-    // --- 8. CHECK RESET STATE ---
-    const resetState = useGameStore.getState();
-    const spawnPos = levelPreset.spawnPosition;
-    const spawnRotY = levelPreset.spawnRotationY;
-    const fallResetY = levelPreset.fallResetY;
-
-    if (pos.y < fallResetY || input.reset || resetState.pendingReset) {
+    // --- 8. CHECK MANUAL RESET (KEYBOARD 'R' OR GAMEPAD BUTTON) ---
+    if (input.reset) {
       body.setTranslation({ x: spawnPos[0], y: spawnPos[1], z: spawnPos[2] }, true);
-      
+
       _spawnEuler.set(0, spawnRotY, 0);
       _spawnQuat.setFromEuler(_spawnEuler);
       body.setRotation({ x: _spawnQuat.x, y: _spawnQuat.y, z: _spawnQuat.z, w: _spawnQuat.w }, true);
@@ -322,14 +391,11 @@ export function useVehiclePhysics(
 
       currentRpmRef.current = 1000;
       isAirborneRef.current = false;
+      settleFramesRef.current = 0;
 
       emitGameEvent('vehicle_reset', {
-        reason: pos.y < fallResetY ? 'out_of_bounds' : 'manual',
+        reason: 'manual',
       });
-
-      if (resetState.pendingReset) {
-        resetState.triggerReset(false);
-      }
 
       if (resetState.gameMode === 'timeattack') {
         useRacingStore.getState().startCountdown();

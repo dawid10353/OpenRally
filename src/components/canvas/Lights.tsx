@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { DirectionalLight, Object3D, PCFShadowMap, PCFSoftShadowMap } from 'three';
+import { DirectionalLight, Object3D, PCFShadowMap } from 'three';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useGameStore } from '@/store/gameStore';
 import { LIGHTING_CONFIG, SKY_CONFIG } from '@/config/environment';
@@ -23,13 +23,13 @@ export function Lights() {
 
   const isMobile = isMobileDevice();
 
-  // Enforce hardware-accelerated PCF shadows on mobile and soft shadows on desktop
+  // Enforce hardware-accelerated PCF shadows across all platforms (never deprecated PCFSoftShadowMap)
   useEffect(() => {
     if (gl.shadowMap) {
-      gl.shadowMap.type = isMobile ? PCFShadowMap : PCFSoftShadowMap;
+      gl.shadowMap.type = PCFShadowMap;
       gl.shadowMap.needsUpdate = true;
     }
-  }, [gl, isMobile]);
+  }, [gl, shadowsEnabled, graphicsQuality]);
   const levelPreset = getLevelPreset(selectedLevelId);
   const sunPos = levelPreset.environment?.sky?.sunPosition ?? SKY_CONFIG.sunPosition;
 
@@ -49,23 +49,33 @@ export function Lights() {
         ? LIGHTING_CONFIG.directional.shadowCameraRange * 1.3
         : LIGHTING_CONFIG.directional.shadowCameraRange);
 
-  const shadowCameraNear = isMobile ? 5 : LIGHTING_CONFIG.directional.shadowCameraNear;
-  const shadowCameraFar = isMobile ? 180 : LIGHTING_CONFIG.directional.shadowCameraFar;
+  const shadowCameraNear = LIGHTING_CONFIG.directional.shadowCameraNear;
+  const shadowCameraFar = LIGHTING_CONFIG.directional.shadowCameraFar;
   const shadowBias = isMobile ? -0.0002 : LIGHTING_CONFIG.directional.shadowBias;
   const shadowNormalBias = isMobile ? 0.025 : LIGHTING_CONFIG.directional.shadowNormalBias;
 
-  // Safely adjust shadow map render target size and lifecycle without nulling out active targets
+  // Safely adjust shadow map render target size without destroying internal depth target references
   useEffect(() => {
-    if (lightRef.current?.shadow?.map) {
-      if (!shadowsEnabled) {
-        lightRef.current.shadow.map.dispose();
-        lightRef.current.shadow.map = null;
-      } else {
-        lightRef.current.shadow.map.setSize(shadowMapSize, shadowMapSize);
-        lightRef.current.shadow.needsUpdate = true;
-      }
+    if (lightRef.current?.shadow?.map && shadowsEnabled) {
+      lightRef.current.shadow.map.setSize(shadowMapSize, shadowMapSize);
+      lightRef.current.shadow.needsUpdate = true;
     }
   }, [shadowMapSize, shadowsEnabled]);
+
+  // Clean up shadow map textures deterministically on unmount
+  useEffect(() => {
+    return () => {
+      const shadow = lightRef.current?.shadow;
+      if (shadow?.map) {
+        if (shadow.map.depthTexture) {
+          shadow.map.depthTexture.dispose();
+          shadow.map.depthTexture = null;
+        }
+        shadow.map.dispose();
+        shadow.map = null;
+      }
+    };
+  }, []);
 
   // Ensure directional shadow camera projection matrix updates when frustum parameters change
   useEffect(() => {
@@ -89,6 +99,27 @@ export function Lights() {
         camPos.z + sunPos[2]
       );
       lightRef.current.updateMatrixWorld();
+
+      // Synchronize shadow camera frustum bounds and projection matrix
+      const shadowCam = lightRef.current.shadow?.camera;
+      if (shadowCam) {
+        if (
+          shadowCam.left !== -shadowRange ||
+          shadowCam.right !== shadowRange ||
+          shadowCam.top !== shadowRange ||
+          shadowCam.bottom !== -shadowRange ||
+          shadowCam.near !== shadowCameraNear ||
+          shadowCam.far !== shadowCameraFar
+        ) {
+          shadowCam.left = -shadowRange;
+          shadowCam.right = shadowRange;
+          shadowCam.top = shadowRange;
+          shadowCam.bottom = -shadowRange;
+          shadowCam.near = shadowCameraNear;
+          shadowCam.far = shadowCameraFar;
+          shadowCam.updateProjectionMatrix();
+        }
+      }
     }
   });
 

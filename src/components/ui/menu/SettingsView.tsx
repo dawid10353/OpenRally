@@ -10,7 +10,8 @@ import type {
 } from '@/types';
 import { useSettingsStore } from '@/store/settingsStore';
 import { menuStyles, getFocusStyle } from './menuStyles';
-import type { MenuView, ResetConfirmState } from './types';
+import type { ControlsTab, MenuView, ResetConfirmState } from './types';
+import { ControlsView } from './ControlsView';
 
 interface SettingsViewProps {
   graphicsQuality: GraphicsQuality;
@@ -29,6 +30,11 @@ interface SettingsViewProps {
   resetConfirmState: ResetConfirmState;
   focusedIndex: number;
   textColor: string;
+  gamepadConnected?: boolean;
+  gamepadName?: string;
+  gamepadType?: 'xbox' | 'dualsense' | 'generic' | null;
+  controlsTab?: ControlsTab;
+  onSetControlsTab?: (tab: ControlsTab) => void;
   onPointerMoveItem: (index: number, e: React.PointerEvent) => void;
   onSetGraphicsQuality: (quality: GraphicsQuality) => void;
   onSetTargetFps: (fps: TargetFps) => void;
@@ -47,7 +53,7 @@ interface SettingsViewProps {
   onSelectView: (view: MenuView) => void;
 }
 
-export type SettingsCategory = 'graphics' | 'audio' | 'touch' | 'gameplay';
+export type SettingsCategory = 'graphics' | 'audio' | 'controls' | 'touch' | 'gameplay';
 
 export function SettingsView({
   graphicsQuality,
@@ -66,6 +72,11 @@ export function SettingsView({
   resetConfirmState,
   focusedIndex,
   textColor,
+  gamepadConnected = false,
+  gamepadName = '',
+  gamepadType = null,
+  controlsTab = 'dualsense',
+  onSetControlsTab,
   onPointerMoveItem,
   onSetGraphicsQuality,
   onSetTargetFps,
@@ -136,8 +147,8 @@ export function SettingsView({
     >
       <h2 style={menuStyles.subViewTitle}>Options & Settings</h2>
 
-      {/* 4 Categorized Horizontal Tabs */}
-      <div style={{ display: 'flex', gap: '6px', width: '100%', marginBottom: '10px' }}>
+      {/* 5 Categorized Horizontal Tabs */}
+      <div style={{ display: 'flex', gap: '6px', width: '100%', marginBottom: '10px', flexWrap: 'wrap' }}>
         <button
           type="button"
           style={{
@@ -171,6 +182,19 @@ export function SettingsView({
             minHeight: '44px',
             fontSize: '12px',
             fontWeight: 700,
+            ...(activeCategory === 'controls' ? menuStyles.activeTabButton : {}),
+          }}
+          onClick={() => setActiveCategory('controls')}
+        >
+          Controls
+        </button>
+        <button
+          type="button"
+          style={{
+            ...menuStyles.tabButton,
+            minHeight: '44px',
+            fontSize: '12px',
+            fontWeight: 700,
             ...(activeCategory === 'touch' ? menuStyles.activeTabButton : {}),
           }}
           onClick={() => setActiveCategory('touch')}
@@ -194,6 +218,21 @@ export function SettingsView({
 
       {/* Active Tab Content Container */}
       <div className="settings-options-grid" style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+        {/* TAB: CONTROLS */}
+        {activeCategory === 'controls' && (
+          <ControlsView
+            hideTitleAndBack={true}
+            gamepadConnected={gamepadConnected}
+            gamepadName={gamepadName}
+            gamepadType={gamepadType}
+            controlsTab={controlsTab}
+            focusedIndex={0}
+            textColor={textColor}
+            onPointerMoveItem={() => {}}
+            onSetControlsTab={onSetControlsTab ?? (() => {})}
+            onSelectView={onSelectView}
+          />
+        )}
         {/* TAB 1: GRAPHICS */}
         {activeCategory === 'graphics' && (
           <>
