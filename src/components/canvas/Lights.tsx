@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
-import { DirectionalLight, Object3D, PCFShadowMap, BasicShadowMap } from 'three';
+import { DirectionalLight, Object3D, PCFShadowMap } from 'three';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useGameStore } from '@/store/gameStore';
 import { LIGHTING_CONFIG, SKY_CONFIG } from '@/config/environment';
@@ -23,26 +23,18 @@ export function Lights() {
 
   const isMobile = isMobileOrAndroid();
 
-  // Configure shadow map type:
-  // - On mobile (Pixel 10 Pro / Mali GPUs): Enforce BasicShadowMap (NearestFilter on DepthTexture).
-  //   LinearFilter on DepthTexture is strictly forbidden by mobile OpenGL ES 3.0 specs and causes
-  //   driver TDR / white screen crash loops.
-  // - On desktop: Use hardware-accelerated PCFShadowMap.
+  // Configure shadow map type: hardware-accelerated PCFShadowMap on desktop
   useEffect(() => {
     if (gl.shadowMap) {
-      gl.shadowMap.type = isMobile ? BasicShadowMap : PCFShadowMap;
+      gl.shadowMap.type = PCFShadowMap;
       gl.shadowMap.needsUpdate = true;
     }
-  }, [gl, isMobile, shadowsEnabled, graphicsQuality]);
+  }, [gl, shadowsEnabled, graphicsQuality]);
   const levelPreset = getLevelPreset(selectedLevelId);
   const sunPos = levelPreset.environment?.sky?.sunPosition ?? SKY_CONFIG.sunPosition;
 
-  // Dynamic shadow map size and range
-  // On mobile (e.g. Pixel 10 Pro), cap shadow map size to 512 to preserve mobile TBDR tile memory
-  // and eliminate GPU watchdog spikes, while providing crisp contact shadows under the vehicle.
-  const shadowMapSize = isMobile
-    ? (graphicsQuality === 'low' ? 256 : 512)
-    : graphicsQuality === 'low'
+  // Dynamic shadow map size and range on desktop
+  const shadowMapSize = graphicsQuality === 'low'
     ? 256
     : graphicsQuality === 'medium'
     ? 512
@@ -50,45 +42,28 @@ export function Lights() {
     ? 1024
     : 2048;
 
-  const shadowRange = isMobile
-    ? (graphicsQuality === 'very_high' ? 45 : 35)
-    : (graphicsQuality === 'very_high'
-        ? LIGHTING_CONFIG.directional.shadowCameraRange * 1.3
-        : LIGHTING_CONFIG.directional.shadowCameraRange);
+  const shadowRange = graphicsQuality === 'very_high'
+    ? LIGHTING_CONFIG.directional.shadowCameraRange * 1.3
+    : LIGHTING_CONFIG.directional.shadowCameraRange;
 
   const shadowCameraNear = LIGHTING_CONFIG.directional.shadowCameraNear;
   const shadowCameraFar = LIGHTING_CONFIG.directional.shadowCameraFar;
-  const shadowBias = isMobile ? -0.0003 : LIGHTING_CONFIG.directional.shadowBias;
-  const shadowNormalBias = isMobile ? 0.03 : LIGHTING_CONFIG.directional.shadowNormalBias;
+  const shadowBias = LIGHTING_CONFIG.directional.shadowBias;
+  const shadowNormalBias = LIGHTING_CONFIG.directional.shadowNormalBias;
 
-  // Safely adjust shadow map render target size without destroying internal depth target references
+  // Adjust shadow map render target size cleanly when quality changes
   useEffect(() => {
-    if (lightRef.current?.shadow?.map && shadowsEnabled) {
+    if (lightRef.current?.shadow?.map && shadowsEnabled && !isMobile) {
       lightRef.current.shadow.map.setSize(shadowMapSize, shadowMapSize);
       lightRef.current.shadow.needsUpdate = true;
     }
-  }, [shadowMapSize, shadowsEnabled]);
-
-  // Clean up shadow map render target and textures deterministically when shadows are disabled
-  useEffect(() => {
-    if (!shadowsEnabled) {
-      const shadow = lightRef.current?.shadow;
-      const map = shadow?.map;
-      if (shadow && map) {
-        if (map.depthTexture) {
-          map.depthTexture.dispose();
-          map.depthTexture = null;
-        }
-        map.dispose();
-        shadow.map = null;
-      }
-    }
-  }, [shadowsEnabled]);
+  }, [shadowMapSize, shadowsEnabled, isMobile]);
 
   // Clean up shadow map textures deterministically on unmount
   useEffect(() => {
+    const light = lightRef.current;
     return () => {
-      const shadow = lightRef.current?.shadow;
+      const shadow = light?.shadow;
       if (shadow?.map) {
         if (shadow.map.depthTexture) {
           shadow.map.depthTexture.dispose();
@@ -163,7 +138,7 @@ export function Lights() {
         target={targetRef.current}
         intensity={LIGHTING_CONFIG.directional.intensity}
         color={LIGHTING_CONFIG.directional.color}
-        castShadow={shadowsEnabled && graphicsQuality !== 'low'}
+        castShadow={!isMobile && shadowsEnabled && graphicsQuality !== 'low'}
         shadow-mapSize-width={shadowMapSize}
         shadow-mapSize-height={shadowMapSize}
         shadow-camera-left={-shadowRange}

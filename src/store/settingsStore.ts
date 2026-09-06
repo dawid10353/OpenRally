@@ -96,7 +96,7 @@ export function loadSettingsFromStorage(isAndroidDevice: boolean = isMobileOrAnd
       validated.resolutionScale = parsed.resolutionScale;
     }
     if (typeof parsed.shadowsEnabled === 'boolean') {
-      validated.shadowsEnabled = parsed.shadowsEnabled;
+      validated.shadowsEnabled = isAndroidDevice ? false : parsed.shadowsEnabled;
     }
     if (typeof parsed.postProcessingEnabled === 'boolean') {
       validated.postProcessingEnabled = parsed.postProcessingEnabled;
@@ -200,6 +200,7 @@ const initialSaved = loadSettingsFromStorage();
 export const useSettingsStore = create<SettingsStore>((set) => ({
   ...defaultSettings,
   ...initialSaved,
+  shadowsEnabled: isMobileOrAndroid() ? false : (initialSaved.shadowsEnabled ?? defaultSettings.shadowsEnabled),
 
   setGraphicsQuality: (graphicsQuality) => {
     let appliedUpdates: Partial<SettingsStore> = {};
@@ -254,6 +255,9 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   },
   toggleShadows: () =>
     set((s) => {
+      if (isMobileOrAndroid()) {
+        return { shadowsEnabled: false };
+      }
       const next = !s.shadowsEnabled;
       saveSettingsToStorage({ shadowsEnabled: next, graphicsConfiguredByUser: true });
       return { shadowsEnabled: next, graphicsConfiguredByUser: true };

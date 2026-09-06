@@ -3,7 +3,7 @@ import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
 import { EffectComposer, Bloom, Vignette, SMAA, ToneMapping } from '@react-three/postprocessing';
 import { ToneMappingMode } from 'postprocessing';
-import { ACESFilmicToneMapping, HalfFloatType, PCFShadowMap, PCFSoftShadowMap, BasicShadowMap } from 'three';
+import { ACESFilmicToneMapping, HalfFloatType, PCFShadowMap } from 'three';
 import { Terrain } from '@/components/terrain/Terrain';
 import { GrassField } from '@/components/terrain/GrassField';
 import { PropsInstancer } from '@/components/terrain/PropsInstancer';
@@ -158,19 +158,19 @@ export function shouldEnableCanvasShadows(
 
 /**
  * Returns the shadow configuration for the Canvas:
- * - false if shadows are disabled or graphics quality is 'low'
- * - 'basic' on mobile / Android (e.g. Google Pixel 10 Pro) to strictly comply with OpenGL ES 3.0 NearestFilter DepthTexture specs
+ * - false on mobile devices to strictly eliminate mobile GPU crashes and white screens (contact shadows used instead)
+ * - false on desktop if shadows are disabled or graphics quality is 'low'
  * - 'percentage' on desktop for hardware-accelerated PCF shadows
  */
 export function getCanvasShadowsType(
   shadowsEnabled: boolean,
   graphicsQuality: string,
   isMobile: boolean = isMobileOrAndroid(),
-): false | 'basic' | 'percentage' {
-  if (!shouldEnableCanvasShadows(shadowsEnabled, graphicsQuality)) {
+): false | 'percentage' {
+  if (isMobile || !shouldEnableCanvasShadows(shadowsEnabled, graphicsQuality)) {
     return false;
   }
-  return isMobile ? 'basic' : 'percentage';
+  return 'percentage';
 }
 
 /**
@@ -263,32 +263,14 @@ export function GameCanvas() {
       }}
       onCreated={({ gl }) => {
         if (gl.shadowMap) {
-          const targetType = isMobile ? BasicShadowMap : PCFShadowMap;
-          gl.shadowMap.type = targetType;
-          let currentType: number = targetType;
-          // Intercept assignments so R3F never resets gl.shadowMap.type to incompatible shadow types
-          Object.defineProperty(gl.shadowMap, 'type', {
-            get: () => currentType,
-            set: (val: number) => {
-              if (isMobile) {
-                // On mobile devices, strictly lock to BasicShadowMap (NearestFilter DepthTexture)
-                // LinearFilter depth sampling violates OpenGL ES 3.0 and crashes Tensor G5 / Mali GPUs
-                currentType = BasicShadowMap;
-              } else {
-                currentType = val === PCFSoftShadowMap ? PCFShadowMap : val;
-              }
-            },
-            configurable: true,
-            enumerable: true,
-          });
+          gl.shadowMap.type = PCFShadowMap;
         }
         const canvas = gl.domElement;
         canvas.addEventListener(
           'webglcontextlost',
           (event) => {
             event.preventDefault();
-            console.warn('[GameCanvas] webglcontextlost handled via preventDefault()');
-            // Prevent crash-loop on mobile by resetting shadows if context loss occurs
+            console.warn('[GameCanvas] webglcontextlost handled gracefully via preventDefault()');
             try {
               const { shadowsEnabled } = useSettingsStore.getState();
               if (shadowsEnabled && isMobile) {
@@ -297,23 +279,6 @@ export function GameCanvas() {
               }
             } catch {
               // Ignore
-            }
-
-            // Automatic recovery from WebGL context loss on mobile:
-            // Prevents permanent white-screen lockup by refreshing the WebGL context cleanly
-            try {
-              if (typeof window !== 'undefined' && isMobile) {
-                const recoveryKey = 'openrally_last_context_loss_time';
-                const lastRecovery = Number(sessionStorage.getItem(recoveryKey) || 0);
-                const now = Date.now();
-                if (now - lastRecovery > 10000) {
-                  sessionStorage.setItem(recoveryKey, String(now));
-                  console.info('[GameCanvas] Auto-reloading to restore WebGL context on mobile');
-                  window.location.reload();
-                }
-              }
-            } catch {
-              // Ignore session storage errors
             }
           },
           false,

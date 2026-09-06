@@ -55,10 +55,10 @@ describe('Graphics Pipeline & Settings Scaling', () => {
   });
 
   describe('getCanvasShadowsType', () => {
-    it('returns "basic" on mobile devices (e.g. Pixel 10 Pro) when shadows are enabled', () => {
-      expect(getCanvasShadowsType(true, 'very_high', true)).toBe('basic');
-      expect(getCanvasShadowsType(true, 'high', true)).toBe('basic');
-      expect(getCanvasShadowsType(true, 'medium', true)).toBe('basic');
+    it('returns false on mobile devices (e.g. Pixel 10 Pro) to protect mobile GPUs from driver crashes', () => {
+      expect(getCanvasShadowsType(true, 'very_high', true)).toBe(false);
+      expect(getCanvasShadowsType(true, 'high', true)).toBe(false);
+      expect(getCanvasShadowsType(true, 'medium', true)).toBe(false);
     });
 
     it('returns "percentage" on desktop devices when shadows are enabled', () => {

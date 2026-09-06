@@ -9,6 +9,7 @@ import type {
   TouchButtonSize,
 } from '@/types';
 import { useSettingsStore } from '@/store/settingsStore';
+import { isMobileOrAndroid } from '@/utils/device';
 import { menuStyles, getFocusStyle } from './menuStyles';
 import type { ControlsTab, MenuView, ResetConfirmState } from './types';
 import { ControlsView } from './ControlsView';
@@ -318,11 +319,19 @@ export function SettingsView({
               style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === shIdx) }}
               onPointerMove={(e) => onPointerMoveItem(shIdx, e)}
             >
-              <span>Real-time Shadows</span>
-              <label style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '48px', minHeight: '44px', cursor: 'pointer' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span>Real-time Shadows</span>
+                {isMobileOrAndroid() && (
+                  <span style={{ fontSize: '11px', color: '#94A3B8', padding: '2px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)' }}>
+                    PC Only (Contact AO Active)
+                  </span>
+                )}
+              </div>
+              <label style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '48px', minHeight: '44px', cursor: isMobileOrAndroid() ? 'not-allowed' : 'pointer', opacity: isMobileOrAndroid() ? 0.5 : 1 }}>
                 <input 
                   type="checkbox" 
-                  checked={shadowsEnabled} 
+                  checked={!isMobileOrAndroid() && shadowsEnabled} 
+                  disabled={isMobileOrAndroid()}
                   onChange={onToggleShadows}
                   style={menuStyles.checkbox}
                 />
