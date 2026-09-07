@@ -62,6 +62,35 @@ export interface SuspensionConfig {
   readonly frontAntiRollBarStiffness: number;
   /** Stiffness of the rear anti-roll bar */
   readonly rearAntiRollBarStiffness: number;
+  /** Optional anti-squat longitudinal stiffness multiplier (default ~32.0) */
+  readonly antiSquatStiffness?: number;
+}
+
+/**
+ * Physical mass distribution and engine placement configuration.
+ */
+export interface WeightDistributionConfig {
+  /**
+   * Proportion of vehicle chassis mass concentrated in the front engine block (0.0 to 1.0).
+   * In front-engine rally cars, typically 0.52 to 0.58.
+   */
+  readonly frontBias: number;
+  /**
+   * Longitudinal Z offset (in meters) of the engine mass center relative to chassis geometric center.
+   * Positive value places the engine ahead of chassis center over/behind the front axle.
+   */
+  readonly engineOffsetZ: number;
+  /**
+   * Vertical Y offset (in meters) of the engine mass center relative to chassis geometric center.
+   * Typically negative (e.g. -0.18m) to reflect a low center of gravity.
+   */
+  readonly engineOffsetY?: number;
+  /**
+   * Longitudinal Z offset (in meters) of the overall vehicle center of mass.
+   * Positive value places CoM slightly ahead of geometric center (e.g. +0.08m)
+   * to provide realistic ~53/47 rally front-engine weight balance.
+   */
+  readonly centerOfMassZ?: number;
 }
 
 /**
@@ -119,6 +148,8 @@ export interface VehicleConfig {
   readonly chassisMass: number;
   /** Chassis dimensions [width, height, length] */
   readonly chassisSize: Vector3Tuple;
+  /** Optional physical mass distribution and engine placement */
+  readonly weightDistribution?: WeightDistributionConfig;
   
   readonly engine: EngineConfig;
   readonly drivetrain: DrivetrainConfig;
@@ -175,6 +206,10 @@ export interface VehiclePreset {
   readonly modelScale?: Vector3Tuple;
   /** Visual offset position [x, y, z] for chassis model */
   readonly modelPositionOffset?: Vector3Tuple;
+  /** Visual rotation offset [x, y, z] in radians for chassis model */
+  readonly modelRotationOffset?: Vector3Tuple;
+  /** Optional custom path to optimized mobile/web GLB model */
+  readonly optimizedModelPath?: string;
   /** Normalized UI stats */
   readonly stats: VehicleStats;
   /** Full physics and dynamics configuration */

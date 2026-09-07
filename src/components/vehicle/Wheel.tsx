@@ -17,7 +17,7 @@ interface WheelProps {
  * The inner group handles spin (X rotation) — animated by the physics hook.
  */
 export const Wheel = forwardRef<Object3D, WheelProps>(function Wheel(
-  { isRightSide = false, position },
+  { isRightSide = false, position, radius = 0.32 },
   ref,
 ) {
   const isMobile = isMobileDevice();
@@ -28,6 +28,9 @@ export const Wheel = forwardRef<Object3D, WheelProps>(function Wheel(
   // Wczytujemy model koła (zoptymalizowany dla urządzeń mobilnych / balanced)
   const { scene } = useGLTF(modelUrl);
 
+  // Dynamiczne skalowanie modelu dopasowane do proporcji koła (surowy promień w GLB to 0.0375m)
+  const visualScale = radius / 0.0375;
+
   return (
     <group ref={ref} position={position}>
       {/* Inner group for spin rotation */}
@@ -36,25 +39,24 @@ export const Wheel = forwardRef<Object3D, WheelProps>(function Wheel(
           {/* LOD 0: Pełny model GLB */}
           <Clone
             object={scene}
-            // Ustawiamy lekko pomniejszoną skalę dopasowaną do nadkoli
-            scale={0.75}
-            // Rotacja poprawiająca ułożenie względem osi
-            rotation={[0, isRightSide ? Math.PI / 2 : -Math.PI / 2, 0]}
+            scale={visualScale}
+            // Wyśrodkowanie piasty na osi [0, 0, 0] oraz rotacja felgi na zewnątrz pojazdu
+            position={[0, -radius, 0]}
+            rotation={[0, isRightSide ? 0 : Math.PI, 0]}
             castShadow
             receiveShadow
           />
           {/* LOD 1: Prosty cylinder (16 segmentów) */}
           <mesh rotation={[0, 0, Math.PI / 2]} scale={1}>
-            <cylinderGeometry args={[0.35, 0.35, 0.3, 16]} />
+            <cylinderGeometry args={[radius, radius, 0.28, 16]} />
             <meshStandardMaterial color="#111" roughness={0.9} />
           </mesh>
           {/* LOD 2: Bardzo uproszczony cylinder (8 segmentów, brak światłocieni) */}
           <mesh rotation={[0, 0, Math.PI / 2]} scale={1}>
-            <cylinderGeometry args={[0.35, 0.35, 0.3, 8]} />
+            <cylinderGeometry args={[radius, radius, 0.28, 8]} />
             <meshBasicMaterial color="#0a0a0a" />
           </mesh>
         </Detailed>
-
       </group>
     </group>
   );

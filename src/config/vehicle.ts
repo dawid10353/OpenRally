@@ -27,6 +27,12 @@ export const MAX_DELTA = 0.05;
 export const DEFAULT_VEHICLE_CONFIG: VehicleConfig = {
   chassisMass: 150,
   chassisSize: [2, 0.6, 4],
+  weightDistribution: {
+    frontBias: 0.53,
+    engineOffsetZ: 0.80,
+    engineOffsetY: -0.18,
+    centerOfMassZ: 0.08,
+  },
   engine: {
     maxForce: 400, // AWD powered
     maxSpeed: 240,
@@ -42,6 +48,7 @@ export const DEFAULT_VEHICLE_CONFIG: VehicleConfig = {
   suspension: {
     frontAntiRollBarStiffness: 14.0, // Balanced ARB prevents understeer and keeps car level
     rearAntiRollBarStiffness: 15.0,
+    antiSquatStiffness: 32.0,
   },
   handling: {
     steeringCurve: [
@@ -53,7 +60,7 @@ export const DEFAULT_VEHICLE_CONFIG: VehicleConfig = {
     ],
     steeringSpeed: 7.5, // Crisp, responsive steering input
     assists: {
-      yawDamping: 0.08, // Dynamic agility assist for satisfying slides without understeer
+      yawDamping: 0.12, // Stable, progressive drift control preventing tank-slappers
       driftGripMultiplier: 0.22,
     },
   },

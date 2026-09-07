@@ -7,3 +7,4 @@ export * from './VegetationInstancer';
 export * from './RocksInstancer';
 export * from './ArchitectureInstancer';
 export * from './TracksidePropsInstancer';
+export * from './GymkhanaPropsInstancer';

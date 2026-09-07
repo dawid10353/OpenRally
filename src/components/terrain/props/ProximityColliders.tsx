@@ -10,6 +10,193 @@ import { useGameStore } from '@/store/gameStore';
 import { isMobileDevice } from '@/utils/device';
 import type { PropItem, ProximityCollidersProps } from './types';
 
+export interface ActiveCollidersState {
+  trees: PropItem[];
+  rocks: PropItem[];
+  cabins: PropItem[];
+  fences: PropItem[];
+  castleTowers: PropItem[];
+  castleWalls: PropItem[];
+  castleGates: PropItem[];
+  castleKeeps: PropItem[];
+  castleArches: PropItem[];
+  stoneWalls: PropItem[];
+  standingStones: PropItem[];
+  highlandCottages: PropItem[];
+  stoneCairns: PropItem[];
+  hayBales: PropItem[];
+  rallySigns: PropItem[];
+  stoneBridges: PropItem[];
+  shippingContainers: PropItem[];
+  driftPylons: PropItem[];
+}
+
+export function createEmptyCollidersState(): ActiveCollidersState {
+  return {
+    trees: [],
+    rocks: [],
+    cabins: [],
+    fences: [],
+    castleTowers: [],
+    castleWalls: [],
+    castleGates: [],
+    castleKeeps: [],
+    castleArches: [],
+    stoneWalls: [],
+    standingStones: [],
+    highlandCottages: [],
+    stoneCairns: [],
+    hayBales: [],
+    rallySigns: [],
+    stoneBridges: [],
+    shippingContainers: [],
+    driftPylons: [],
+  };
+}
+
+export function resetCollidersState(target: ActiveCollidersState): void {
+  target.trees.length = 0;
+  target.rocks.length = 0;
+  target.cabins.length = 0;
+  target.fences.length = 0;
+  target.castleTowers.length = 0;
+  target.castleWalls.length = 0;
+  target.castleGates.length = 0;
+  target.castleKeeps.length = 0;
+  target.castleArches.length = 0;
+  target.stoneWalls.length = 0;
+  target.standingStones.length = 0;
+  target.highlandCottages.length = 0;
+  target.stoneCairns.length = 0;
+  target.hayBales.length = 0;
+  target.rallySigns.length = 0;
+  target.stoneBridges.length = 0;
+  target.shippingContainers.length = 0;
+  target.driftPylons.length = 0;
+}
+
+export function cloneCollidersState(source: ActiveCollidersState): ActiveCollidersState {
+  return {
+    trees: source.trees.slice(),
+    rocks: source.rocks.slice(),
+    cabins: source.cabins.slice(),
+    fences: source.fences.slice(),
+    castleTowers: source.castleTowers.slice(),
+    castleWalls: source.castleWalls.slice(),
+    castleGates: source.castleGates.slice(),
+    castleKeeps: source.castleKeeps.slice(),
+    castleArches: source.castleArches.slice(),
+    stoneWalls: source.stoneWalls.slice(),
+    standingStones: source.standingStones.slice(),
+    highlandCottages: source.highlandCottages.slice(),
+    stoneCairns: source.stoneCairns.slice(),
+    hayBales: source.hayBales.slice(),
+    rallySigns: source.rallySigns.slice(),
+    stoneBridges: source.stoneBridges.slice(),
+    shippingContainers: source.shippingContainers.slice(),
+    driftPylons: source.driftPylons.slice(),
+  };
+}
+
+export function hasPropListChanged(a: readonly PropItem[], b: readonly PropItem[]): boolean {
+  if (a.length !== b.length) return true;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].id !== b[i].id) return true;
+  }
+  return false;
+}
+
+export function hasCollidersStateChanged(
+  prev: ActiveCollidersState,
+  next: ActiveCollidersState,
+): boolean {
+  return (
+    hasPropListChanged(prev.trees, next.trees) ||
+    hasPropListChanged(prev.rocks, next.rocks) ||
+    hasPropListChanged(prev.shippingContainers, next.shippingContainers) ||
+    hasPropListChanged(prev.driftPylons, next.driftPylons) ||
+    hasPropListChanged(prev.cabins, next.cabins) ||
+    hasPropListChanged(prev.fences, next.fences) ||
+    hasPropListChanged(prev.castleTowers, next.castleTowers) ||
+    hasPropListChanged(prev.castleWalls, next.castleWalls) ||
+    hasPropListChanged(prev.castleGates, next.castleGates) ||
+    hasPropListChanged(prev.castleKeeps, next.castleKeeps) ||
+    hasPropListChanged(prev.castleArches, next.castleArches) ||
+    hasPropListChanged(prev.stoneWalls, next.stoneWalls) ||
+    hasPropListChanged(prev.standingStones, next.standingStones) ||
+    hasPropListChanged(prev.highlandCottages, next.highlandCottages) ||
+    hasPropListChanged(prev.stoneCairns, next.stoneCairns) ||
+    hasPropListChanged(prev.hayBales, next.hayBales) ||
+    hasPropListChanged(prev.rallySigns, next.rallySigns) ||
+    hasPropListChanged(prev.stoneBridges, next.stoneBridges)
+  );
+}
+
+export function queryNearbyProps(
+  spatialGrid: Map<string, PropItem[]>,
+  carPos: readonly [number, number, number],
+  queryRadiusSq: number,
+  scratch: ActiveCollidersState,
+): void {
+  resetCollidersState(scratch);
+
+  const CELL_SIZE = 50;
+  const cx = Math.floor(carPos[0] / CELL_SIZE);
+  const cz = Math.floor(carPos[2] / CELL_SIZE);
+
+  for (let ox = -1; ox <= 1; ox++) {
+    for (let oz = -1; oz <= 1; oz++) {
+      const key = `${cx + ox}_${cz + oz}`;
+      const cell = spatialGrid.get(key);
+      if (cell) {
+        for (let i = 0; i < cell.length; i++) {
+          const item = cell[i];
+          const distSq = (item.position[0] - carPos[0]) ** 2 + (item.position[2] - carPos[2]) ** 2;
+          if (distSq < queryRadiusSq) {
+            if (item.type === 'cabin') {
+              scratch.cabins.push(item);
+            } else if (item.type === 'fence') {
+              scratch.fences.push(item);
+            } else if (item.type === 'castle_tower') {
+              scratch.castleTowers.push(item);
+            } else if (item.type === 'castle_wall') {
+              scratch.castleWalls.push(item);
+            } else if (item.type === 'castle_gate') {
+              scratch.castleGates.push(item);
+            } else if (item.type === 'castle_keep') {
+              scratch.castleKeeps.push(item);
+            } else if (item.type === 'castle_arch') {
+              scratch.castleArches.push(item);
+            } else if (item.type === 'stone_wall') {
+              scratch.stoneWalls.push(item);
+            } else if (item.type === 'standing_stone') {
+              scratch.standingStones.push(item);
+            } else if (item.type === 'highland_cottage') {
+              scratch.highlandCottages.push(item);
+            } else if (item.type === 'stone_cairn') {
+              scratch.stoneCairns.push(item);
+            } else if (item.type === 'hay_bale') {
+              scratch.hayBales.push(item);
+            } else if (item.type === 'rally_sign') {
+              scratch.rallySigns.push(item);
+            } else if (item.type === 'stone_bridge') {
+              scratch.stoneBridges.push(item);
+            } else if (item.type === 'shipping_container') {
+              scratch.shippingContainers.push(item);
+            } else if (item.type === 'drift_pylon') {
+              scratch.driftPylons.push(item);
+            } else if (item.type.startsWith('tree')) {
+              scratch.trees.push(item);
+            } else {
+              scratch.rocks.push(item);
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 export function ProximityColliders({
   spatialGrid,
   initialTrees,
@@ -28,26 +215,11 @@ export function ProximityColliders({
   initialHayBales,
   initialRallySigns,
   initialStoneBridges,
+  initialShippingContainers = [],
+  initialDriftPylons = [],
 }: ProximityCollidersProps) {
   const lastCarPosRef = useRef<[number, number]>([-9999, -9999]);
-  const activeCollidersRef = useRef<{
-    trees: PropItem[];
-    rocks: PropItem[];
-    cabins: PropItem[];
-    fences: PropItem[];
-    castleTowers: PropItem[];
-    castleWalls: PropItem[];
-    castleGates: PropItem[];
-    castleKeeps: PropItem[];
-    castleArches: PropItem[];
-    stoneWalls: PropItem[];
-    standingStones: PropItem[];
-    highlandCottages: PropItem[];
-    stoneCairns: PropItem[];
-    hayBales: PropItem[];
-    rallySigns: PropItem[];
-    stoneBridges: PropItem[];
-  }>({
+  const activeCollidersRef = useRef<ActiveCollidersState>({
     trees: initialTrees,
     rocks: initialRocks,
     cabins: initialCabins,
@@ -64,45 +236,13 @@ export function ProximityColliders({
     hayBales: initialHayBales,
     rallySigns: initialRallySigns,
     stoneBridges: initialStoneBridges,
+    shippingContainers: initialShippingContainers,
+    driftPylons: initialDriftPylons,
   });
-  const [activeColliders, setActiveColliders] = useState(activeCollidersRef.current);
+  const [activeColliders, setActiveColliders] = useState<ActiveCollidersState>(activeCollidersRef.current);
   const lastCellKeyRef = useRef('');
 
-  const scratchRef = useRef<{
-    trees: PropItem[];
-    rocks: PropItem[];
-    cabins: PropItem[];
-    fences: PropItem[];
-    castleTowers: PropItem[];
-    castleWalls: PropItem[];
-    castleGates: PropItem[];
-    castleKeeps: PropItem[];
-    castleArches: PropItem[];
-    stoneWalls: PropItem[];
-    standingStones: PropItem[];
-    highlandCottages: PropItem[];
-    stoneCairns: PropItem[];
-    hayBales: PropItem[];
-    rallySigns: PropItem[];
-    stoneBridges: PropItem[];
-  }>({
-    trees: [],
-    rocks: [],
-    cabins: [],
-    fences: [],
-    castleTowers: [],
-    castleWalls: [],
-    castleGates: [],
-    castleKeeps: [],
-    castleArches: [],
-    stoneWalls: [],
-    standingStones: [],
-    highlandCottages: [],
-    stoneCairns: [],
-    hayBales: [],
-    rallySigns: [],
-    stoneBridges: [],
-  });
+  const scratchRef = useRef<ActiveCollidersState>(createEmptyCollidersState());
 
   useFrame(() => {
     const carPos = useGameStore.getState().position;
@@ -123,132 +263,10 @@ export function ProximityColliders({
       lastCarPosRef.current[1] = carPos[2];
       lastCellKeyRef.current = cellKey;
 
-      const sc = scratchRef.current;
-      sc.trees.length = 0;
-      sc.rocks.length = 0;
-      sc.cabins.length = 0;
-      sc.fences.length = 0;
-      sc.castleTowers.length = 0;
-      sc.castleWalls.length = 0;
-      sc.castleGates.length = 0;
-      sc.castleKeeps.length = 0;
-      sc.castleArches.length = 0;
-      sc.stoneWalls.length = 0;
-      sc.standingStones.length = 0;
-      sc.highlandCottages.length = 0;
-      sc.stoneCairns.length = 0;
-      sc.hayBales.length = 0;
-      sc.rallySigns.length = 0;
-      sc.stoneBridges.length = 0;
+      queryNearbyProps(spatialGrid, carPos, queryRadiusSq, scratchRef.current);
 
-      for (let ox = -1; ox <= 1; ox++) {
-        for (let oz = -1; oz <= 1; oz++) {
-          const key = `${cx + ox}_${cz + oz}`;
-          const cell = spatialGrid.get(key);
-          if (cell) {
-            for (let i = 0; i < cell.length; i++) {
-              const item = cell[i];
-              const distSq = (item.position[0] - carPos[0]) ** 2 + (item.position[2] - carPos[2]) ** 2;
-              if (distSq < queryRadiusSq) {
-                if (item.type === 'cabin') {
-                  sc.cabins.push(item);
-                } else if (item.type === 'fence') {
-                  sc.fences.push(item);
-                } else if (item.type === 'castle_tower') {
-                  sc.castleTowers.push(item);
-                } else if (item.type === 'castle_wall') {
-                  sc.castleWalls.push(item);
-                } else if (item.type === 'castle_gate') {
-                  sc.castleGates.push(item);
-                } else if (item.type === 'castle_keep') {
-                  sc.castleKeeps.push(item);
-                } else if (item.type === 'castle_arch') {
-                  sc.castleArches.push(item);
-                } else if (item.type === 'stone_wall') {
-                  sc.stoneWalls.push(item);
-                } else if (item.type === 'standing_stone') {
-                  sc.standingStones.push(item);
-                } else if (item.type === 'highland_cottage') {
-                  sc.highlandCottages.push(item);
-                } else if (item.type === 'stone_cairn') {
-                  sc.stoneCairns.push(item);
-                } else if (item.type === 'hay_bale') {
-                  sc.hayBales.push(item);
-                } else if (item.type === 'rally_sign') {
-                  sc.rallySigns.push(item);
-                } else if (item.type === 'stone_bridge') {
-                  sc.stoneBridges.push(item);
-                } else if (item.type.startsWith('tree')) {
-                  sc.trees.push(item);
-                } else {
-                  sc.rocks.push(item);
-                }
-              }
-            }
-          }
-        }
-      }
-
-      const nearbyTrees = sc.trees;
-      const nearbyRocks = sc.rocks;
-      const nearbyCabins = sc.cabins;
-      const nearbyFences = sc.fences;
-      const nearbyCastleTowers = sc.castleTowers;
-      const nearbyCastleWalls = sc.castleWalls;
-      const nearbyCastleGates = sc.castleGates;
-      const nearbyCastleKeeps = sc.castleKeeps;
-      const nearbyCastleArches = sc.castleArches;
-      const nearbyStoneWalls = sc.stoneWalls;
-      const nearbyStandingStones = sc.standingStones;
-      const nearbyHighlandCottages = sc.highlandCottages;
-      const nearbyStoneCairns = sc.stoneCairns;
-      const nearbyHayBales = sc.hayBales;
-      const nearbyRallySigns = sc.rallySigns;
-      const nearbyStoneBridges = sc.stoneBridges;
-
-      const prev = activeCollidersRef.current;
-      const countChanged =
-        prev.trees.length !== nearbyTrees.length ||
-        prev.rocks.length !== nearbyRocks.length ||
-        prev.cabins.length !== nearbyCabins.length ||
-        prev.fences.length !== nearbyFences.length ||
-        prev.castleTowers.length !== nearbyCastleTowers.length ||
-        prev.castleWalls.length !== nearbyCastleWalls.length ||
-        prev.castleGates.length !== nearbyCastleGates.length ||
-        prev.castleKeeps.length !== nearbyCastleKeeps.length ||
-        prev.castleArches.length !== nearbyCastleArches.length ||
-        prev.stoneWalls.length !== nearbyStoneWalls.length ||
-        prev.standingStones.length !== nearbyStandingStones.length ||
-        prev.highlandCottages.length !== nearbyHighlandCottages.length ||
-        prev.stoneCairns.length !== nearbyStoneCairns.length ||
-        prev.hayBales.length !== nearbyHayBales.length ||
-        prev.rallySigns.length !== nearbyRallySigns.length ||
-        prev.stoneBridges.length !== nearbyStoneBridges.length;
-
-      let changed = countChanged;
-      if (!changed && nearbyTrees.length > 0 && nearbyTrees[0].id !== prev.trees[0]?.id) {
-        changed = true;
-      }
-
-      if (changed) {
-        const nextColliders = {
-          trees: nearbyTrees.slice(),
-          rocks: nearbyRocks.slice(),
-          cabins: nearbyCabins.slice(),
-          fences: nearbyFences.slice(),
-          castleTowers: nearbyCastleTowers.slice(),
-          castleWalls: nearbyCastleWalls.slice(),
-          castleGates: nearbyCastleGates.slice(),
-          castleKeeps: nearbyCastleKeeps.slice(),
-          castleArches: nearbyCastleArches.slice(),
-          stoneWalls: nearbyStoneWalls.slice(),
-          standingStones: nearbyStandingStones.slice(),
-          highlandCottages: nearbyHighlandCottages.slice(),
-          stoneCairns: nearbyStoneCairns.slice(),
-          hayBales: nearbyHayBales.slice(),
-          rallySigns: nearbyRallySigns.slice(),
-          stoneBridges: nearbyStoneBridges.slice(),
-        };
+      if (hasCollidersStateChanged(activeCollidersRef.current, scratchRef.current)) {
+        const nextColliders = cloneCollidersState(scratchRef.current);
         activeCollidersRef.current = nextColliders;
         setActiveColliders(nextColliders);
       }
@@ -458,6 +476,26 @@ export function ProximityColliders({
           position={[sb.position[0], sb.position[1] + 0.5 * sb.scale[1], sb.position[2]]}
           rotation={sb.rotation}
           friction={0.9}
+          restitution={0.05}
+        />
+      ))}
+      {activeColliders.shippingContainers.map((sc) => (
+        <CuboidCollider
+          key={sc.id}
+          args={[1.22 * sc.scale[0], 1.3 * sc.scale[1], 3.0 * sc.scale[2]]}
+          position={[sc.position[0], sc.position[1] + 1.3 * sc.scale[1], sc.position[2]]}
+          rotation={sc.rotation}
+          friction={0.8}
+          restitution={0.05}
+        />
+      ))}
+      {activeColliders.driftPylons.map((dp) => (
+        <CylinderCollider
+          key={dp.id}
+          args={[0.7 * dp.scale[1], 0.44 * dp.scale[0]]}
+          position={[dp.position[0], dp.position[1] + 0.7 * dp.scale[1], dp.position[2]]}
+          rotation={dp.rotation}
+          friction={0.8}
           restitution={0.05}
         />
       ))}

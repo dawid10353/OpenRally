@@ -56,6 +56,25 @@ export function validateVehicleConfig(config: VehicleConfig): ValidationResult {
   if (!config.suspension || config.suspension.rearAntiRollBarStiffness < 0) {
     errors.push(`Invalid suspension.rearAntiRollBarStiffness. Must be >= 0.`);
   }
+  if (config.suspension && config.suspension.antiSquatStiffness !== undefined && config.suspension.antiSquatStiffness < 0) {
+    errors.push(`Invalid suspension.antiSquatStiffness: ${config.suspension.antiSquatStiffness}. Must be >= 0.`);
+  }
+
+  // Weight distribution checks (optional)
+  if (config.weightDistribution) {
+    if (typeof config.weightDistribution.frontBias !== 'number' || config.weightDistribution.frontBias <= 0 || config.weightDistribution.frontBias >= 1) {
+      errors.push(`Invalid weightDistribution.frontBias: ${config.weightDistribution.frontBias}. Must be between 0.0 and 1.0.`);
+    }
+    if (typeof config.weightDistribution.engineOffsetZ !== 'number' || isNaN(config.weightDistribution.engineOffsetZ)) {
+      errors.push(`Invalid weightDistribution.engineOffsetZ. Must be a valid number.`);
+    }
+    if (config.weightDistribution.engineOffsetY !== undefined && (typeof config.weightDistribution.engineOffsetY !== 'number' || isNaN(config.weightDistribution.engineOffsetY))) {
+      errors.push(`Invalid weightDistribution.engineOffsetY. Must be a valid number.`);
+    }
+    if (config.weightDistribution.centerOfMassZ !== undefined && (typeof config.weightDistribution.centerOfMassZ !== 'number' || isNaN(config.weightDistribution.centerOfMassZ))) {
+      errors.push(`Invalid weightDistribution.centerOfMassZ. Must be a valid number.`);
+    }
+  }
 
   // Handling & Steering checks
   if (!config.handling || !Array.isArray(config.handling.steeringCurve) || config.handling.steeringCurve.length < 2) {

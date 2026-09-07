@@ -138,8 +138,8 @@ export function Checkpoints() {
     }
   });
 
-  // In Free Roam mode, no gates or gantries are rendered
-  if (gameMode === 'freeroam') {
+  // Checkpoints, gates, and gantries are only rendered in Time Attack mode
+  if (gameMode !== 'timeattack') {
     return null;
   }
 

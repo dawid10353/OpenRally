@@ -71,15 +71,35 @@ export function applyPitchStabilization(
 
   // Compression delta: > 0 means nose is dipping (dive), < 0 means tail is squatting (squat)
   const pitchCompressionDelta = frontCompression - rearCompression;
-  const pitchStiffness = 38.0;
-  const pitchRestoringTorque = -pitchCompressionDelta * pitchStiffness;
+  
+  const mass = typeof body.mass === 'function' ? body.mass() : (config.chassisMass || 150);
+  const baseAntiSquatStiffness = config.suspension?.antiSquatStiffness ?? 24.0;
+
+  // In Three.js / Rapier right-handed system (+X Right, +Y Up, +Z Forward):
+  // Positive torque around X tilts nose DOWN towards the road.
+  // Negative torque around X tilts nose UP towards the sky.
+  // When tail squats (pitchCompressionDelta < 0), we need POSITIVE torque to push nose DOWN.
+  // When nose dives (pitchCompressionDelta > 0), we need NEGATIVE torque to push nose UP.
+  const squatMultiplier = pitchCompressionDelta < 0 ? 2.5 : 1.5;
+  const pitchStiffness = baseAntiSquatStiffness * mass * squatMultiplier;
+  let pitchRestoringTorque = -pitchCompressionDelta * pitchStiffness;
+
+  // Extra anti-wheelie progressive clamping:
+  // If front suspension has unweighted towards full extension while rear is compressed,
+  // apply positive restoring torque to firmly plant the front wheels down.
+  if (frontCompression < 0.04 && rearCompression > 0.03) {
+    const unweightedSeverity = Math.min(1.0, Math.max(0, (0.04 - frontCompression) / 0.04));
+    pitchRestoringTorque += unweightedSeverity * mass * 25.0; // Positive torque pushes nose down
+  }
 
   // Angular pitch rate damping (around chassis local X axis)
+  // When nose pitches UP, localAngvel.x is negative.
+  // -localAngvel.x is positive, applying positive torque to push nose down and oppose pitch-up.
   const angvel = typeof body.angvel === 'function' ? body.angvel() : { x: 0, y: 0, z: 0 };
   _angvel.set(angvel.x, angvel.y, angvel.z);
   _invQuat.copy(_bodyQuat).invert();
   _localAngvel.copy(_angvel).applyQuaternion(_invQuat);
-  const pitchDamping = -_localAngvel.x * 22.0;
+  const pitchDamping = -_localAngvel.x * mass * 4.0;
 
   // Apply restoring pitch torque in world space
   const totalPitchTorque = (pitchRestoringTorque + pitchDamping) * dt;

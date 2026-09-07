@@ -87,4 +87,20 @@ describe('assists physics', () => {
     // Countersteer should generate strong positive torque to catch the slide
     expect(sumYaw).toBeGreaterThan(0);
   });
+
+  it('applies strong anti-wheelie restoring torque when throttle is applied with nose pitching up', () => {
+    // Car nose pointing upwards (e.g. pitch rotation around X) under full throttle
+    // Quaternion representing nose-up pitch (around X axis):
+    // rotating by -0.1 rad around X produces positive forwardVec.y
+    const q = { x: -0.05, y: 0, z: 0, w: 0.9987 };
+    const body = createMockBody({ rotation: q, angvel: { x: 0, y: 0, z: 0 } });
+
+    applyAssists(body, DEFAULT_VEHICLE_CONFIG, { ...baseInput, throttle: 1 }, 10, 0.016);
+
+    expect(body.applyTorqueImpulse).toHaveBeenCalled();
+    const pitchTorques = body.appliedTorques.map((t) => t.x);
+    const sumPitch = pitchTorques.reduce((a, b) => a + b, 0);
+    // Positive torque around X pulls the nose back down
+    expect(sumPitch).toBeGreaterThan(0);
+  });
 });

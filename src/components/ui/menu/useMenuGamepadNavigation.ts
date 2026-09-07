@@ -2,9 +2,9 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { sampleGamepad } from '@/utils/input/gamepad';
-import { getAvailableLevels } from '@/config/levelRegistry';
+import { getAvailableLevels, getLevelPreset } from '@/config/levelRegistry';
 import { getAvailableVehicles } from '@/config/vehicleRegistry';
-import type { GraphicsQuality, AntiAliasingMode } from '@/types';
+import type { GraphicsQuality, AntiAliasingMode, GameMode } from '@/types';
 import type { MenuView, ControlsTab, ResetConfirmState } from './types';
 
 export interface MenuNavigationOptions {
@@ -17,7 +17,7 @@ export interface MenuNavigationOptions {
   readonly setFocusedIndex: (idx: number) => void;
   readonly setPreviewVehicleId: (id: string) => void;
   readonly setControlsTab: (tab: ControlsTab) => void;
-  readonly handleLaunchMode: (mode: 'freeroam' | 'timeattack') => void;
+  readonly handleLaunchMode: (mode: GameMode) => void;
   readonly handleStartRace?: (vehicleId: string) => void;
   readonly handleReset: () => void;
   readonly handleSelectTrack: (levelId: string) => void;
@@ -67,7 +67,12 @@ export function useMenuGamepadNavigation({
       return useGameStore.getState().gameState === 'paused' ? 4 : 4;
     }
     if (curView === 'tracks') return availableLevels.length + 1;
-    if (curView === 'start_mode') return 3;
+    if (curView === 'start_mode') {
+      const selectedLevelId = useGameStore.getState().selectedLevelId;
+      const currentLevelPreset = getLevelPreset(selectedLevelId);
+      const modes = currentLevelPreset.supportedModes ?? ['freeroam', 'timeattack'];
+      return modes.length + 1;
+    }
     if (curView === 'garage') return 2;
     if (curView === 'multiplayer') return 1;
     if (curView === 'options') {
@@ -219,9 +224,14 @@ export function useMenuGamepadNavigation({
         setView('main');
       }
     } else if (curView === 'start_mode') {
-      if (curIdx === 0) handleLaunchMode('freeroam');
-      else if (curIdx === 1) handleLaunchMode('timeattack');
-      else if (curIdx === 2) setView('tracks');
+      const selectedLevelId = useGameStore.getState().selectedLevelId;
+      const currentLevelPreset = getLevelPreset(selectedLevelId);
+      const modes = currentLevelPreset.supportedModes ?? ['freeroam', 'timeattack'];
+      if (curIdx < modes.length) {
+        handleLaunchMode(modes[curIdx]);
+      } else {
+        setView('tracks');
+      }
     } else if (curView === 'garage') {
       if (curIdx === 0) {
         if (handleStartRace) {

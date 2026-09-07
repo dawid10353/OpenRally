@@ -1,4 +1,5 @@
 import type { TrackConfig } from './terrain';
+import type { GameMode } from './game';
 
 /**
  * Prop archetypes for realistic environmental scattering.
@@ -23,7 +24,9 @@ export type PropType =
   | 'stone_bridge'
   | 'stone_cairn'
   | 'hay_bale'
-  | 'rally_sign';
+  | 'rally_sign'
+  | 'shipping_container'
+  | 'drift_pylon';
 
 /**
  * Represents a single instance of a prop (tree, rock) in the level.
@@ -93,6 +96,8 @@ export interface LevelPreset {
   readonly difficulty: 'easy' | 'medium' | 'hard';
   /** Primary surface type description for UI */
   readonly surfaceDescription: string;
+  /** Allowed game modes for this level (defaults to ['freeroam', 'timeattack'] if omitted) */
+  readonly supportedModes?: readonly GameMode[];
   /** Underlying terrain, track, and props dataset */
   readonly data: LevelData;
   /** Vehicle spawn coordinates [x, y, z] */

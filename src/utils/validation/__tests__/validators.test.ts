@@ -52,6 +52,22 @@ describe('Runtime Validators', () => {
       expect(res.valid).toBe(false);
       expect(res.errors.some((e) => e.includes('sorted strictly ascending'))).toBe(true);
     });
+
+    it('catches invalid weightDistribution parameters', () => {
+      const badWeightConfig = {
+        ...DEFAULT_VEHICLE_CONFIG,
+        weightDistribution: {
+          frontBias: 1.5, // > 1.0 invalid
+          engineOffsetZ: NaN,
+          centerOfMassZ: NaN,
+        },
+      };
+      const res = validateVehicleConfig(badWeightConfig);
+      expect(res.valid).toBe(false);
+      expect(res.errors.some((e) => e.includes('weightDistribution.frontBias'))).toBe(true);
+      expect(res.errors.some((e) => e.includes('weightDistribution.engineOffsetZ'))).toBe(true);
+      expect(res.errors.some((e) => e.includes('weightDistribution.centerOfMassZ'))).toBe(true);
+    });
   });
 
   describe('validateLevelData', () => {

@@ -330,3 +330,85 @@ export function createStoneBridgeGeometry(): BufferGeometry {
   const merged = BufferGeometryUtils.mergeGeometries(parts);
   return merged;
 }
+
+/**
+ * Creates an industrial ISO shipping freight container with corrugated panels and corner castings.
+ */
+export function createShippingContainerGeometry(): BufferGeometry {
+  const parts: BufferGeometry[] = [];
+
+  // Main container body (Width: 2.44m, Height: 2.6m, Length: 6.0m, deep anchor down to -0.4m)
+  const body = new BoxGeometry(2.44, 3.0, 6.0);
+  body.translate(0, 1.1, 0);
+  const uvs = body.attributes.uv;
+  for (let i = 0; i < uvs.count; i++) {
+    uvs.setXY(i, uvs.getX(i) * 2.0, uvs.getY(i) * 2.0);
+  }
+  parts.push(body);
+
+  // Corner structural posts
+  const postCorners = [
+    [-1.15, -2.9],
+    [1.15, -2.9],
+    [-1.15, 2.9],
+    [1.15, 2.9],
+  ];
+  for (const [px, pz] of postCorners) {
+    const post = new BoxGeometry(0.18, 3.05, 0.18);
+    post.translate(px, 1.1, pz);
+    parts.push(post);
+
+    // Top corner castings
+    const castingTop = new BoxGeometry(0.24, 0.22, 0.24);
+    castingTop.translate(px, 2.65, pz);
+    parts.push(castingTop);
+  }
+
+  // End door lock rods and horizontal stiffeners
+  const rodL = new CylinderGeometry(0.03, 0.03, 2.5, 8);
+  rodL.translate(-0.35, 1.3, 3.02);
+  parts.push(rodL);
+
+  const rodR = new CylinderGeometry(0.03, 0.03, 2.5, 8);
+  rodR.translate(0.35, 1.3, 3.02);
+  parts.push(rodR);
+
+  const merged = BufferGeometryUtils.mergeGeometries(parts);
+  return merged;
+}
+
+/**
+ * Creates a high-visibility industrial Gymkhana drift pylon / bollard with reflective stripe bands.
+ */
+export function createDriftPylonGeometry(): BufferGeometry {
+  const parts: BufferGeometry[] = [];
+
+  // Heavy rubber weighted baseplate
+  const base = new BoxGeometry(1.0, 0.15, 1.0);
+  base.translate(0, 0.075, 0);
+  parts.push(base);
+
+  // Deep anchor post
+  const anchor = new CylinderGeometry(0.3, 0.3, 0.8, 12);
+  anchor.translate(0, -0.4, 0);
+  parts.push(anchor);
+
+  // Conical main barrel (Radius 0.32m top, 0.44m bottom, Height 1.4m)
+  const cone = new CylinderGeometry(0.32, 0.44, 1.4, 16, 1);
+  cone.translate(0, 0.77, 0);
+  parts.push(cone);
+
+  // Upper high-visibility reflective stripe collar
+  const stripe = new CylinderGeometry(0.35, 0.38, 0.32, 16, 1);
+  stripe.translate(0, 0.95, 0);
+  parts.push(stripe);
+
+  // Lower reflective collar
+  const stripeLow = new CylinderGeometry(0.39, 0.42, 0.28, 16, 1);
+  stripeLow.translate(0, 0.52, 0);
+  parts.push(stripeLow);
+
+  const merged = BufferGeometryUtils.mergeGeometries(parts);
+  return merged;
+}
+

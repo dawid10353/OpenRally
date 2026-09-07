@@ -3,7 +3,8 @@ import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { TelemetryHUD } from './TelemetryHUD';
 import { Minimap } from './Minimap';
-import { AnalogGauges, TimingBoard } from './gauges';
+import { AnalogGauges, TimingBoard, GymkhanaBoard } from './gauges';
+import { GymkhanaCompleteModal } from './GymkhanaCompleteModal';
 
 /**
  * Rally HUD overlay — authentic twin-gauge rally cluster (analog Speedometer & Tachometer),
@@ -60,8 +61,14 @@ export function HUD() {
       {/* Stage Timing Card & 3-2-1-GO Countdown (Time Attack mode) */}
       <TimingBoard />
 
+      {/* Gymkhana Blitz Timer, Drift Score Card & Countdown */}
+      <GymkhanaBoard />
+
       {/* Authentic Rally Twin-Gauge Cluster (Speedometer & Tachometer) */}
       <AnalogGauges />
+
+      {/* Gymkhana Blitz Stage Complete Results Modal */}
+      <GymkhanaCompleteModal />
     </div>
   );
 }

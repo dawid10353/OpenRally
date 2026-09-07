@@ -104,8 +104,8 @@ export function validateLevelTrackClearance(data: LevelData): ValidationResult {
   };
 
   for (const prop of data.props) {
-    // Exempt road spanning features, roadside signs, and apex hay bales
-    if (prop.type === 'castle_gate' || prop.type === 'rally_sign' || prop.type === 'hay_bale') continue;
+    // Exempt road spanning features, roadside signs, apex hay bales, and drift clipping pylons
+    if (prop.type === 'castle_gate' || prop.type === 'rally_sign' || prop.type === 'hay_bale' || prop.type === 'drift_pylon') continue;
 
     const dist = getMinDist(prop.position[0], prop.position[2]);
     const roadDrivableRadius = data.track.width;
@@ -123,6 +123,8 @@ export function validateLevelTrackClearance(data: LevelData): ValidationResult {
       prop.type === 'fence'
     ) {
       requiredMinDist = Math.max(requiredMinDist, roadTotalRadius + 3.0);
+    } else if (prop.type === 'shipping_container') {
+      requiredMinDist = roadDrivableRadius + 1.0;
     }
 
     if (dist < requiredMinDist) {

@@ -1,4 +1,4 @@
-import { useRef, useMemo, useLayoutEffect } from 'react';
+import { useRef, useMemo, useLayoutEffect, useEffect } from 'react';
 import {
   InstancedMesh,
   Color,
@@ -310,6 +310,58 @@ export function ArchitectureInstancer({
     castleKeeps,
     castleArches,
     stoneBridges,
+  ]);
+
+  // Clean up GPU buffers and materials on unmount/track change to prevent VRAM accumulation
+  useEffect(() => {
+    return () => {
+      cabinStoneGeo.dispose();
+      cabinWallGeo.dispose();
+      cabinDoorGeo.dispose();
+      cabinWindowGeo.dispose();
+      cabinRoofGeo.dispose();
+      cottageWallGeo.dispose();
+      cottageRoofGeo.dispose();
+      castleTowerGeo.dispose();
+      castleWallGeo.dispose();
+      castleGateGeo.dispose();
+      castleKeepGeo.dispose();
+      castleArchGeo.dispose();
+      stoneBridgeGeo.dispose();
+
+      cabinStoneMaterial.dispose();
+      cabinWallMaterial.dispose();
+      cabinDoorMaterial.dispose();
+      cabinWindowMaterial.dispose();
+      cabinRoofMaterial.dispose();
+      castleStoneMaterial.dispose();
+      cottageWallMaterial.dispose();
+      cottageRoofMaterial.dispose();
+      stoneBridgeMaterial.dispose();
+    };
+  }, [
+    cabinStoneGeo,
+    cabinWallGeo,
+    cabinDoorGeo,
+    cabinWindowGeo,
+    cabinRoofGeo,
+    cottageWallGeo,
+    cottageRoofGeo,
+    castleTowerGeo,
+    castleWallGeo,
+    castleGateGeo,
+    castleKeepGeo,
+    castleArchGeo,
+    stoneBridgeGeo,
+    cabinStoneMaterial,
+    cabinWallMaterial,
+    cabinDoorMaterial,
+    cabinWindowMaterial,
+    cabinRoofMaterial,
+    castleStoneMaterial,
+    cottageWallMaterial,
+    cottageRoofMaterial,
+    stoneBridgeMaterial,
   ]);
 
   return (

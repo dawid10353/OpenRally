@@ -1,4 +1,5 @@
 import type { LevelPreset } from '@/types/level';
+import { useGymkhanaStore } from '@/store/gymkhanaStore';
 import { menuStyles, getFocusStyle, formatLapTime } from './menuStyles';
 import type { MenuView } from './types';
 import { STAGE_BANNERS } from './HeroShowcase';
@@ -119,14 +120,27 @@ export function TrackSelectView({
                   <span style={{ fontSize: '11px', color: '#94A3B8' }}>
                     Surface: <strong style={{ color: '#E2E8F0' }}>{lvl.surfaceDescription}</strong>
                   </span>
-                  <span style={{
-                    fontSize: '11px',
-                    fontWeight: 800,
-                    color: bestTime ? '#38BDF8' : '#64748B',
-                    letterSpacing: '0.5px',
-                  }}>
-                    {bestTime ? formatLapTime(bestTime) : '--:--.--'}
-                  </span>
+                  {lvl.supportedModes?.includes('gymkhana_blitz') ? (
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      color: useGymkhanaStore.getState().getBestScoreForLevel(lvl.id) > 0 ? '#F59E0B' : '#64748B',
+                      letterSpacing: '0.5px',
+                    }}>
+                      {useGymkhanaStore.getState().getBestScoreForLevel(lvl.id) > 0
+                        ? `${useGymkhanaStore.getState().getBestScoreForLevel(lvl.id).toLocaleString('en-US')} PTS`
+                        : '0 PTS'}
+                    </span>
+                  ) : (
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      color: bestTime ? '#38BDF8' : '#64748B',
+                      letterSpacing: '0.5px',
+                    }}>
+                      {bestTime ? formatLapTime(bestTime) : '--:--.--'}
+                    </span>
+                  )}
                 </div>
 
                 <p className="track-desc-compact" style={{ fontSize: '11px', color: '#94A3B8', margin: 0, lineHeight: 1.3 }}>

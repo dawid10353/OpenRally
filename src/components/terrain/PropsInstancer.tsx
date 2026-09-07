@@ -16,6 +16,7 @@ import {
   RocksInstancer,
   ArchitectureInstancer,
   TracksidePropsInstancer,
+  GymkhanaPropsInstancer,
 } from './props';
 import type { PropItem } from './props/types';
 
@@ -48,6 +49,8 @@ export {
   createHayBaleGeometry,
   createRallySignGeometry,
   createStoneBridgeGeometry,
+  createShippingContainerGeometry,
+  createDriftPylonGeometry,
 } from './props/geometries';
 
 /**
@@ -243,6 +246,8 @@ export function PropsInstancer() {
         initialHayBales={categorized.hayBales.slice(0, 20)}
         initialRallySigns={categorized.rallySigns.slice(0, 20)}
         initialStoneBridges={categorized.stoneBridges.slice(0, 4)}
+        initialShippingContainers={categorized.shippingContainers.slice(0, 30)}
+        initialDriftPylons={categorized.driftPylons.slice(0, 30)}
       />
 
       {/* 1. GPU-Instanced Vegetation (Pines, Birch, Acacia + Wind Displacement) */}
@@ -311,6 +316,13 @@ export function PropsInstancer() {
         britishDrystoneTexture={britishDrystoneTexture}
         highlandCottageThatchTexture={highlandCottageThatchTexture}
         cabinRedWallTexture={cabinRedWallTexture}
+      />
+
+      {/* 5. GPU-Instanced Gymkhana Arena Props (Freight Containers, High-Vis Drift Pylons) */}
+      <GymkhanaPropsInstancer
+        shippingContainers={categorized.shippingContainers}
+        driftPylons={categorized.driftPylons}
+        canShadow={canShadow}
       />
     </>
   );

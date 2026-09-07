@@ -20,6 +20,7 @@ export function getSurfaceAtPosition(
   const levelId = levelData?.id?.toLowerCase() ?? '';
   const isDesert = levelId.includes('desert');
   const isSnow = levelId.includes('sweden') || levelId.includes('snow') || levelId.includes('winter');
+  const isGymkhana = levelId.includes('gymkhana');
 
   // 1. Prepared track circuit takes precedence over underlying terrain elevation
   if (heightmapData && levelData) {
@@ -36,6 +37,7 @@ export function getSurfaceAtPosition(
       const mask = trackMasks[row * cols + col];
       if (mask > 0.35) {
         if (isSnow) return 'snow';
+        if (isGymkhana) return 'tarmac';
         return isDesert ? 'gravel' : 'mud';
       }
     }
@@ -50,6 +52,13 @@ export function getSurfaceAtPosition(
   // Desert maps are sandy dunes everywhere off-track
   if (isDesert) {
     return 'sand';
+  }
+
+  // Gymkhana arena plateau is smooth asphalt/tarmac
+  if (isGymkhana) {
+    if (y >= 6.0) return 'tarmac';
+    if (y < SAND_ELEVATION_THRESHOLD) return 'sand';
+    return 'tarmac';
   }
 
   // Low elevation near the water level is coastal sand/beach
@@ -139,10 +148,13 @@ export function applyTireFrictionAndBrakes(
       currentFriction = gripCurve.baseGrip - (gripCurve.baseGrip - gripCurve.slideGrip) * smoothDrop;
     }
 
-    // Dynamic loose surface traction modulation under throttle (progressive rally wheelspin)
+    // Dynamic loose surface traction modulation under throttle (progressive rally wheelspin & power slides)
     if (throttle > 0.15 && surfaceDef.looseSurfaceTractionLoss && wheel.powered) {
       const tractionLoss = surfaceDef.looseSurfaceTractionLoss * throttle;
-      currentFriction *= Math.max(0.85, 1.0 - tractionLoss);
+      // Front wheels retain directional steering pull (0.75x), while rear wheels break away smoothly (1.15x)
+      // to deliver predictable, progressive rally slides without twitchy snap-spins
+      const axleTractionLoss = wheel.steerable ? (tractionLoss * 0.75) : (tractionLoss * 1.15);
+      currentFriction *= Math.max(0.70, 1.0 - axleTractionLoss);
     }
 
     // Handbrake — drift assist grip multiplier

@@ -11,6 +11,7 @@ import { PropsInstancer } from '@/components/terrain/PropsInstancer';
 import { TerrainProvider } from '@/components/terrain/TerrainContext';
 import { Ocean } from '@/components/environment/Ocean';
 import { Checkpoints } from '@/components/environment/Checkpoints';
+import { GymkhanaController } from '@/components/environment/GymkhanaController';
 import { Vehicle } from '@/components/vehicle/Vehicle';
 import { Lights } from '@/components/canvas/Lights';
 import { PostProcessingErrorBoundary } from '@/components/canvas/PostProcessingErrorBoundary';
@@ -347,6 +348,9 @@ export function GameCanvas() {
             
             {/* Rally Checkpoint Gates with physics colliders */}
             <Checkpoints />
+
+            {/* Gymkhana Blitz physics scoring controller */}
+            <GymkhanaController />
 
             {/* Player vehicle */}
             <Vehicle />

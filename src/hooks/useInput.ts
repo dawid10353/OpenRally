@@ -3,6 +3,7 @@ import type { InputState } from '@/types/game';
 import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useRacingStore } from '@/store/racingStore';
+import { useGymkhanaStore } from '@/store/gymkhanaStore';
 import { lerp } from '@/utils/math';
 import {
   STEER_SPEED,
@@ -259,7 +260,10 @@ export function useInputUpdater(): (dt: number) => InputState {
 
     const gameMode = useGameStore.getState().gameMode;
     const raceStatus = useRacingStore.getState().raceStatus;
-    const isCountingDown = gameMode === 'timeattack' && raceStatus === 'countdown';
+    const gymkhanaStatus = useGymkhanaStore.getState().status;
+    const isCountingDown = 
+      (gameMode === 'timeattack' && raceStatus === 'countdown') ||
+      (gameMode === 'gymkhana_blitz' && gymkhanaStatus === 'countdown');
 
     if (isCountingDown) {
       _cameraLookX = 0;

@@ -48,13 +48,25 @@ describe('Menu Navigation & Key Indices', () => {
   });
 
   it('cycles vehicle selection index in garage view', () => {
-    const vehicles = ['rally_hatchback', 'rally_wrc'];
-    const currentIdx = 0;
+    const vehicles = ['rally_hatchback', 'rally_wrc', 'rally_cyclone_b', 'rally_titan_b'];
+    let currentIdx = 0;
 
-    const nextIdx = (currentIdx + 1) % vehicles.length;
-    expect(vehicles[nextIdx]).toBe('rally_wrc');
+    // Next vehicle
+    currentIdx = (currentIdx + 1) % vehicles.length;
+    expect(vehicles[currentIdx]).toBe('rally_wrc');
 
-    const prevIdx = (currentIdx - 1 + vehicles.length) % vehicles.length;
-    expect(vehicles[prevIdx]).toBe('rally_wrc');
+    currentIdx = (currentIdx + 1) % vehicles.length;
+    expect(vehicles[currentIdx]).toBe('rally_cyclone_b');
+
+    currentIdx = (currentIdx + 1) % vehicles.length;
+    expect(vehicles[currentIdx]).toBe('rally_titan_b');
+
+    // Wraparound to first
+    currentIdx = (currentIdx + 1) % vehicles.length;
+    expect(vehicles[currentIdx]).toBe('rally_hatchback');
+
+    // Prev vehicle wraparound to last
+    const prevIdx = (0 - 1 + vehicles.length) % vehicles.length;
+    expect(vehicles[prevIdx]).toBe('rally_titan_b');
   });
 });

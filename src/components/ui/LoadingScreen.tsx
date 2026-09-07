@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useProgress } from '@react-three/drei';
 import { useGameStore } from '@/store/gameStore';
 import { useRacingStore } from '@/store/racingStore';
+import { useGymkhanaStore } from '@/store/gymkhanaStore';
 import { getLevelPreset } from '@/config/levelRegistry';
 import { getVehiclePreset } from '@/config/vehicleRegistry';
 
@@ -38,8 +39,12 @@ export function LoadingScreen() {
           setVisible(false);
           const target = useGameStore.getState().loadingTarget;
           useGameStore.getState().setGameState(target === 'gameplay' ? 'playing' : 'menu');
-          if (target === 'gameplay' && useGameStore.getState().gameMode === 'timeattack') {
-            useRacingStore.getState().startCountdown();
+          if (target === 'gameplay') {
+            if (useGameStore.getState().gameMode === 'timeattack') {
+              useRacingStore.getState().startCountdown();
+            } else if (useGameStore.getState().gameMode === 'gymkhana_blitz') {
+              useGymkhanaStore.getState().startCountdown();
+            }
           }
         }, 500);
         return () => clearTimeout(timer);
@@ -53,8 +58,12 @@ export function LoadingScreen() {
           useGameStore.getState().setSceneReady(true);
           const target = useGameStore.getState().loadingTarget;
           useGameStore.getState().setGameState(target === 'gameplay' ? 'playing' : 'menu');
-          if (target === 'gameplay' && useGameStore.getState().gameMode === 'timeattack') {
-            useRacingStore.getState().startCountdown();
+          if (target === 'gameplay') {
+            if (useGameStore.getState().gameMode === 'timeattack') {
+              useRacingStore.getState().startCountdown();
+            } else if (useGameStore.getState().gameMode === 'gymkhana_blitz') {
+              useGymkhanaStore.getState().startCountdown();
+            }
           }
         }, 500);
       }, 3000);

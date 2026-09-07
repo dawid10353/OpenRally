@@ -3,6 +3,7 @@ import { LEVEL1_DATA } from './levels/islandCircuit';
 import { LEVEL2_DESERT_DATA } from './levels/desertCanyon';
 import { LEVEL3_SWEDEN_DATA } from './levels/swedenSnow';
 import { LEVEL4_BRITAIN_DATA } from './levels/highlandCastle';
+import { LEVEL5_GYMKHANA_DATA } from './levels/gymkhanaIsland';
 
 /**
  * Stage 1 / Default Level: Island Circuit.
@@ -16,7 +17,7 @@ export const LEVEL_PRESET_ISLAND: LevelPreset = {
   difficulty: 'easy',
   surfaceDescription: 'Mud & Grass',
   data: LEVEL1_DATA,
-  spawnPosition: [-3.5, 11.0, 2.0],
+  spawnPosition: [-3.5, 9.5, 2.0],
   spawnRotationY: Math.atan2(130 - (-70), -70 - (-35)), // Aligned with start straight
   fallResetY: -8.25,
   environment: {
@@ -49,7 +50,7 @@ export const LEVEL_PRESET_DESERT: LevelPreset = {
   difficulty: 'medium',
   surfaceDescription: 'Sand & Gravel',
   data: LEVEL2_DESERT_DATA,
-  spawnPosition: [-3.5, 11.0, -1.5],
+  spawnPosition: [-3.5, 9.5, -1.5],
   spawnRotationY: Math.atan2(140 - (-60), 50 - (-30)), // Aligned with start straight
   fallResetY: -10.0,
   environment: {
@@ -82,7 +83,7 @@ export const LEVEL_PRESET_SWEDEN: LevelPreset = {
   difficulty: 'hard',
   surfaceDescription: 'Snow & Ice',
   data: LEVEL3_SWEDEN_DATA,
-  spawnPosition: [-3.5, 11.0, 1.5],
+  spawnPosition: [-3.5, 9.5, 1.5],
   spawnRotationY: Math.atan2(130 - (-70), -50 - (-40)), // Aligned with start straight
   fallResetY: -10.0,
   environment: {
@@ -116,7 +117,7 @@ export const LEVEL_PRESET_BRITAIN: LevelPreset = {
   difficulty: 'hard',
   surfaceDescription: 'Mud, Gravel & Stone',
   data: LEVEL4_BRITAIN_DATA,
-  spawnPosition: [-3.13, 11.0, -1.57],
+  spawnPosition: [-3.13, 9.75, -1.57],
   spawnRotationY: Math.atan2(45 - (-65), 20 - (-35)), // Aligned with CP0 track heading
   fallResetY: -10.0,
   environment: {
@@ -138,6 +139,40 @@ export const LEVEL_PRESET_BRITAIN: LevelPreset = {
 };
 
 /**
+ * Stage 5 Level: Apex Gymkhana Arena.
+ * High-octane industrial drift island compound with shipping container chicanes,
+ * 360 donut zones, and wide tarmac pads. Exclusively supports Free Roam and Gymkhana Blitz.
+ */
+export const LEVEL_PRESET_GYMKHANA: LevelPreset = {
+  id: 'level5_gymkhana',
+  name: 'Apex Gymkhana Arena',
+  description: 'Industrial island drift compound featuring shipping container chicanes, 360 donut zones, and wide asphalt drift pads.',
+  difficulty: 'medium',
+  surfaceDescription: 'Tarmac & Concrete',
+  supportedModes: ['freeroam', 'gymkhana_blitz'],
+  data: LEVEL5_GYMKHANA_DATA,
+  spawnPosition: [-1.86, 9.5, -4.64],
+  spawnRotationY: Math.atan2(40, 100), // Aligned with CP0 track heading
+  fallResetY: -10.0,
+  environment: {
+    sky: {
+      sunPosition: [120, 45, -80],
+      inclination: 0.55,
+      azimuth: 0.32,
+      turbidity: 4.0,
+      rayleigh: 1.5,
+      mieCoefficient: 0.008,
+      mieDirectionalG: 0.85,
+    },
+    fog: {
+      color: '#9cb5c9',
+      near: 120,
+      far: 1600,
+    },
+  },
+};
+
+/**
  * Registry of all available levels in OpenRally.
  */
 export const LEVEL_REGISTRY: Record<string, LevelPreset> = {
@@ -145,6 +180,7 @@ export const LEVEL_REGISTRY: Record<string, LevelPreset> = {
   level2_desert: LEVEL_PRESET_DESERT,
   level3_sweden: LEVEL_PRESET_SWEDEN,
   level4_britain: LEVEL_PRESET_BRITAIN,
+  level5_gymkhana: LEVEL_PRESET_GYMKHANA,
 };
 
 /** Default active level ID */

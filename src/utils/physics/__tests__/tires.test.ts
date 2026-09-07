@@ -255,5 +255,80 @@ describe('tire and surface physics', () => {
       expect(resultCountersteer.grips[0]).toBeGreaterThan(intoSlideGrips[0]);
       expect(resultCountersteer.grips[1]).toBeGreaterThan(intoSlideGrips[1]);
     });
+
+    it('induces power oversteer by reducing rear grip more than front grip under throttle on loose surfaces', () => {
+      const controller = createMockController();
+      const result = applyTireFrictionAndBrakes(
+        controller,
+        DEFAULT_VEHICLE_CONFIG,
+        { brake: 0, handbrake: false, steering: 0, throttle: 1.0 },
+        40,
+        11.1,
+        0,
+        -7, // Sand
+        0,
+        0
+      );
+
+      // Front grip should remain significantly higher than rear grip under throttle for AWD directional stability
+      expect(result.grips[0]).toBeGreaterThan(result.grips[2]);
+      expect(result.grips[1]).toBeGreaterThan(result.grips[3]);
+    });
+
+    it('delivers responsive gymkhana asphalt grip on tarmac with controlled throttle traction modulation', () => {
+      const controller = createMockController();
+      const result = applyTireFrictionAndBrakes(
+        controller,
+        {
+          ...DEFAULT_VEHICLE_CONFIG,
+        },
+        { brake: 0, handbrake: false, steering: 0, throttle: 1.0 },
+        50,
+        13.8,
+        0,
+        5, // Tarmac / elevated
+        0,
+        0
+      );
+
+      // On tarmac, asphalt provides responsive front directional authority while allowing controlled rear breakaway
+      expect(result.grips[0]).toBeGreaterThan(1.5);
+      expect(result.grips[2]).toBeGreaterThan(1.4);
+      expect(result.grips[0]).toBeGreaterThan(result.grips[2]);
+    });
+
+    it('smoothly reduces tire friction when slip angle exceeds peak slip angle', () => {
+      const controllerZeroSlip = createMockController();
+      const resultZeroSlip = applyTireFrictionAndBrakes(
+        controllerZeroSlip,
+        DEFAULT_VEHICLE_CONFIG,
+        { brake: 0, handbrake: false, steering: 0, throttle: 0 },
+        50,
+        13.8,
+        0,
+        -7, // Sand
+        0,
+        0 // Zero slip
+      );
+      const zeroSlipGrip = resultZeroSlip.grips[2];
+
+      const controllerHighSlip = createMockController();
+      const resultHighSlip = applyTireFrictionAndBrakes(
+        controllerHighSlip,
+        DEFAULT_VEHICLE_CONFIG,
+        { brake: 0, handbrake: false, steering: 0, throttle: 0 },
+        50,
+        13.8,
+        0,
+        -7, // Sand
+        0,
+        0.5 // High slip angle > peak
+      );
+      const highSlipGrip = resultHighSlip.grips[2];
+
+      // Sliding tire has lower friction than gripped tire
+      expect(highSlipGrip).toBeLessThan(zeroSlipGrip);
+      expect(highSlipGrip).toBeGreaterThan(0.5);
+    });
   });
 });

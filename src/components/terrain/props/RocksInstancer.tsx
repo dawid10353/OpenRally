@@ -1,4 +1,4 @@
-import { useRef, useMemo, useLayoutEffect } from 'react';
+import { useRef, useMemo, useLayoutEffect, useEffect } from 'react';
 import {
   InstancedMesh,
   Color,
@@ -140,6 +140,30 @@ export function RocksInstancer({
     uploadBatch(standingStoneRef.current, standingStones);
     uploadBatch(stoneCairnRef.current, stoneCairns);
   }, [rocks, sandstoneRocks, standingStones, stoneCairns]);
+
+  // Clean up GPU buffers and materials on unmount/track change to prevent VRAM accumulation
+  useEffect(() => {
+    return () => {
+      rockGeo.dispose();
+      sandstoneGeo.dispose();
+      standingStoneGeo.dispose();
+      stoneCairnGeo.dispose();
+
+      rockMaterial.dispose();
+      sandstoneMaterial.dispose();
+      standingStoneMaterial.dispose();
+      stoneCairnMaterial.dispose();
+    };
+  }, [
+    rockGeo,
+    sandstoneGeo,
+    standingStoneGeo,
+    stoneCairnGeo,
+    rockMaterial,
+    sandstoneMaterial,
+    standingStoneMaterial,
+    stoneCairnMaterial,
+  ]);
 
   return (
     <>

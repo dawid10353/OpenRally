@@ -7,6 +7,7 @@ export const STAGE_BANNERS: Record<string, string> = {
   level2_desert: '/images/stages/desert_canyon.jpg',
   level3_sweden: '/images/stages/sweden_snow.jpg',
   level4_britain: '/images/stages/highland_castle.jpg',
+  level5_gymkhana: '/images/stages/apex_gymkhana.jpg',
 };
 
 interface HeroShowcaseProps {

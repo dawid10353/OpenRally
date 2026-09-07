@@ -72,6 +72,62 @@ describe('drivetrain physics', () => {
     expect(controller.forces[3]).toBe(0);
   });
 
+  it('progressively ramps launch torque in 1st gear from dead stop to avoid launch wheelie shock', () => {
+    const standStillController = createMockController();
+    applyDrivetrain(
+      standStillController,
+      DEFAULT_VEHICLE_CONFIG,
+      { throttle: 1, brake: 0 },
+      0, // 0 km/h standing start
+      1  // 1st gear
+    );
+
+    const rollingController = createMockController();
+    applyDrivetrain(
+      rollingController,
+      DEFAULT_VEHICLE_CONFIG,
+      { throttle: 1, brake: 0 },
+      5.0, // rolling at ~18 km/h
+      1
+    );
+
+    // Full rolling power is higher than dead-stop launch power
+    expect(rollingController.forces[0]).toBeGreaterThan(standStillController.forces[0]);
+    expect(standStillController.forces[0]).toBeGreaterThan(0);
+  });
+
+  it('moderates rear wheel drive torque when front suspension is unweighted to prevent wheelie', () => {
+    const normalController = createMockController();
+    // Front suspension compressed normally (0.24m with rest 0.32m)
+    normalController.wheelSuspensionLength = vi.fn(() => 0.24);
+
+    applyDrivetrain(
+      normalController,
+      DEFAULT_VEHICLE_CONFIG,
+      { throttle: 1, brake: 0 },
+      5.0,
+      1
+    );
+
+    const liftingController = createMockController();
+    // Front wheels unweighted / at full rebound (0.32m with rest 0.32m)
+    liftingController.wheelSuspensionLength = vi.fn(() => 0.32);
+
+    applyDrivetrain(
+      liftingController,
+      DEFAULT_VEHICLE_CONFIG,
+      { throttle: 1, brake: 0 },
+      5.0,
+      1
+    );
+
+    // Rear wheel forces (wheels 2 and 3) should be moderated when front wheels are lifting
+    expect(liftingController.forces[2]).toBeLessThan(normalController.forces[2]);
+    expect(liftingController.forces[3]).toBeLessThan(normalController.forces[3]);
+    // Front wheels maintain pull
+    expect(liftingController.forces[0]).toBe(normalController.forces[0]);
+  });
+
   it('boosts engine force during steering under throttle to overcome cornering tire scrub', () => {
     const straightController = createMockController();
     applyDrivetrain(

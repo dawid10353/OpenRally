@@ -7,6 +7,7 @@ import type { VehicleConfig, SurfaceType } from '@/types/vehicle';
 import { useInputUpdater } from '@/hooks/useInput';
 import { useGameStore } from '@/store/gameStore';
 import { useRacingStore } from '@/store/racingStore';
+import { useGymkhanaStore } from '@/store/gymkhanaStore';
 import { DEFAULT_VEHICLE_CONFIG, MS_TO_KMH, MAX_DELTA } from '@/config/vehicle';
 import { updateGearbox, calculateRPM } from '@/utils/physics/powertrain';
 import { applyDrivetrain, applyAwdDriftPropulsion } from '@/utils/physics/drivetrain';
@@ -30,6 +31,10 @@ const _euler = new Euler();
 const _spawnQuat = new Quaternion();
 const _spawnEuler = new Euler();
 const _posTuple: [number, number, number] = [0, 0, 0];
+const _settledPos = { x: 0, y: 0, z: 0 };
+const _settledRot = { x: 0, y: 0, z: 0, w: 1 };
+const _settledSuspensions: number[] = [0, 0, 0, 0];
+const _zeroVel = { x: 0, y: 0, z: 0 };
 const _telemetryState = {
   speed: 0,
   lateralSpeed: 0,
@@ -63,6 +68,7 @@ export function useVehiclePhysics(
   const currentRpmRef = useRef<number>(1000);
   const isAirborneRef = useRef<boolean>(false);
   const settleFramesRef = useRef<number>(0);
+  const isSettledRef = useRef<boolean>(false);
   const vehicleControllerRef = useRef<InstanceType<
     typeof rapier.DynamicRayCastVehicleController
   > | null>(null);
@@ -123,6 +129,7 @@ export function useVehiclePhysics(
   // Initialize and synchronize the vehicle controller when preset or level changes
   useEffect(() => {
     settleFramesRef.current = 0;
+    isSettledRef.current = false;
     currentRpmRef.current = 1000;
     isAirborneRef.current = false;
 
@@ -178,6 +185,7 @@ export function useVehiclePhysics(
       currentRpmRef.current = 1000;
       isAirborneRef.current = false;
       settleFramesRef.current = 0;
+      isSettledRef.current = false;
 
       emitGameEvent('vehicle_reset', {
         reason: currentBodyPos.y < fallResetY ? 'out_of_bounds' : 'manual',
@@ -189,21 +197,77 @@ export function useVehiclePhysics(
 
       if (resetState.gameMode === 'timeattack' && gameState === 'playing') {
         useRacingStore.getState().startCountdown();
+      } else if (resetState.gameMode === 'gymkhana_blitz' && gameState === 'playing') {
+        useGymkhanaStore.getState().resetBlitz();
+        useGymkhanaStore.getState().startCountdown();
       }
     }
 
     if (gameState !== 'playing') {
-      // In menu, title, loading, or paused states:
-      // Apply parking brake on all wheels so the vehicle remains firmly stationary
+      // 1. If already settled in menu: keep vehicle 100% frozen, solid, and motionless
+      if (isSettledRef.current) {
+        body.setTranslation(_settledPos, true);
+        body.setRotation(_settledRot, true);
+        body.setLinvel(_zeroVel, true);
+        body.setAngvel(_zeroVel, true);
+
+        // Keep visual wheels completely static at resting suspension length
+        const wheels = wheelRefs.current;
+        if (wheels) {
+          for (let i = 0; i < config.wheels.length; i++) {
+            const wheelObj = wheels[i];
+            if (!wheelObj) continue;
+            const connection = controller.wheelChassisConnectionPointCs(i);
+            const suspension = _settledSuspensions[i] ?? (config.wheels[i].suspensionRestLength * 0.7);
+            if (connection != null) {
+              wheelObj.position.set(connection.x, connection.y - suspension, connection.z);
+              wheelObj.rotation.y = 0;
+            }
+          }
+        }
+        return;
+      }
+
+      // 2. Settle & landing phase (first ~40 frames after spawn):
+      settleFramesRef.current += 1;
       for (let i = 0; i < config.wheels.length; i++) {
         controller.setWheelBrake(i, 3000);
         controller.setWheelEngineForce(i, 0);
       }
-      // Update vehicle controller raycasts so suspension settles onto terrain
       controller.updateVehicle(delta);
-      // Synchronize visual wheel positions so wheels attach to arches and touch the ground
       syncWheelVisuals(controller, wheelRefs, config, 0, delta, 1000, 1);
+
+      // Check if vehicle has touched ground and vertical velocity has stabilized
+      const currentLinvel = body.linvel();
+      const hasLanded =
+        (settleFramesRef.current >= 18 && Math.abs(currentLinvel.y) < 0.25) ||
+        settleFramesRef.current >= 40;
+
+      if (hasLanded) {
+        const p = body.translation();
+        const r = body.rotation();
+        _settledPos.x = p.x;
+        _settledPos.y = p.y;
+        _settledPos.z = p.z;
+        _settledRot.x = r.x;
+        _settledRot.y = r.y;
+        _settledRot.z = r.z;
+        _settledRot.w = r.w;
+        for (let i = 0; i < config.wheels.length; i++) {
+          _settledSuspensions[i] = controller.wheelSuspensionLength(i) ?? (config.wheels[i].suspensionRestLength * 0.7);
+        }
+        isSettledRef.current = true;
+        body.setLinvel(_zeroVel, true);
+        body.setAngvel(_zeroVel, true);
+        if (!useGameStore.getState().isSceneReady) {
+          useGameStore.getState().setSceneReady(true);
+        }
+      }
       return;
+    }
+
+    if (isSettledRef.current) {
+      isSettledRef.current = false;
     }
 
     const dt = Math.min(delta, MAX_DELTA);
@@ -235,7 +299,9 @@ export function useVehiclePhysics(
 
     // Automatic Gearbox Logic
     const state = useGameStore.getState();
-    const isCountingDown = state.gameMode === 'timeattack' && useRacingStore.getState().raceStatus === 'countdown';
+    const isCountingDown = 
+      (state.gameMode === 'timeattack' && useRacingStore.getState().raceStatus === 'countdown') ||
+      (state.gameMode === 'gymkhana_blitz' && useGymkhanaStore.getState().status === 'countdown');
 
     if (isCountingDown) {
       body.setLinvel({ x: 0, y: Math.min(0, linvel.y), z: 0 }, true);
@@ -399,6 +465,9 @@ export function useVehiclePhysics(
 
       if (resetState.gameMode === 'timeattack') {
         useRacingStore.getState().startCountdown();
+      } else if (resetState.gameMode === 'gymkhana_blitz') {
+        useGymkhanaStore.getState().resetBlitz();
+        useGymkhanaStore.getState().startCountdown();
       }
     }
   });

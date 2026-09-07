@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { Texture } from 'three';
-import { createDetailedTerrainMaterial } from '@/components/terrain/Terrain';
+import {
+  createDetailedTerrainMaterial,
+  buildTerrainChunkGeometries,
+  TERRAIN_CHUNKS_TOTAL,
+} from '@/components/terrain/Terrain';
 import { createGrassTuftGeometry } from '@/components/terrain/GrassField';
 import {
   createTrunkGeometry,
@@ -64,6 +68,32 @@ describe('Terrain Materials and Procedural Geometries', () => {
 
     expect(snowMaterial).toBeDefined();
     expect(snowMaterial.roughness).toBeGreaterThan(0.85);
+
+    // Verify onBeforeCompile GLSL shader code integrity and uniform declaration symmetry
+    const mockShader = {
+      uniforms: {} as Record<string, { value: unknown }>,
+      vertexShader: '#include <common>\n#include <worldpos_vertex>',
+      fragmentShader: '#include <common>\n#include <color_fragment>\n#include <roughnessmap_fragment>\n#include <normal_fragment_maps>',
+    };
+    material.onBeforeCompile(mockShader as any, {} as any);
+
+    expect(mockShader.uniforms.u_isGymkhana).toBeDefined();
+    expect(mockShader.fragmentShader).toContain('uniform float u_isGymkhana;');
+    expect(mockShader.fragmentShader).toContain('uniform float u_isSnow;');
+    expect(mockShader.fragmentShader).toContain('uniform float u_isDesert;');
+    expect(mockShader.fragmentShader).toContain('uniform float u_slopeDarkening;');
+
+    // All uniforms referenced in fragment code must be declared
+    const usedUniforms = new Set(
+      Array.from(mockShader.fragmentShader.matchAll(/\b(u_[a-zA-Z0-9_]+)\b/g)).map((m) => m[1]),
+    );
+    for (const uName of usedUniforms) {
+      expect(
+        mockShader.fragmentShader.includes(`uniform float ${uName}`) ||
+        mockShader.fragmentShader.includes(`uniform sampler2D ${uName}`),
+        `Uniform ${uName} used in fragment shader must be declared!`,
+      ).toBe(true);
+    }
   });
 
   it('creates 3D volumetric grass tuft geometry with bladeTip, uv, normal, and position attributes', () => {
@@ -349,6 +379,93 @@ describe('Terrain Materials and Procedural Geometries', () => {
       const isDesktop = false;
       desktopTex.anisotropy = isDesktop ? Math.min(baseAnisotropy, 2) : baseAnisotropy;
       expect(desktopTex.anisotropy).toBe(16);
+    });
+  });
+
+  describe('Terrain Chunking & Frustum Culling (Reserve 1)', () => {
+    it('generates 16 seamless terrain chunks with Uint16 indices and tight bounds', () => {
+      const subdivisions = 384;
+      const rows = 385;
+      const cols = 385;
+      const heights = new Float32Array(rows * cols);
+      const trackMasks = new Float32Array(rows * cols);
+
+      // Create a test parabolic hill
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const normX = (c / 384) * 2 - 1;
+          const normZ = (r / 384) * 2 - 1;
+          heights[r * cols + c] = 50 * (1 - normX * normX - normZ * normZ);
+          trackMasks[r * cols + c] = r === c ? 1.0 : 0.0;
+        }
+      }
+
+      const chunks = buildTerrainChunkGeometries({
+        width: 2000,
+        depth: 2000,
+        subdivisions,
+        rows,
+        cols,
+        heights,
+        trackMasks,
+        minHeight: -10,
+        maxHeight: 60,
+        isSnow: false,
+        isBritain: false,
+      });
+
+      expect(chunks.length).toBe(TERRAIN_CHUNKS_TOTAL);
+      expect(chunks.length).toBe(16);
+
+      const chunkSubdivs = 96; // 384 / 4
+      const expectedVertsPerChunk = (chunkSubdivs + 1) * (chunkSubdivs + 1); // 97 * 97 = 9409
+      const expectedIndicesPerChunk = chunkSubdivs * chunkSubdivs * 6; // 96 * 96 * 6 = 55296
+
+      for (const chunk of chunks) {
+        expect(chunk.attributes.position.count).toBe(expectedVertsPerChunk);
+        expect(chunk.attributes.normal.count).toBe(expectedVertsPerChunk);
+        expect(chunk.attributes.uv.count).toBe(expectedVertsPerChunk);
+        expect(chunk.attributes.color.count).toBe(expectedVertsPerChunk);
+        expect(chunk.attributes.trackMask.count).toBe(expectedVertsPerChunk);
+
+        // Verify Uint16Array indices are used to conserve memory
+        expect(chunk.index).toBeDefined();
+        expect(chunk.index!.count).toBe(expectedIndicesPerChunk);
+        expect(chunk.index!.array).toBeInstanceOf(Uint16Array);
+
+        // Verify valid bounding box and sphere computed for frustum culling
+        expect(chunk.boundingBox).not.toBeNull();
+        expect(chunk.boundingSphere).not.toBeNull();
+        expect(chunk.boundingSphere!.radius).toBeGreaterThan(0);
+        // Radius of 500m x 500m chunk is ~350m-450m (far less than monolithic 1400m sphere)
+        expect(chunk.boundingSphere!.radius).toBeLessThan(600);
+      }
+
+      // Verify seamless boundary normals between chunk 0 (col 0..96) and chunk 1 (col 96..192) along row 0
+      const chunk0 = chunks[0];
+      const chunk1 = chunks[1];
+      const localIdx0 = 96; // (row 0, col 96) in chunk 0
+      const localIdx1 = 0; // (row 0, col 0) in chunk 1 (which corresponds to global col 96)
+
+      const n0x = chunk0.attributes.normal.getX(localIdx0);
+      const n0y = chunk0.attributes.normal.getY(localIdx0);
+      const n0z = chunk0.attributes.normal.getZ(localIdx0);
+
+      const n1x = chunk1.attributes.normal.getX(localIdx1);
+      const n1y = chunk1.attributes.normal.getY(localIdx1);
+      const n1z = chunk1.attributes.normal.getZ(localIdx1);
+
+      expect(n0x).toBeCloseTo(n1x, 4);
+      expect(n0y).toBeCloseTo(n1y, 4);
+      expect(n0z).toBeCloseTo(n1z, 4);
+
+      // Verify position along boundary is identical
+      expect(chunk0.attributes.position.getX(localIdx0)).toBeCloseTo(chunk1.attributes.position.getX(localIdx1), 4);
+      expect(chunk0.attributes.position.getY(localIdx0)).toBeCloseTo(chunk1.attributes.position.getY(localIdx1), 4);
+      expect(chunk0.attributes.position.getZ(localIdx0)).toBeCloseTo(chunk1.attributes.position.getZ(localIdx1), 4);
+
+      // Clean up test geometries
+      chunks.forEach((c) => c.dispose());
     });
   });
 });

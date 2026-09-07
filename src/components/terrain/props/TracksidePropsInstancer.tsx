@@ -1,4 +1,4 @@
-import { useRef, useMemo, useLayoutEffect } from 'react';
+import { useRef, useMemo, useLayoutEffect, useEffect } from 'react';
 import {
   InstancedMesh,
   Color,
@@ -29,7 +29,7 @@ export interface TracksidePropsInstancerProps {
 }
 
 /**
- * GPU instanced renderer for trackside barriers, roadside fencing, straw bales, and rally chevron signs.
+ * GPU instanced renderer for trackside barriers, roadside fencing, straw bales, and rally signs.
  */
 export function TracksidePropsInstancer({
   fences,
@@ -141,6 +141,30 @@ export function TracksidePropsInstancer({
     uploadBatch(hayBaleRef.current, hayBales);
     uploadBatch(rallySignRef.current, rallySigns);
   }, [fences, stoneWalls, hayBales, rallySigns]);
+
+  // Clean up GPU buffers and materials on unmount/track change to prevent VRAM accumulation
+  useEffect(() => {
+    return () => {
+      fenceGeo.dispose();
+      stoneWallGeo.dispose();
+      hayBaleGeo.dispose();
+      rallySignGeo.dispose();
+
+      fenceMaterial.dispose();
+      stoneWallMaterial.dispose();
+      hayBaleMaterial.dispose();
+      rallySignMaterial.dispose();
+    };
+  }, [
+    fenceGeo,
+    stoneWallGeo,
+    hayBaleGeo,
+    rallySignGeo,
+    fenceMaterial,
+    stoneWallMaterial,
+    hayBaleMaterial,
+    rallySignMaterial,
+  ]);
 
   return (
     <>

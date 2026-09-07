@@ -3,7 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Environment } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { WebGLRenderer, PCFShadowMap } from 'three';
-import type { VehiclePreset } from '@/types';
+import type { VehiclePreset, GameMode } from '@/types';
 import { useSettingsStore, saveSettingsToStorage } from '@/store/settingsStore';
 import { shouldEnableCanvasShadows } from '@/components/canvas/GameCanvas';
 import { isMobileOrAndroid } from '@/utils/device';
@@ -20,12 +20,24 @@ interface GarageViewProps {
   textColor: string;
   subtitleColor: string;
   currentLevelName?: string;
-  gameMode?: 'freeroam' | 'timeattack';
+  gameMode?: GameMode;
   onPointerMoveItem: (index: number, e: React.PointerEvent) => void;
   onSelectPreviewVehicle: (id: string) => void;
   onEquipVehicle: (id: string) => void;
   onStartRace?: (id: string) => void;
   onSelectView: (view: MenuView) => void;
+}
+
+function getVehicleCategoryTag(preset: VehiclePreset): string {
+  if (preset.id === 'apex_phantom_b' || preset.id === 'rally_cyclone_b') return 'GROUP B PROTOTYPE';
+  if (preset.id === 'vortex_b') return 'GROUP B HOMOLOGATION';
+  if (preset.id === 'bantam_turbo') return 'MID-ENGINE MAXI';
+  if (preset.id === 'vanguard_gt') return 'AERO GT COUPE';
+
+  if (preset.id === 'shadowfire_rs' || preset.id === 'rally_wrc') return 'MODERN RALLY RS';
+  if (preset.id === 'zephyr_wr4' || preset.id === 'rally_hatchback') return 'CHAMPIONSHIP AWD';
+  if (preset.id === 'kodiak_raid' || preset.id === 'rally_titan_b') return 'CROSS-COUNTRY RAID';
+  return preset.category.toUpperCase();
 }
 
 export function GarageView({
@@ -49,6 +61,39 @@ export function GarageView({
   const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const glRef = useRef<WebGLRenderer | null>(null);
+  const activeCardRef = useRef<HTMLButtonElement | null>(null);
+  const carouselContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const currentVehicleIndex = Math.max(
+    0,
+    availableVehicles.findIndex((v) => v.id === previewVehicleId),
+  );
+
+  const handlePrevVehicle = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const count = availableVehicles.length;
+    if (count <= 1) return;
+    const prevIdx = (currentVehicleIndex - 1 + count) % count;
+    onSelectPreviewVehicle(availableVehicles[prevIdx].id);
+  };
+
+  const handleNextVehicle = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const count = availableVehicles.length;
+    if (count <= 1) return;
+    const nextIdx = (currentVehicleIndex + 1) % count;
+    onSelectPreviewVehicle(availableVehicles[nextIdx].id);
+  };
+
+  useEffect(() => {
+    if (activeCardRef.current && carouselContainerRef.current) {
+      activeCardRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center',
+      });
+    }
+  }, [previewVehicleId]);
 
   useEffect(() => {
     const controls = controlsRef.current;
@@ -131,7 +176,7 @@ export function GarageView({
           )}
           {currentLevelName && gameMode && <span>•</span>}
           {gameMode && (
-            <span>MODE: <strong style={{ color: '#E31837' }}>{gameMode === 'timeattack' ? 'TIME ATTACK' : 'FREE ROAM'}</strong></span>
+            <span>MODE: <strong style={{ color: '#E31837' }}>{gameMode === 'timeattack' ? 'TIME ATTACK' : gameMode === 'gymkhana_blitz' ? 'GYMKHANA BLITZ' : 'FREE ROAM'}</strong></span>
           )}
         </div>
       )}
@@ -272,21 +317,176 @@ export function GarageView({
 
         {/* Right: Vehicle Selection Tabs, Specs and Action Buttons */}
         <div className="garage-details-box" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {/* Vehicle Selection Tabs */}
-          <div style={{ ...menuStyles.tabContainer, marginBottom: '6px' }}>
-            {availableVehicles.map((veh) => (
-              <button
-                key={veh.id}
+          {/* Vehicle Selection Carousel Navigation Header */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px',
+              marginBottom: '6px',
+              background: 'rgba(15, 23, 42, 0.65)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '10px',
+              padding: '4px 8px',
+            }}
+          >
+            <button
+              type="button"
+              title="Previous Vehicle"
+              aria-label="Previous Vehicle"
+              style={styles.carouselNavButton}
+              onClick={handlePrevVehicle}
+            >
+              ◀
+            </button>
+
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+              <span
                 style={{
-                  ...menuStyles.tabButton,
-                  minHeight: '44px',
-                  ...(previewVehicleId === veh.id ? menuStyles.activeTabButton : {}),
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  letterSpacing: '1.2px',
+                  color: '#CBD5E1',
+                  textTransform: 'uppercase',
                 }}
-                onClick={() => onSelectPreviewVehicle(veh.id)}
               >
-                {veh.name}
-              </button>
-            ))}
+                CAR {currentVehicleIndex + 1} OF {availableVehicles.length}
+              </span>
+              <span
+                style={{
+                  fontSize: '9px',
+                  fontWeight: 800,
+                  letterSpacing: '0.8px',
+                  color: '#F87171',
+                  background: 'rgba(227, 24, 55, 0.18)',
+                  border: '1px solid rgba(227, 24, 55, 0.35)',
+                  padding: '1px 8px',
+                  borderRadius: '8px',
+                }}
+              >
+                {getVehicleCategoryTag(previewPreset)}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              title="Next Vehicle"
+              aria-label="Next Vehicle"
+              style={styles.carouselNavButton}
+              onClick={handleNextVehicle}
+            >
+              ▶
+            </button>
+          </div>
+
+          {/* Horizontal Vehicle Cards Carousel Strip */}
+          <div
+            ref={carouselContainerRef}
+            className="garage-carousel-strip"
+            style={{
+              display: 'flex',
+              gap: '8px',
+              overflowX: 'auto',
+              scrollSnapType: 'x mandatory',
+              paddingBottom: '4px',
+              marginBottom: '6px',
+              scrollbarWidth: 'thin',
+              WebkitOverflowScrolling: 'touch',
+            }}
+          >
+            {availableVehicles.map((veh) => {
+              const isSelected = veh.id === previewVehicleId;
+              const isCarEquipped = veh.id === selectedVehicleId;
+              return (
+                <button
+                  key={veh.id}
+                  ref={isSelected ? activeCardRef : undefined}
+                  type="button"
+                  style={{
+                    flex: '0 0 auto',
+                    minWidth: '130px',
+                    maxWidth: '160px',
+                    minHeight: '48px',
+                    scrollSnapAlign: 'center',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    padding: '6px 10px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    boxSizing: 'border-box',
+                    textAlign: 'left',
+                    background: isSelected
+                      ? 'linear-gradient(135deg, rgba(227, 24, 55, 0.25) 0%, rgba(27, 54, 93, 0.6) 100%)'
+                      : 'rgba(255, 255, 255, 0.04)',
+                    border: isSelected
+                      ? '1.5px solid #E31837'
+                      : '1px solid rgba(255, 255, 255, 0.1)',
+                    boxShadow: isSelected
+                      ? '0 0 12px rgba(227, 24, 55, 0.35), inset 0 0 8px rgba(227, 24, 55, 0.15)'
+                      : 'none',
+                    transform: isSelected ? 'scale(1.02)' : 'scale(1.0)',
+                  }}
+                  onClick={() => onSelectPreviewVehicle(veh.id)}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      width: '100%',
+                      marginBottom: '2px',
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        color: isSelected ? '#FFFFFF' : '#E2E8F0',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        maxWidth: isCarEquipped ? '80px' : '110px',
+                      }}
+                    >
+                      {veh.name}
+                    </span>
+                    {isCarEquipped && (
+                      <span
+                        style={{
+                          fontSize: '9px',
+                          fontWeight: 800,
+                          color: '#10B981',
+                          background: 'rgba(16, 185, 129, 0.15)',
+                          border: '1px solid rgba(16, 185, 129, 0.3)',
+                          borderRadius: '4px',
+                          padding: '1px 4px',
+                          lineHeight: 1,
+                        }}
+                      >
+                        ✓
+                      </span>
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '10px',
+                      color: isSelected ? '#F87171' : '#94A3B8',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span>{veh.stats.driveType}</span>
+                    <span>•</span>
+                    <span>{veh.config.engine.maxSpeed} km/h</span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
 
           {/* Vehicle Header & Drive Badge */}
@@ -371,6 +571,25 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     cursor: 'pointer',
     backdropFilter: 'blur(6px)',
+    transition: 'background 0.15s ease, border-color 0.15s ease, transform 0.1s ease',
+    touchAction: 'manipulation',
+    boxSizing: 'border-box',
+  },
+  carouselNavButton: {
+    width: '44px',
+    height: '44px',
+    minWidth: '44px',
+    minHeight: '44px',
+    borderRadius: '8px',
+    background: 'rgba(15, 23, 42, 0.85)',
+    border: '1px solid rgba(255, 255, 255, 0.18)',
+    color: '#F1F5F9',
+    fontSize: '14px',
+    fontWeight: 700,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
     transition: 'background 0.15s ease, border-color 0.15s ease, transform 0.1s ease',
     touchAction: 'manipulation',
     boxSizing: 'border-box',

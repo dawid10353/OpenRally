@@ -1,4 +1,4 @@
-export type { GameState, CameraMode, GraphicsQuality, AntiAliasingMode, InputState, GamepadType } from './game';
+export type { GameState, GameMode, CameraMode, GraphicsQuality, AntiAliasingMode, InputState, GamepadType } from './game';
 export type {
   WheelInfo,
   EngineConfig,
@@ -42,5 +42,6 @@ export type {
   LevelPreset,
 } from './level';
 export type { RacingStore } from './racing';
+export * from './gymkhana';
 export * from './settings';
 

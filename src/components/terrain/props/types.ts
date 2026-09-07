@@ -30,6 +30,8 @@ export interface CategorizedProps {
   hayBales: PropItem[];
   rallySigns: PropItem[];
   stoneBridges: PropItem[];
+  shippingContainers: PropItem[];
+  driftPylons: PropItem[];
   spatialGrid: Map<string, PropItem[]>;
 }
 
@@ -51,4 +53,6 @@ export interface ProximityCollidersProps {
   initialHayBales: PropItem[];
   initialRallySigns: PropItem[];
   initialStoneBridges: PropItem[];
+  initialShippingContainers: PropItem[];
+  initialDriftPylons: PropItem[];
 }

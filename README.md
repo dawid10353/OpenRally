@@ -33,17 +33,17 @@
   <br />
 
   <p align="center">
-    <img src="public/screenshots/gameplay_showcase.gif" alt="OpenRally Dynamic Rally Drift & Jump Action" width="100%" style="border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,0.6);" />
+    <img src="docs/media/screenshots/gameplay_showcase.gif" alt="OpenRally Dynamic Rally Drift & Jump Action" width="100%" style="border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,0.6);" />
   </p>
 
   <p align="center">
-    <img src="public/screenshots/gantry_finish.png" alt="OpenRally Modular Checkpoint Gate & Rally Timing" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
-    <img src="public/screenshots/drift_action.png" alt="OpenRally Vortex Rally1 Drift Action & Skid Marks" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
+    <img src="docs/media/screenshots/gantry_finish.png" alt="OpenRally Modular Checkpoint Gate & Rally Timing" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
+    <img src="docs/media/screenshots/drift_action.png" alt="OpenRally Vortex Rally1 Drift Action & Skid Marks" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
   </p>
 
   <p align="center">
-    <img src="public/screenshots/stage_desert_jump.png" alt="OpenRally Desert Canyon Big Air Jump" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
-    <img src="public/screenshots/stage_forest_lake.png" alt="OpenRally Coastal Lake Drift & Water Reflections" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
+    <img src="docs/media/screenshots/stage_desert_jump.png" alt="OpenRally Desert Canyon Big Air Jump" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
+    <img src="docs/media/screenshots/stage_forest_lake.png" alt="OpenRally Coastal Lake Drift & Water Reflections" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
   </p>
 </div>
 
@@ -54,18 +54,18 @@
 Experience high-octane rally dynamics, procedural Simplex terrain heightfields, and authentic raycast suspension physics in action:
 
 > [!TIP]
-> **🎥 High-Definition In-Game Video:** Watch the official **[OpenRally 1080p 60 FPS Gameplay Trailer](public/videos/openrally_trailer.mp4)** featuring full audio synthesis, checkpoint gates, and high-speed drift maneuvers.
+> **🎥 High-Definition In-Game Video:** Watch the official **[OpenRally 1080p 60 FPS Gameplay Trailer](docs/media/videos/openrally_trailer.mp4)** featuring full audio synthesis, checkpoint gates, and high-speed drift maneuvers.
 
 <div align="center">
   <table>
     <tr>
       <td width="50%" align="center">
         <strong>🏜️ Desert Canyon — Big Air & Loose Sand Drifting</strong><br /><br />
-        <img src="public/screenshots/gameplay_showcase.webp" alt="OpenRally Desert Canyon Showcase" width="100%" style="border-radius: 8px;" />
+        <img src="docs/media/screenshots/gameplay_showcase.webp" alt="OpenRally Desert Canyon Showcase" width="100%" style="border-radius: 8px;" />
       </td>
       <td width="50%" align="center">
         <strong>🌲 Island Circuit — High-Speed Coastal Lake Drift</strong><br /><br />
-        <img src="public/screenshots/gameplay_forest_lake.webp" alt="OpenRally Island Circuit Lake Drift" width="100%" style="border-radius: 8px;" />
+        <img src="docs/media/screenshots/gameplay_forest_lake.webp" alt="OpenRally Island Circuit Lake Drift" width="100%" style="border-radius: 8px;" />
       </td>
     </tr>
   </table>
@@ -115,12 +115,12 @@ The project blends authentic motorsport simulation principles with exhilarating,
 - **Unified Selection Navigation:** Streamlined UI with clear, actionable `Select` and `Choose Car` triggers.
 
 <div align="center">
-  <img src="public/screenshots/main_menu.png" alt="OpenRally Main Menu Dashboard" width="100%" style="border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,0.6); margin-bottom: 12px;" />
+  <img src="docs/media/screenshots/main_menu.png" alt="OpenRally Main Menu Dashboard" width="100%" style="border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,0.6); margin-bottom: 12px;" />
 </div>
 
 <div align="center">
-  <img src="public/screenshots/tracks_selection.png" alt="OpenRally Circuit Selection" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
-  <img src="public/screenshots/pause_menu.png" alt="OpenRally Stage Pause Menu" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
+  <img src="docs/media/screenshots/tracks_selection.png" alt="OpenRally Circuit Selection" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
+  <img src="docs/media/screenshots/pause_menu.png" alt="OpenRally Stage Pause Menu" width="49%" style="border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);" />
 </div>
 
 ### 🏔️ Procedural Terrains & Dynamic Surface Registry
@@ -168,7 +168,7 @@ OpenRally provides seamless support for **Keyboard**, **Gamepads** (PlayStation 
 ### Playable Vehicles & 3D Garage Showroom
 
 <div align="center">
-  <img src="public/screenshots/garage_showroom.png" alt="OpenRally 3D Interactive Garage Showroom" width="100%" style="border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,0.6);" />
+  <img src="docs/media/screenshots/garage_showroom.png" alt="OpenRally 3D Interactive Garage Showroom" width="100%" style="border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,0.6);" />
 </div>
 
 <br />

@@ -74,10 +74,11 @@ export const ARCHETYPE_CONFIGS: Record<VehicleArchetype, VehicleConfig> = {
   rally: {
     chassisMass: 140,
     chassisSize: [2.0, 0.6, 4.0],
+    weightDistribution: { frontBias: 0.53, engineOffsetZ: 0.80, engineOffsetY: -0.18, centerOfMassZ: 0.08 },
     engine: { maxForce: 450, maxSpeed: 250 },
     drivetrain: { frontBias: 0.5 }, // 50/50 AWD
     brakes: { maxForce: 25, handbrakeForce: 70, frontBias: 0.6 },
-    suspension: { frontAntiRollBarStiffness: 15.0, rearAntiRollBarStiffness: 10.0 },
+    suspension: { frontAntiRollBarStiffness: 15.0, rearAntiRollBarStiffness: 10.0, antiSquatStiffness: 32.0 },
     handling: {
       steeringCurve: [
         [0, Math.PI / 4],
@@ -97,10 +98,11 @@ export const ARCHETYPE_CONFIGS: Record<VehicleArchetype, VehicleConfig> = {
   supercar: {
     chassisMass: 125,
     chassisSize: [2.0, 0.5, 4.3],
+    weightDistribution: { frontBias: 0.44, engineOffsetZ: -0.20, engineOffsetY: -0.18, centerOfMassZ: -0.02 },
     engine: { maxForce: 540, maxSpeed: 300 },
     drivetrain: { frontBias: 0.2 }, // 20/80 rear-biased AWD
     brakes: { maxForce: 30, handbrakeForce: 85, frontBias: 0.65 },
-    suspension: { frontAntiRollBarStiffness: 22.0, rearAntiRollBarStiffness: 18.0 },
+    suspension: { frontAntiRollBarStiffness: 22.0, rearAntiRollBarStiffness: 18.0, antiSquatStiffness: 35.0 },
     handling: {
       steeringCurve: [
         [0, Math.PI / 4.2],
@@ -125,10 +127,11 @@ export const ARCHETYPE_CONFIGS: Record<VehicleArchetype, VehicleConfig> = {
   offroad: {
     chassisMass: 180,
     chassisSize: [2.2, 0.7, 4.3],
+    weightDistribution: { frontBias: 0.53, engineOffsetZ: 0.75, engineOffsetY: -0.18, centerOfMassZ: 0.08 },
     engine: { maxForce: 520, maxSpeed: 210 },
     drivetrain: { frontBias: 0.5 },
     brakes: { maxForce: 25, handbrakeForce: 70, frontBias: 0.55 },
-    suspension: { frontAntiRollBarStiffness: 12.0, rearAntiRollBarStiffness: 9.0 },
+    suspension: { frontAntiRollBarStiffness: 12.0, rearAntiRollBarStiffness: 9.0, antiSquatStiffness: 30.0 },
     handling: {
       steeringCurve: [
         [0, Math.PI / 4],
@@ -159,10 +162,11 @@ export const ARCHETYPE_CONFIGS: Record<VehicleArchetype, VehicleConfig> = {
   drift: {
     chassisMass: 130,
     chassisSize: [1.95, 0.55, 4.1],
+    weightDistribution: { frontBias: 0.52, engineOffsetZ: 0.70, engineOffsetY: -0.18, centerOfMassZ: 0.06 },
     engine: { maxForce: 490, maxSpeed: 260 },
     drivetrain: { frontBias: 0.0 }, // 100% RWD
     brakes: { maxForce: 22, handbrakeForce: 90, frontBias: 0.7 },
-    suspension: { frontAntiRollBarStiffness: 20.0, rearAntiRollBarStiffness: 12.0 },
+    suspension: { frontAntiRollBarStiffness: 20.0, rearAntiRollBarStiffness: 12.0, antiSquatStiffness: 34.0 },
     handling: {
       steeringCurve: [
         [0, Math.PI / 3.5], // Extra large steering angle for drift angle
@@ -187,10 +191,11 @@ export const ARCHETYPE_CONFIGS: Record<VehicleArchetype, VehicleConfig> = {
   buggy: {
     chassisMass: 110,
     chassisSize: [1.9, 0.6, 3.6],
+    weightDistribution: { frontBias: 0.48, engineOffsetZ: 0.30, engineOffsetY: -0.18, centerOfMassZ: 0.02 },
     engine: { maxForce: 420, maxSpeed: 220 },
     drivetrain: { frontBias: 0.4 },
     brakes: { maxForce: 20, handbrakeForce: 65, frontBias: 0.55 },
-    suspension: { frontAntiRollBarStiffness: 10.0, rearAntiRollBarStiffness: 8.0 },
+    suspension: { frontAntiRollBarStiffness: 10.0, rearAntiRollBarStiffness: 8.0, antiSquatStiffness: 28.0 },
     handling: {
       steeringCurve: [
         [0, Math.PI / 3.8],
@@ -238,6 +243,10 @@ export interface CreateVehicleOptions {
   readonly modelScale?: Vector3Tuple;
   /** Visual offset */
   readonly modelPositionOffset?: Vector3Tuple;
+  /** Visual rotation offset */
+  readonly modelRotationOffset?: Vector3Tuple;
+  /** Optional optimized GLB path */
+  readonly optimizedModelPath?: string;
   /** UI Stats override (1-10) */
   readonly stats?: Partial<VehicleStats>;
   /** Specific physics configuration overrides */
@@ -293,6 +302,8 @@ export function createVehiclePreset(options: CreateVehicleOptions): VehiclePrese
     wheelModelPath: options.wheelModelPath,
     modelScale: options.modelScale ?? [4.5, 4.5, 4.5],
     modelPositionOffset: options.modelPositionOffset ?? [0, 0.2, 0.1],
+    modelRotationOffset: options.modelRotationOffset,
+    optimizedModelPath: options.optimizedModelPath,
     stats: { ...defaultStats, ...options.stats },
     config: finalConfig,
   };

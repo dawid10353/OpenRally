@@ -24,6 +24,7 @@ import { isMobileDevice } from '@/utils/device';
 interface VehicleVisualModelProps {
   modelPath: string;
   positionOffset: [number, number, number];
+  rotationOffset?: [number, number, number];
   scale: [number, number, number];
   chassisSize: [number, number, number];
 }
@@ -35,6 +36,7 @@ interface VehicleVisualModelProps {
 function VehicleVisualModel({
   modelPath,
   positionOffset,
+  rotationOffset,
   scale,
   chassisSize,
 }: VehicleVisualModelProps) {
@@ -47,7 +49,7 @@ function VehicleVisualModel({
         object={scene} 
         position={positionOffset} 
         scale={scale} 
-        rotation={[0, 0, 0]} 
+        rotation={rotationOffset ?? [0, 0, 0]} 
         castShadow
         receiveShadow
       />
@@ -90,8 +92,8 @@ export function Vehicle() {
   const isMobile = isMobileDevice();
   const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
   const useOptimized = isMobile || graphicsQuality !== 'very_high';
-  const effectiveModelPath = useOptimized && vehiclePreset.modelPath.endsWith('.glb')
-    ? vehiclePreset.modelPath.replace(/\.glb$/, '_opt.glb')
+  const effectiveModelPath = useOptimized
+    ? (vehiclePreset.optimizedModelPath ?? (vehiclePreset.modelPath.endsWith('.glb') ? vehiclePreset.modelPath.replace(/\.glb$/, '_opt.glb') : vehiclePreset.modelPath))
     : vehiclePreset.modelPath;
 
   const chassisRef = useRef<RapierRigidBody>(null);
@@ -129,10 +131,15 @@ export function Vehicle() {
         canSleep={false}
         ccd={true}
       >
-        {/* Chassis collider — keyed so geometry reconfigures on vehicle switch without unmounting the RigidBody */}
+        {/* Chassis collider: Balanced front engine weight distribution (~53% front bias, CoM Z = +0.08m) */}
+        {/* Eliminates nose-heavy sluggishness while completely preventing wheelies under full throttle */}
         <CuboidCollider
           key={selectedVehicleId}
-          position={[0, -0.12, 0]}
+          position={[
+            0,
+            config.weightDistribution?.engineOffsetY ?? -0.16,
+            config.weightDistribution?.centerOfMassZ ?? 0.08,
+          ]}
           args={[
             config.chassisSize[0] / 2,
             config.chassisSize[1] / 2,
@@ -141,6 +148,7 @@ export function Vehicle() {
           mass={config.chassisMass}
         />
 
+        {/* Visual Mesh (Interpolated Position) */}
         <group ref={visualRef}>
           <Suspense
             fallback={
@@ -159,6 +167,7 @@ export function Vehicle() {
             <VehicleVisualModel
               modelPath={effectiveModelPath}
               positionOffset={vehiclePreset.modelPositionOffset ?? [0, 0.2, 0.1]}
+              rotationOffset={vehiclePreset.modelRotationOffset ?? [0, 0, 0]}
               scale={vehiclePreset.modelScale ?? [4.5, 4.5, 4.5]}
               chassisSize={config.chassisSize}
             />
@@ -242,5 +251,11 @@ export function Vehicle() {
 
 useGLTF.preload(VEHICLE_MODEL_PATH);
 useGLTF.preload(VEHICLE_WRC_MODEL_PATH);
-useGLTF.preload('/models/vehicles/car_opt.glb');
-useGLTF.preload('/models/vehicles/rally_wrc_opt.glb');
+useGLTF.preload('/models/vehicles/car_zephyr_wr4_opt.glb');
+useGLTF.preload('/models/vehicles/car_phantom_b_opt.glb');
+useGLTF.preload('/models/vehicles/car_bantam_turbo_opt.glb');
+useGLTF.preload('/models/vehicles/car_vanguard_gt_opt.glb');
+useGLTF.preload('/models/vehicles/car_shadowfire_rs_opt.glb');
+useGLTF.preload('/models/vehicles/car_kodiak_raid_opt.glb');
+useGLTF.preload('/models/vehicles/car_vortex_b_opt.glb');
+

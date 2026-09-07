@@ -2,9 +2,11 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useRacingStore } from '@/store/racingStore';
+import { useGymkhanaStore } from '@/store/gymkhanaStore';
 import { getAvailableVehicles, getVehiclePreset } from '@/config/vehicleRegistry';
 import { getAvailableLevels, getLevelPreset } from '@/config/levelRegistry';
 import { resetGamepadEdgeState } from '@/utils/input/gamepad';
+import type { GameMode } from '@/types';
 import {
   menuStyles,
   MainView,
@@ -161,7 +163,7 @@ export function MenuOverlay() {
   const previewPreset = getVehiclePreset(previewVehicleId);
   const currentLevelPreset = getLevelPreset(selectedLevelId);
 
-  const handleLaunchMode = useCallback((mode: 'freeroam' | 'timeattack') => {
+  const handleLaunchMode = useCallback((mode: GameMode) => {
     resetGamepadEdgeState();
     setGameMode(mode);
     setPreviewVehicleIdInternal(selectedVehicleId);
@@ -175,6 +177,8 @@ export function MenuOverlay() {
     useGameStore.getState().triggerReset(true);
     useRacingStore.getState().resetRace();
     syncBestLapForLevel(selectedLevelId);
+    useGymkhanaStore.getState().resetBlitz();
+    useGymkhanaStore.getState().syncBestScoreForLevel(selectedLevelId);
     setView('main');
     setGameState('loading');
   }, [selectedLevelId, setGameState, setSelectedVehicleId, setView, syncBestLapForLevel]);
@@ -184,8 +188,12 @@ export function MenuOverlay() {
     useGameStore.getState().triggerReset(true);
     useRacingStore.getState().resetRace();
     syncBestLapForLevel(selectedLevelId);
+    useGymkhanaStore.getState().resetBlitz();
+    useGymkhanaStore.getState().syncBestScoreForLevel(selectedLevelId);
     if (gameMode === 'timeattack') {
       useRacingStore.getState().startCountdown();
+    } else if (gameMode === 'gymkhana_blitz') {
+      useGymkhanaStore.getState().startCountdown();
     }
     setView('main');
     setGameState('playing');
@@ -194,6 +202,7 @@ export function MenuOverlay() {
   const handleSelectTrack = useCallback((levelId: string) => {
     setSelectedLevelId(levelId);
     syncBestLapForLevel(levelId);
+    useGymkhanaStore.getState().syncBestScoreForLevel(levelId);
     setView('start_mode');
   }, [setSelectedLevelId, setView, syncBestLapForLevel]);
 
@@ -275,6 +284,7 @@ export function MenuOverlay() {
   const textColor = '#F1F5F9';
   const subtitleColor = '#94A3B8';
   const selectedLevelBest = getBestLapForLevel(selectedLevelId);
+  const selectedLevelBestGymkhana = useGymkhanaStore.getState().getBestScoreForLevel(selectedLevelId);
   const activeVehiclePreset = getVehiclePreset(selectedVehicleId);
 
   return (
@@ -408,7 +418,7 @@ export function MenuOverlay() {
                 fontWeight: 800,
                 letterSpacing: '1px',
               }}>
-                {gameMode === 'timeattack' ? 'TIME ATTACK' : 'FREE ROAM'}
+                {gameMode === 'timeattack' ? 'TIME ATTACK' : gameMode === 'gymkhana_blitz' ? 'GYMKHANA BLITZ' : 'FREE ROAM'}
               </span>
             </div>
 
@@ -450,9 +460,9 @@ export function MenuOverlay() {
                     borderRadius: '4px',
                     letterSpacing: '0.5px',
                   }}>
-                    {selectedLevelBest && selectedLevelBest > 0
-                      ? `RECORD: ${formatLapTime(selectedLevelBest)}`
-                      : 'RECORD: --:--.--'}
+                    {gameMode === 'gymkhana_blitz'
+                      ? (selectedLevelBestGymkhana > 0 ? `RECORD: ${selectedLevelBestGymkhana.toLocaleString('en-US')} PTS` : 'RECORD: 0 PTS')
+                      : (selectedLevelBest && selectedLevelBest > 0 ? `RECORD: ${formatLapTime(selectedLevelBest)}` : 'RECORD: --:--.--')}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -490,6 +500,7 @@ export function MenuOverlay() {
             currentLevelPreset={currentLevelPreset}
             gameMode={gameMode}
             selectedLevelBest={selectedLevelBest}
+            selectedLevelBestGymkhana={selectedLevelBestGymkhana}
             focusedIndex={focusedIndex}
             textColor={textColor}
             onPointerMoveItem={handlePointerMoveItem}

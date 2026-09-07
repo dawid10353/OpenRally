@@ -49,44 +49,46 @@ export function applyAssists(
         Math.sign(input.steering) !== Math.sign(_localAngVel.y) && Math.abs(_localAngVel.y) > 0.25;
 
       if (isCounterSteering) {
-        // Active Countersteer Yaw Authority:
-        // When driver turns against the spin to catch a slide, apply dynamic aligning torque
-        // to rapidly arrest unwanted rotation and align heading with countersteering intent.
+        // Active Countersteer Stability:
+        // Smoothly assists driver to catch a slide without violently catapulting into snap-oversteer or tank-slappers
+        const counterAuthority = Math.min(1.2, Math.abs(_localAngVel.y) * 0.5 + 0.4);
         const counterTorque =
           input.steering *
-          Math.min(3.2, Math.abs(_localAngVel.y) * 1.5 + 1.2) *
+          counterAuthority *
           mass *
           dt *
-          0.85;
+          0.45;
         localTorqueY += counterTorque;
       } else {
-        // Responsive, direct Turn-In Assistance (eliminates understeer on corner entry)
-        const speedRamp = Math.min(1.0, absSpeed / 8.0);
-        const turnInTorque = input.steering * speedRamp * 0.52 * mass * dt;
+        // Progressive Turn-In Assistance (sharp corner entry without twitchy snapping)
+        const speedRamp = Math.min(1.0, absSpeed / 10.0);
+        const turnInTorque = input.steering * speedRamp * 0.22 * mass * dt;
         localTorqueY += turnInTorque;
 
-        // Allow natural rotation up to an agile dynamic yaw rate based on steering & speed
-        const targetYawRate = input.steering * Math.min(4.5, (absSpeed / 10.0) + 2.2);
+        // Dynamic yaw rate ceiling based on steering & speed
+        const targetYawRate = input.steering * Math.min(3.2, (absSpeed / 12.0) + 1.6);
         const excessYaw = _localAngVel.y - targetYawRate;
 
-        // Only damp if vehicle is over-rotating into a spin-out
-        if (Math.sign(_localAngVel.y) === Math.sign(input.steering) && Math.abs(_localAngVel.y) > Math.abs(targetYawRate) + 0.8) {
-          localTorqueY -= excessYaw * config.handling.assists.yawDamping * mass * dt * 0.7;
+        // Smoothly damp over-rotation beyond target yaw rate to prevent spin-outs
+        if (Math.sign(_localAngVel.y) === Math.sign(input.steering) && Math.abs(_localAngVel.y) > Math.abs(targetYawRate) + 0.35) {
+          localTorqueY -= excessYaw * Math.max(0.12, config.handling.assists.yawDamping) * mass * dt * 1.2;
         }
       }
     } else {
       // Centered / neutral steering — gentle straight-line stability without killing drift momentum
-      const isPowerSliding = input.throttle > 0.15 && Math.abs(_localAngVel.y) < 3.8;
-      if (!isPowerSliding && Math.abs(_localAngVel.y) > 0.4) {
-        localTorqueY -= _localAngVel.y * config.handling.assists.yawDamping * mass * dt * 0.6;
+      const isPowerSliding = input.throttle > 0.15 && Math.abs(_localAngVel.y) < 2.5;
+      if (!isPowerSliding && Math.abs(_localAngVel.y) > 0.3) {
+        localTorqueY -= _localAngVel.y * Math.max(0.14, config.handling.assists.yawDamping * 1.5) * mass * dt * 0.9;
       }
     }
   }
 
-  // 2. Pitch Stabilization (damps nose-dive & prevents endo/flipping around local X axis)
+  // 2. Pitch Stabilization (damps nose-dive & prevents wheelie/flipping around local X axis)
   // Pitch velocity damping:
-  if (Math.abs(_localAngVel.x) > 0.1) {
-    localTorqueX = -_localAngVel.x * 1.2 * mass * dt;
+  if (Math.abs(_localAngVel.x) > 0.04) {
+    const isUnderThrottle = input.throttle > 0.1;
+    const dampMultiplier = isUnderThrottle ? 4.2 : 2.4;
+    localTorqueX = -_localAngVel.x * dampMultiplier * mass * dt;
   }
 
   // Pitch angle restoring: forwardVec.y is negative when nose is down, positive when nose is up.
@@ -94,9 +96,12 @@ export function applyAssists(
   // When nose is down (forwardVec.y < 0), negative torque around X pulls nose UP.
   // When nose is up (forwardVec.y > 0), positive torque around X pulls nose DOWN.
   const pitchSin = _forwardVec.y;
-  if (Math.abs(pitchSin) > 0.08) {
-    const excessPitch = Math.sign(pitchSin) * (Math.abs(pitchSin) - 0.08);
-    const pitchGain = (pitchSin < 0 && input.brake > 0) ? 6.0 : 3.0;
+  const isWheelie = pitchSin > 0.03 && input.throttle > 0.05;
+  const pitchThreshold = isWheelie ? 0.03 : 0.07;
+  if (Math.abs(pitchSin) > pitchThreshold) {
+    const excessPitch = Math.sign(pitchSin) * (Math.abs(pitchSin) - pitchThreshold);
+    // When wheelie is detected under throttle, apply authoritative anti-wheelie torque to plant the front engine down
+    const pitchGain = isWheelie ? 18.0 : (pitchSin < 0 && input.brake > 0) ? 7.5 : 4.0;
     localTorqueX += excessPitch * pitchGain * mass * dt;
   }
 

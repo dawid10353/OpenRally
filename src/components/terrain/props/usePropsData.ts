@@ -75,6 +75,8 @@ export function categorizeProps(
   const hayBaleList: PropItem[] = [];
   const rallySignList: PropItem[] = [];
   const stoneBridgeList: PropItem[] = [];
+  const shippingContainerList: PropItem[] = [];
+  const driftPylonList: PropItem[] = [];
 
   const grid = new Map<string, PropItem[]>();
 
@@ -101,10 +103,16 @@ export function categorizeProps(
     ) {
       if (distToRoad < 18.0) continue;
     }
-    // 3. Trees, boulders, cairns
+    // 3. Shipping containers (buffer 5.0m from center spline)
+    else if (prop.type === 'shipping_container') {
+      if (distToRoad < 5.0) continue;
+    }
+    // 4. Trees, boulders, cairns (exempting clipping drift pylons, signs, gates, hay bales)
     else if (
       prop.type !== 'castle_gate' &&
-      prop.type !== 'rally_sign'
+      prop.type !== 'rally_sign' &&
+      prop.type !== 'hay_bale' &&
+      prop.type !== 'drift_pylon'
     ) {
       if (distToRoad < 12.0) continue;
     }
@@ -242,6 +250,10 @@ export function categorizeProps(
       rallySignList.push(item);
     } else if (prop.type === 'stone_bridge') {
       stoneBridgeList.push(item);
+    } else if (prop.type === 'shipping_container') {
+      shippingContainerList.push(item);
+    } else if (prop.type === 'drift_pylon') {
+      driftPylonList.push(item);
     } else {
       pines.push(item);
     }
@@ -278,6 +290,8 @@ export function categorizeProps(
     hayBales: hayBaleList,
     rallySigns: rallySignList,
     stoneBridges: stoneBridgeList,
+    shippingContainers: shippingContainerList,
+    driftPylons: driftPylonList,
     spatialGrid: grid,
   };
 }

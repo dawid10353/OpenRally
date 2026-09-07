@@ -1,4 +1,4 @@
-import { useRef, useMemo, useLayoutEffect } from 'react';
+import { useRef, useMemo, useLayoutEffect, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import {
   InstancedMesh,
@@ -204,6 +204,38 @@ export function VegetationInstancer({
       if (uniforms.u_time) uniforms.u_time.value = time;
     }
   });
+
+  // Clean up GPU buffers and materials on unmount/track change to prevent VRAM accumulation
+  useEffect(() => {
+    return () => {
+      pineTrunkGeo.dispose();
+      pineFoliageGeo.dispose();
+      birchTrunkGeo.dispose();
+      birchFoliageGeo.dispose();
+      desertTrunkGeo.dispose();
+      desertFoliageGeo.dispose();
+
+      pineTrunkMaterial.dispose();
+      birchTrunkMaterial.dispose();
+      desertTrunkMaterial.dispose();
+      pineFoliageMaterial.dispose();
+      birchFoliageMaterial.dispose();
+      desertFoliageMaterial.dispose();
+    };
+  }, [
+    pineTrunkGeo,
+    pineFoliageGeo,
+    birchTrunkGeo,
+    birchFoliageGeo,
+    desertTrunkGeo,
+    desertFoliageGeo,
+    pineTrunkMaterial,
+    birchTrunkMaterial,
+    desertTrunkMaterial,
+    pineFoliageMaterial,
+    birchFoliageMaterial,
+    desertFoliageMaterial,
+  ]);
 
   return (
     <>

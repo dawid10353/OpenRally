@@ -58,7 +58,7 @@ describe('suspension physics (Anti-Roll & Pitch Stabilization)', () => {
   });
 
   it('applies anti-squat pitch torque under acceleration when rear suspension compresses', () => {
-    const body = createMockBody({ angvel: { x: 0.5, y: 0, z: 0 } });
+    const body = createMockBody({ angvel: { x: -0.5, y: 0, z: 0 } });
     // Front suspension extended (0.32m), rear suspension compressed (0.22m) - tail squatting
     const controller = createMockController([0.32, 0.32, 0.22, 0.22]);
 
@@ -66,12 +66,12 @@ describe('suspension physics (Anti-Roll & Pitch Stabilization)', () => {
 
     expect(body.applyTorqueImpulse).toHaveBeenCalled();
     expect(body.appliedTorques.length).toBeGreaterThan(0);
-    // Applies restoring torque to pitch car forward/down to counteract wheelie
-    expect(body.appliedTorques[0].x).toBeLessThan(0);
+    // Applies positive restoring torque around X to pitch car forward/down and counteract wheelie
+    expect(body.appliedTorques[0].x).toBeGreaterThan(0);
   });
 
   it('applies anti-dive pitch torque under braking when front suspension compresses', () => {
-    const body = createMockBody({ angvel: { x: -0.5, y: 0, z: 0 } });
+    const body = createMockBody({ angvel: { x: 0.5, y: 0, z: 0 } });
     // Front suspension compressed (0.20m), rear suspension extended (0.32m) - nose diving
     const controller = createMockController([0.20, 0.20, 0.32, 0.32]);
 
@@ -79,7 +79,31 @@ describe('suspension physics (Anti-Roll & Pitch Stabilization)', () => {
 
     expect(body.applyTorqueImpulse).toHaveBeenCalled();
     expect(body.appliedTorques.length).toBeGreaterThan(0);
-    // Applies restoring torque to pitch car back up to counteract nose-dive/stoppie
+    // Applies negative restoring torque around X to pitch car back up to counteract nose-dive/stoppie
+    expect(body.appliedTorques[0].x).toBeLessThan(0);
+  });
+
+  it('generates anti-squat restoring torque even with zero angular velocity to prevent wheelies', () => {
+    // Pure suspension squat with zero angular velocity
+    const body = createMockBody({ angvel: { x: 0, y: 0, z: 0 } });
+    const controller = createMockController([0.32, 0.32, 0.22, 0.22]);
+
+    applyPitchStabilization(body, controller, WRC_VEHICLE_CONFIG, 0.016);
+
+    expect(body.applyTorqueImpulse).toHaveBeenCalled();
+    // Must produce positive torque to push nose down
     expect(body.appliedTorques[0].x).toBeGreaterThan(0);
+  });
+
+  it('ramps up anti-wheelie clamping torque when front suspension is unweighted', () => {
+    // Front suspension at full rebound (unweighted, 0.32m), rear heavily compressed (0.18m)
+    const body = createMockBody({ angvel: { x: 0, y: 0, z: 0 } });
+    const controller = createMockController([0.32, 0.32, 0.18, 0.18]);
+
+    applyPitchStabilization(body, controller, WRC_VEHICLE_CONFIG, 0.016);
+
+    expect(body.applyTorqueImpulse).toHaveBeenCalled();
+    // Strong positive restoring torque applied to plant front axle
+    expect(body.appliedTorques[0].x).toBeGreaterThan(10 * 0.016);
   });
 });

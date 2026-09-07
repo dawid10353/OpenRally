@@ -9,10 +9,12 @@ import { menuStyles } from './menuStyles';
 function CarMesh({
   modelPath,
   offset,
+  rotation,
   scale,
 }: {
   modelPath: string;
   offset: [number, number, number];
+  rotation?: [number, number, number];
   scale: [number, number, number];
 }) {
   const { scene } = useGLTF(modelPath);
@@ -20,6 +22,7 @@ function CarMesh({
     <Clone 
       object={scene} 
       position={offset} 
+      rotation={rotation ?? [0, 0, 0]}
       scale={scale} 
       castShadow 
       receiveShadow 
@@ -31,11 +34,12 @@ export function CarModelDisplay({ preset }: { preset: VehiclePreset }) {
   const isMobile = isMobileDevice();
   const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
   const useOptimized = isMobile || graphicsQuality !== 'very_high';
-  const effectiveModelPath = useOptimized && preset.modelPath.endsWith('.glb')
-    ? preset.modelPath.replace(/\.glb$/, '_opt.glb')
+  const effectiveModelPath = useOptimized
+    ? (preset.optimizedModelPath ?? (preset.modelPath.endsWith('.glb') ? preset.modelPath.replace(/\.glb$/, '_opt.glb') : preset.modelPath))
     : preset.modelPath;
 
   const offset = preset.modelPositionOffset ?? [0, 0.2, 0.1];
+  const rotation = preset.modelRotationOffset ?? [0, 0, 0];
   const scale = preset.modelScale ?? [4.5, 4.5, 4.5];
 
   return (
@@ -44,6 +48,7 @@ export function CarModelDisplay({ preset }: { preset: VehiclePreset }) {
         <CarMesh
           modelPath={effectiveModelPath}
           offset={offset}
+          rotation={rotation}
           scale={scale}
         />
       </Suspense>

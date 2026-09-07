@@ -10,12 +10,12 @@ import { validateVehiclePreset } from '@/utils/validation/vehicleValidator';
 describe('Vehicle Registry', () => {
   it('has valid default vehicle ID', () => {
     expect(VEHICLE_REGISTRY[DEFAULT_VEHICLE_ID]).toBeDefined();
-    expect(DEFAULT_VEHICLE_ID).toBe('rally_hatchback');
+    expect(DEFAULT_VEHICLE_ID).toBe('zephyr_wr4');
   });
 
-  it('contains valid presets that pass all physical validation checks', () => {
+  it('contains exactly 7 valid presets that pass all physical validation checks', () => {
     const vehicles = getAvailableVehicles();
-    expect(vehicles.length).toBeGreaterThanOrEqual(1);
+    expect(vehicles).toHaveLength(7);
 
     for (const vehicle of vehicles) {
       const validation = validateVehiclePreset(vehicle);
@@ -25,22 +25,36 @@ describe('Vehicle Registry', () => {
     }
   });
 
-  it('retrieves preset by ID with fallback to default', () => {
+  it('retrieves preset by ID with fallback to default and legacy ID mapping', () => {
     const defaultCar = getVehiclePreset(DEFAULT_VEHICLE_ID);
-    expect(defaultCar.id).toBe('rally_hatchback');
+    expect(defaultCar.id).toBe('zephyr_wr4');
+    expect(defaultCar.name).toBe('Zephyr WR-4');
     expect(defaultCar.stats.driveType).toBe('AWD');
 
-    const wrcCar = getVehiclePreset('rally_wrc');
-    expect(wrcCar.id).toBe('rally_wrc');
-    expect(wrcCar.name).toBe('Vortex Rally1');
-    expect(wrcCar.stats.driveType).toBe('AWD');
-    expect(wrcCar.config.engine.maxSpeed).toBe(265);
+    // Legacy fallback mapping
+    const legacyHatch = getVehiclePreset('rally_hatchback');
+    expect(legacyHatch.id).toBe('zephyr_wr4');
+
+    const legacyWrc = getVehiclePreset('rally_wrc');
+    expect(legacyWrc.id).toBe('shadowfire_rs');
+
+    const legacyCyclone = getVehiclePreset('rally_cyclone_b');
+    expect(legacyCyclone.id).toBe('apex_phantom_b');
+
+    const legacyIgnis = getVehiclePreset('ignis_sprint');
+    expect(legacyIgnis.id).toBe('zephyr_wr4');
+
+    const phantom = getVehiclePreset('apex_phantom_b');
+    expect(phantom.id).toBe('apex_phantom_b');
+    expect(phantom.name).toBe('Phantom B-Spec');
+    expect(phantom.stats.driveType).toBe('AWD');
+    expect(phantom.config.engine.maxSpeed).toBe(275);
 
     const unknownCar = getVehiclePreset('non_existent_car');
-    expect(unknownCar.id).toBe('rally_hatchback');
+    expect(unknownCar.id).toBe('zephyr_wr4');
   });
 
-  it('guarantees resting wheel clearance below body anchor points', () => {
+  it('guarantees resting wheel clearance below body anchor points for all 7 vehicles', () => {
     const vehicles = getAvailableVehicles();
     for (const vehicle of vehicles) {
       for (const wheel of vehicle.config.wheels) {
@@ -53,4 +67,27 @@ describe('Vehicle Registry', () => {
       }
     }
   });
+
+  it('guarantees all 7 vehicles have unique IDs, fictional names, and distinct stats', () => {
+    const vehicles = getAvailableVehicles();
+    const ids = new Set(vehicles.map((v) => v.id));
+    const names = new Set(vehicles.map((v) => v.name));
+
+    expect(ids.size).toBe(7);
+    expect(names.size).toBe(7);
+
+    // Verify all names are original and fictional (complying with Rule 6)
+    for (const vehicle of vehicles) {
+      expect(vehicle.name).not.toMatch(/Ford|Toyota|Subaru|Mitsubishi|Audi|Porsche|Renault|WRC|FIA/i);
+    }
+
+    // High performance Group B vehicle (Phantom B) should have higher max speed than balanced rally car (Zephyr)
+    const zephyr = getVehiclePreset('zephyr_wr4');
+    const phantom = getVehiclePreset('apex_phantom_b');
+
+    expect(phantom.config.engine.maxSpeed).toBeGreaterThan(zephyr.config.engine.maxSpeed);
+    expect(phantom.config.engine.maxForce).toBeGreaterThan(zephyr.config.engine.maxForce);
+    expect(phantom.stats.topSpeed).toBeGreaterThan(zephyr.stats.topSpeed);
+  });
 });
+

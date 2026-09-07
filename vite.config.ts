@@ -20,5 +20,28 @@ export default defineConfig({
   preview: {
     host: true,
     allowedHosts: true,
-  }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          if (id.includes('node_modules/three') || id.includes('@react-three')) {
+            return 'three-vendor';
+          }
+          if (id.includes('@dimforge/rapier3d') || id.includes('rapier')) {
+            return 'rapier-vendor';
+          }
+          if (
+            id.includes('node_modules/react') ||
+            id.includes('node_modules/react-dom') ||
+            id.includes('node_modules/zustand') ||
+            id.includes('node_modules/lucide-react')
+          ) {
+            return 'react-vendor';
+          }
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1500,
+  },
 })
