@@ -27,7 +27,7 @@ describe('ProximityColliders core logic & memory safety', () => {
     const state = createEmptyCollidersState();
 
     state.trees.push(createMockProp('t1', 'tree_pine', 0, 0));
-    state.rocks.push(createMockProp('r1', 'rock_granite', 0, 0));
+    state.rocks.push(createMockProp('r1', 'rock', 0, 0));
     state.cabins.push(createMockProp('c1', 'cabin', 0, 0));
     state.fences.push(createMockProp('f1', 'fence', 0, 0));
     state.castleTowers.push(createMockProp('ct1', 'castle_tower', 0, 0));

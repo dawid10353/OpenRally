@@ -121,16 +121,20 @@ export function TrackSelectView({
                     Surface: <strong style={{ color: '#E2E8F0' }}>{lvl.surfaceDescription}</strong>
                   </span>
                   {lvl.supportedModes?.includes('gymkhana_blitz') ? (
-                    <span style={{
-                      fontSize: '11px',
-                      fontWeight: 800,
-                      color: useGymkhanaStore.getState().getBestScoreForLevel(lvl.id) > 0 ? '#F59E0B' : '#64748B',
-                      letterSpacing: '0.5px',
-                    }}>
-                      {useGymkhanaStore.getState().getBestScoreForLevel(lvl.id) > 0
-                        ? `${useGymkhanaStore.getState().getBestScoreForLevel(lvl.id).toLocaleString('en-US')} PTS`
-                        : '0 PTS'}
-                    </span>
+                    (() => {
+                      const gymScore = useGymkhanaStore.getState().getBestScoreForLevel(lvl.id);
+                      const hasRecord = gymScore !== null && gymScore > 0;
+                      return (
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          color: hasRecord ? '#F59E0B' : '#64748B',
+                          letterSpacing: '0.5px',
+                        }}>
+                          {hasRecord ? `${gymScore.toLocaleString('en-US')} PTS` : '0 PTS'}
+                        </span>
+                      );
+                    })()
                   ) : (
                     <span style={{
                       fontSize: '11px',

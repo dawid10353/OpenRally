@@ -28,7 +28,7 @@ describe('Apex Gymkhana Arena Level Preset', () => {
   });
 
   it('passes track clearance validation for all placed props', () => {
-    const clearance = validateLevelTrackClearance(LEVEL_PRESET_GYMKHANA);
+    const clearance = validateLevelTrackClearance(LEVEL_PRESET_GYMKHANA.data);
     expect(clearance.valid, `Clearance errors: ${clearance.errors.join(', ')}`).toBe(true);
     expect(clearance.errors).toHaveLength(0);
   });

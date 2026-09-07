@@ -461,7 +461,7 @@ export function MenuOverlay() {
                     letterSpacing: '0.5px',
                   }}>
                     {gameMode === 'gymkhana_blitz'
-                      ? (selectedLevelBestGymkhana > 0 ? `RECORD: ${selectedLevelBestGymkhana.toLocaleString('en-US')} PTS` : 'RECORD: 0 PTS')
+                      ? (selectedLevelBestGymkhana !== null && selectedLevelBestGymkhana > 0 ? `RECORD: ${selectedLevelBestGymkhana.toLocaleString('en-US')} PTS` : 'RECORD: 0 PTS')
                       : (selectedLevelBest && selectedLevelBest > 0 ? `RECORD: ${formatLapTime(selectedLevelBest)}` : 'RECORD: --:--.--')}
                   </span>
                 </div>
