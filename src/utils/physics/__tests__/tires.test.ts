@@ -330,5 +330,40 @@ describe('tire and surface physics', () => {
       expect(highSlipGrip).toBeLessThan(zeroSlipGrip);
       expect(highSlipGrip).toBeGreaterThan(0.5);
     });
+
+    it('reduces sliding friction under throttle during an active power slide to prevent bogging down', () => {
+      const controllerCoasting = createMockController();
+      const resultCoasting = applyTireFrictionAndBrakes(
+        controllerCoasting,
+        DEFAULT_VEHICLE_CONFIG,
+        { brake: 0, handbrake: false, steering: 0, throttle: 0 },
+        50,
+        13.8,
+        0,
+        5, // Tarmac
+        0,
+        0.35 // Slide angle ~20 deg
+      );
+
+      const coastingGrips = [...resultCoasting.grips];
+
+      const controllerPowerSlide = createMockController();
+      const resultPowerSlide = applyTireFrictionAndBrakes(
+        controllerPowerSlide,
+        DEFAULT_VEHICLE_CONFIG,
+        { brake: 0, handbrake: false, steering: 0, throttle: 1.0 },
+        50,
+        13.8,
+        0,
+        5, // Tarmac
+        0,
+        0.35 // Slide angle ~20 deg
+      );
+
+      // Under throttle in a slide, rear tire friction drops smoothly to sustain momentum without bogging down
+      expect(resultPowerSlide.grips[2]).toBeLessThan(coastingGrips[2]);
+      // Front wheels maintain directional authority
+      expect(resultPowerSlide.grips[0]).toBeGreaterThan(resultPowerSlide.grips[2]);
+    });
   });
 });

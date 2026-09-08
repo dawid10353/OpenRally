@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import type {
   GraphicsQuality,
   TargetFps,
@@ -7,12 +7,15 @@ import type {
   TouchControlMode,
   TouchSteeringScheme,
   TouchButtonSize,
+  TransmissionMode,
 } from '@/types';
 import { useSettingsStore } from '@/store/settingsStore';
 import { isMobileOrAndroid } from '@/utils/device';
 import { menuStyles, getFocusStyle } from './menuStyles';
-import type { ControlsTab, MenuView, ResetConfirmState } from './types';
+import type { ControlsTab, MenuView, ResetConfirmState, SettingsCategory } from './types';
 import { ControlsView } from './ControlsView';
+
+export type { SettingsCategory };
 
 interface SettingsViewProps {
   graphicsQuality: GraphicsQuality;
@@ -31,6 +34,8 @@ interface SettingsViewProps {
   resetConfirmState: ResetConfirmState;
   focusedIndex: number;
   textColor: string;
+  activeCategory?: SettingsCategory;
+  onSetActiveCategory?: (cat: SettingsCategory) => void;
   gamepadConnected?: boolean;
   gamepadName?: string;
   gamepadType?: 'xbox' | 'dualsense' | 'generic' | null;
@@ -54,7 +59,19 @@ interface SettingsViewProps {
   onSelectView: (view: MenuView) => void;
 }
 
-export type SettingsCategory = 'graphics' | 'audio' | 'controls' | 'touch' | 'gameplay';
+const tabBumperBadgeStyle: React.CSSProperties = {
+  background: 'rgba(255, 255, 255, 0.1)',
+  border: '1px solid rgba(255, 255, 255, 0.2)',
+  borderRadius: '4px',
+  padding: '4px 8px',
+  fontSize: '11px',
+  fontWeight: 800,
+  color: '#94A3B8',
+  letterSpacing: '0.5px',
+  userSelect: 'none',
+  display: 'inline-flex',
+  alignItems: 'center',
+};
 
 export function SettingsView({
   graphicsQuality,
@@ -73,6 +90,8 @@ export function SettingsView({
   resetConfirmState,
   focusedIndex,
   textColor,
+  activeCategory: propActiveCategory,
+  onSetActiveCategory,
   gamepadConnected = false,
   gamepadName = '',
   gamepadType = null,
@@ -106,40 +125,26 @@ export function SettingsView({
     setTouchButtonSize,
     touchHaptics,
     setTouchHaptics,
+    transmissionMode,
+    setTransmissionMode,
   } = useSettingsStore();
 
-  const [activeCategory, setActiveCategory] = useState<SettingsCategory>('graphics');
+  const [internalCategory, setInternalCategory] = useState<SettingsCategory>('graphics');
+  const activeCategory = propActiveCategory ?? internalCategory;
+  const setActiveCategory = onSetActiveCategory ?? setInternalCategory;
 
-  let optIdx = 0;
-  const gqIdx = optIdx++;
-  const aaIdx = optIdx++;
-  const resIdx = optIdx++;
-  const shIdx = optIdx++;
-  const ppIdx = optIdx++;
-  const sensIdx = optIdx++;
-  const vibIdx = optIdx++;
-  const vibIntIdx = vibrationEnabled ? optIdx++ : -1;
-  const mmIdx = optIdx++;
-  const gmIdx = optIdx++;
-  const sfxIdx = optIdx++;
-  const resetIdx = optIdx++;
-  const backIdx = optIdx++;
-
-  // Auto-switch tabs when navigating via keyboard or gamepad
-  useEffect(() => {
-    if (focusedIndex >= 0 && focusedIndex <= 4) {
-      setActiveCategory('graphics');
-    } else if (
-      focusedIndex === sensIdx ||
-      focusedIndex === vibIdx ||
-      (vibrationEnabled && focusedIndex === vibIntIdx) ||
-      focusedIndex === resetIdx
-    ) {
-      setActiveCategory('gameplay');
-    } else if (focusedIndex >= mmIdx && focusedIndex <= sfxIdx) {
-      setActiveCategory('audio');
-    }
-  }, [focusedIndex, vibrationEnabled, sensIdx, vibIdx, vibIntIdx, mmIdx, sfxIdx, resetIdx]);
+  const backIdx =
+    activeCategory === 'graphics'
+      ? 8
+      : activeCategory === 'audio'
+        ? 4
+        : activeCategory === 'controls'
+          ? 2
+          : activeCategory === 'touch'
+            ? 6
+            : vibrationEnabled
+              ? 6
+              : 5;
 
   return (
     <div
@@ -148,102 +153,85 @@ export function SettingsView({
     >
       <h2 style={menuStyles.subViewTitle}>Options & Settings</h2>
 
-      {/* 5 Categorized Horizontal Tabs */}
-      <div style={{ display: 'flex', gap: '6px', width: '100%', marginBottom: '10px', flexWrap: 'wrap' }}>
-        <button
-          type="button"
-          style={{
-            ...menuStyles.tabButton,
-            minHeight: '44px',
-            fontSize: '12px',
-            fontWeight: 700,
-            ...(activeCategory === 'graphics' ? menuStyles.activeTabButton : {}),
-          }}
-          onClick={() => setActiveCategory('graphics')}
-        >
-          Graphics
-        </button>
-        <button
-          type="button"
-          style={{
-            ...menuStyles.tabButton,
-            minHeight: '44px',
-            fontSize: '12px',
-            fontWeight: 700,
-            ...(activeCategory === 'audio' ? menuStyles.activeTabButton : {}),
-          }}
-          onClick={() => setActiveCategory('audio')}
-        >
-          Audio
-        </button>
-        <button
-          type="button"
-          style={{
-            ...menuStyles.tabButton,
-            minHeight: '44px',
-            fontSize: '12px',
-            fontWeight: 700,
-            ...(activeCategory === 'controls' ? menuStyles.activeTabButton : {}),
-          }}
-          onClick={() => setActiveCategory('controls')}
-        >
-          Controls
-        </button>
-        <button
-          type="button"
-          style={{
-            ...menuStyles.tabButton,
-            minHeight: '44px',
-            fontSize: '12px',
-            fontWeight: 700,
-            ...(activeCategory === 'touch' ? menuStyles.activeTabButton : {}),
-          }}
-          onClick={() => setActiveCategory('touch')}
-        >
-          Touch Controls
-        </button>
-        <button
-          type="button"
-          style={{
-            ...menuStyles.tabButton,
-            minHeight: '44px',
-            fontSize: '12px',
-            fontWeight: 700,
-            ...(activeCategory === 'gameplay' ? menuStyles.activeTabButton : {}),
-          }}
-          onClick={() => setActiveCategory('gameplay')}
-        >
-          Gameplay
-        </button>
+      {/* Row 0: 5 Categorized Horizontal Tabs with Controller Bumper Badges */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '6px',
+          width: '100%',
+          marginBottom: '10px',
+          flexWrap: 'wrap',
+          padding: '4px',
+          borderRadius: '8px',
+          background: focusedIndex === 0 ? 'rgba(56, 189, 248, 0.12)' : 'transparent',
+          border: focusedIndex === 0 ? '1px solid #38BDF8' : '1px solid transparent',
+          transition: 'all 0.15s ease',
+        }}
+        onPointerMove={(e) => onPointerMoveItem(0, e)}
+      >
+        <span style={tabBumperBadgeStyle}>{gamepadConnected ? 'LB / L1' : 'Q'}</span>
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', flex: 1, justifyContent: 'center' }}>
+          {(['graphics', 'audio', 'controls', 'touch', 'gameplay'] as const).map((cat) => {
+            const isActive = activeCategory === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                style={{
+                  ...menuStyles.tabButton,
+                  minHeight: '44px',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  textTransform: 'capitalize',
+                  ...(isActive ? menuStyles.activeTabButton : {}),
+                  ...(focusedIndex === 0 && isActive ? { boxShadow: '0 0 12px rgba(56, 189, 248, 0.6)' } : {}),
+                }}
+                onClick={() => setActiveCategory(cat)}
+              >
+                {cat === 'touch' ? 'Touch Controls' : cat}
+              </button>
+            );
+          })}
+        </div>
+        <span style={tabBumperBadgeStyle}>{gamepadConnected ? 'RB / R1' : 'E'}</span>
       </div>
 
       {/* Active Tab Content Container */}
       <div className="settings-options-grid" style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
         {/* TAB: CONTROLS */}
         {activeCategory === 'controls' && (
-          <ControlsView
-            hideTitleAndBack={true}
-            gamepadConnected={gamepadConnected}
-            gamepadName={gamepadName}
-            gamepadType={gamepadType}
-            controlsTab={controlsTab}
-            focusedIndex={0}
-            textColor={textColor}
-            onPointerMoveItem={() => {}}
-            onSetControlsTab={onSetControlsTab ?? (() => {})}
-            onSelectView={onSelectView}
-          />
+          <div
+            style={{ width: '100%', ...getFocusStyle(focusedIndex === 1) }}
+            onPointerMove={(e) => onPointerMoveItem(1, e)}
+          >
+            <ControlsView
+              hideTitleAndBack={true}
+              gamepadConnected={gamepadConnected}
+              gamepadName={gamepadName}
+              gamepadType={gamepadType}
+              controlsTab={controlsTab}
+              focusedIndex={0}
+              textColor={textColor}
+              onPointerMoveItem={() => {}}
+              onSetControlsTab={onSetControlsTab ?? (() => {})}
+              onSelectView={onSelectView}
+            />
+          </div>
         )}
+
         {/* TAB 1: GRAPHICS */}
         {activeCategory === 'graphics' && (
           <>
-            <div 
-              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === gqIdx) }}
-              onPointerMove={(e) => onPointerMoveItem(gqIdx, e)}
+            {/* Row 1: Graphics Quality */}
+            <div
+              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === 1) }}
+              onPointerMove={(e) => onPointerMoveItem(1, e)}
             >
               <span>Graphics Quality</span>
-              <select 
-                value={graphicsQuality} 
+              <select
+                value={graphicsQuality}
                 onChange={(e) => onSetGraphicsQuality(e.target.value as GraphicsQuality)}
                 style={menuStyles.select}
               >
@@ -254,10 +242,14 @@ export function SettingsView({
               </select>
             </div>
 
-            <div style={{ ...menuStyles.optionRow, minHeight: '44px' }}>
+            {/* Row 2: Target Frame Rate */}
+            <div
+              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === 2) }}
+              onPointerMove={(e) => onPointerMoveItem(2, e)}
+            >
               <span>Target Frame Rate</span>
-              <select 
-                value={targetFps} 
+              <select
+                value={targetFps}
                 onChange={(e) => onSetTargetFps(parseInt(e.target.value, 10) as TargetFps)}
                 style={menuStyles.select}
               >
@@ -267,10 +259,14 @@ export function SettingsView({
               </select>
             </div>
 
-            <div style={{ ...menuStyles.optionRow, minHeight: '44px' }}>
+            {/* Row 3: Draw Distance */}
+            <div
+              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === 3) }}
+              onPointerMove={(e) => onPointerMoveItem(3, e)}
+            >
               <span>Draw Distance</span>
-              <select 
-                value={drawDistance} 
+              <select
+                value={drawDistance}
                 onChange={(e) => onSetDrawDistance(e.target.value as DrawDistance)}
                 style={menuStyles.select}
               >
@@ -281,13 +277,14 @@ export function SettingsView({
               </select>
             </div>
 
-            <div 
-              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === aaIdx) }}
-              onPointerMove={(e) => onPointerMoveItem(aaIdx, e)}
+            {/* Row 4: Anti-Aliasing */}
+            <div
+              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === 4) }}
+              onPointerMove={(e) => onPointerMoveItem(4, e)}
             >
               <span>Anti-Aliasing</span>
-              <select 
-                value={antiAliasing} 
+              <select
+                value={antiAliasing}
                 onChange={(e) => onSetAntiAliasing(e.target.value as AntiAliasingMode)}
                 style={menuStyles.select}
               >
@@ -297,13 +294,14 @@ export function SettingsView({
               </select>
             </div>
 
-            <div 
-              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === resIdx) }}
-              onPointerMove={(e) => onPointerMoveItem(resIdx, e)}
+            {/* Row 5: Render Resolution */}
+            <div
+              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === 5) }}
+              onPointerMove={(e) => onPointerMoveItem(5, e)}
             >
               <span>Render Resolution</span>
-              <select 
-                value={resolutionScale} 
+              <select
+                value={resolutionScale}
                 onChange={(e) => onSetResolutionScale(parseFloat(e.target.value))}
                 style={menuStyles.select}
               >
@@ -315,9 +313,10 @@ export function SettingsView({
               </select>
             </div>
 
-            <div 
-              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === shIdx) }}
-              onPointerMove={(e) => onPointerMoveItem(shIdx, e)}
+            {/* Row 6: Real-time Shadows */}
+            <div
+              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === 6) }}
+              onPointerMove={(e) => onPointerMoveItem(6, e)}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <span>Real-time Shadows</span>
@@ -328,9 +327,9 @@ export function SettingsView({
                 )}
               </div>
               <label style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '48px', minHeight: '44px', cursor: isMobileOrAndroid() ? 'not-allowed' : 'pointer', opacity: isMobileOrAndroid() ? 0.5 : 1 }}>
-                <input 
-                  type="checkbox" 
-                  checked={!isMobileOrAndroid() && shadowsEnabled} 
+                <input
+                  type="checkbox"
+                  checked={!isMobileOrAndroid() && shadowsEnabled}
                   disabled={isMobileOrAndroid()}
                   onChange={onToggleShadows}
                   style={menuStyles.checkbox}
@@ -338,15 +337,16 @@ export function SettingsView({
               </label>
             </div>
 
-            <div 
-              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === ppIdx) }}
-              onPointerMove={(e) => onPointerMoveItem(ppIdx, e)}
+            {/* Row 7: Post Processing */}
+            <div
+              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === 7) }}
+              onPointerMove={(e) => onPointerMoveItem(7, e)}
             >
               <span>Post Processing</span>
               <label style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '48px', minHeight: '44px', cursor: 'pointer' }}>
-                <input 
-                  type="checkbox" 
-                  checked={postProcessingEnabled} 
+                <input
+                  type="checkbox"
+                  checked={postProcessingEnabled}
                   onChange={onTogglePostProcessing}
                   style={menuStyles.checkbox}
                 />
@@ -358,16 +358,17 @@ export function SettingsView({
         {/* TAB 2: AUDIO */}
         {activeCategory === 'audio' && (
           <>
-            <div 
-              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === mmIdx) }}
-              onPointerMove={(e) => onPointerMoveItem(mmIdx, e)}
+            {/* Row 1: Menu Music */}
+            <div
+              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === 1) }}
+              onPointerMove={(e) => onPointerMoveItem(1, e)}
             >
               <span>Menu Music ({Math.round(menuMusicVolume * 100)}%)</span>
               <div style={{ display: 'inline-flex', alignItems: 'center', minHeight: '44px' }}>
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="1" 
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
                   step="0.05"
                   value={menuMusicVolume}
                   onChange={(e) => onSetMenuMusicVolume(parseFloat(e.target.value))}
@@ -376,16 +377,17 @@ export function SettingsView({
               </div>
             </div>
 
-            <div 
-              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === gmIdx) }}
-              onPointerMove={(e) => onPointerMoveItem(gmIdx, e)}
+            {/* Row 2: Game Music */}
+            <div
+              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === 2) }}
+              onPointerMove={(e) => onPointerMoveItem(2, e)}
             >
               <span>Game Music ({Math.round(gameMusicVolume * 100)}%)</span>
               <div style={{ display: 'inline-flex', alignItems: 'center', minHeight: '44px' }}>
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="1" 
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
                   step="0.05"
                   value={gameMusicVolume}
                   onChange={(e) => onSetGameMusicVolume(parseFloat(e.target.value))}
@@ -394,16 +396,17 @@ export function SettingsView({
               </div>
             </div>
 
-            <div 
-              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === sfxIdx) }}
-              onPointerMove={(e) => onPointerMoveItem(sfxIdx, e)}
+            {/* Row 3: SFX Volume */}
+            <div
+              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === 3) }}
+              onPointerMove={(e) => onPointerMoveItem(3, e)}
             >
               <span>SFX Volume ({Math.round(sfxVolume * 100)}%)</span>
               <div style={{ display: 'inline-flex', alignItems: 'center', minHeight: '44px' }}>
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="1" 
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
                   step="0.05"
                   value={sfxVolume}
                   onChange={(e) => onSetSfxVolume(parseFloat(e.target.value))}
@@ -417,7 +420,11 @@ export function SettingsView({
         {/* TAB 3: TOUCH CONTROLS */}
         {activeCategory === 'touch' && (
           <>
-            <div style={{ ...menuStyles.optionRow, minHeight: '44px' }}>
+            {/* Row 1: Touch Overlay Mode */}
+            <div
+              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === 1) }}
+              onPointerMove={(e) => onPointerMoveItem(1, e)}
+            >
               <span>Touch Overlay Mode</span>
               <select
                 value={touchControlMode}
@@ -430,7 +437,11 @@ export function SettingsView({
               </select>
             </div>
 
-            <div style={{ ...menuStyles.optionRow, minHeight: '44px' }}>
+            {/* Row 2: Steering Scheme */}
+            <div
+              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === 2) }}
+              onPointerMove={(e) => onPointerMoveItem(2, e)}
+            >
               <span>Steering Scheme</span>
               <select
                 value={touchSteeringScheme}
@@ -442,7 +453,11 @@ export function SettingsView({
               </select>
             </div>
 
-            <div style={{ ...menuStyles.optionRow, minHeight: '44px' }}>
+            {/* Row 3: Button Size */}
+            <div
+              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === 3) }}
+              onPointerMove={(e) => onPointerMoveItem(3, e)}
+            >
               <span>Button Size</span>
               <select
                 value={touchButtonSize}
@@ -455,7 +470,11 @@ export function SettingsView({
               </select>
             </div>
 
-            <div style={{ ...menuStyles.optionRow, minHeight: '44px' }}>
+            {/* Row 4: Controls Opacity */}
+            <div
+              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === 4) }}
+              onPointerMove={(e) => onPointerMoveItem(4, e)}
+            >
               <span>Controls Opacity ({Math.round(touchOpacity * 100)}%)</span>
               <div style={{ display: 'inline-flex', alignItems: 'center', minHeight: '44px' }}>
                 <input
@@ -470,7 +489,11 @@ export function SettingsView({
               </div>
             </div>
 
-            <div style={{ ...menuStyles.optionRow, minHeight: '44px' }}>
+            {/* Row 5: Haptic Feedback */}
+            <div
+              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === 5) }}
+              onPointerMove={(e) => onPointerMoveItem(5, e)}
+            >
               <span>Haptic Feedback</span>
               <button
                 type="button"
@@ -501,16 +524,33 @@ export function SettingsView({
         {/* TAB 4: GAMEPLAY */}
         {activeCategory === 'gameplay' && (
           <>
-            <div 
-              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === sensIdx) }}
-              onPointerMove={(e) => onPointerMoveItem(sensIdx, e)}
+            {/* Row 1: Transmission Mode */}
+            <div
+              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === 1) }}
+              onPointerMove={(e) => onPointerMoveItem(1, e)}
+            >
+              <span>Transmission / Skrzynia biegów</span>
+              <select
+                value={transmissionMode}
+                onChange={(e) => setTransmissionMode(e.target.value as TransmissionMode)}
+                style={menuStyles.select}
+              >
+                <option value="automatic">Automatyczna (Automatic)</option>
+                <option value="manual">Manualna (Manual Sequential)</option>
+              </select>
+            </div>
+
+            {/* Row 2: Steering Sensitivity */}
+            <div
+              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === 2) }}
+              onPointerMove={(e) => onPointerMoveItem(2, e)}
             >
               <span>Steering Sensitivity ({sensitivity.toFixed(1)}x)</span>
               <div style={{ display: 'inline-flex', alignItems: 'center', minHeight: '44px' }}>
-                <input 
-                  type="range" 
-                  min="0.5" 
-                  max="2.0" 
+                <input
+                  type="range"
+                  min="0.5"
+                  max="2.0"
                   step="0.1"
                   value={sensitivity}
                   onChange={(e) => onSetSensitivity(parseFloat(e.target.value))}
@@ -519,32 +559,34 @@ export function SettingsView({
               </div>
             </div>
 
-            <div 
-              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === vibIdx) }}
-              onPointerMove={(e) => onPointerMoveItem(vibIdx, e)}
+            {/* Row 3: Controller Vibration */}
+            <div
+              style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === 3) }}
+              onPointerMove={(e) => onPointerMoveItem(3, e)}
             >
               <span>Controller Vibration (Rumble)</span>
               <label style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: '48px', minHeight: '44px', cursor: 'pointer' }}>
-                <input 
-                  type="checkbox" 
-                  checked={vibrationEnabled} 
+                <input
+                  type="checkbox"
+                  checked={vibrationEnabled}
                   onChange={onToggleVibration}
                   style={menuStyles.checkbox}
                 />
               </label>
             </div>
 
+            {/* Row 4 (if vibration): Vibration Intensity */}
             {vibrationEnabled && (
-              <div 
-                style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === vibIntIdx) }}
-                onPointerMove={(e) => onPointerMoveItem(vibIntIdx, e)}
+              <div
+                style={{ ...menuStyles.optionRow, minHeight: '44px', ...getFocusStyle(focusedIndex === 4) }}
+                onPointerMove={(e) => onPointerMoveItem(4, e)}
               >
                 <span>Vibration Intensity ({Math.round(vibrationIntensity * 100)}%)</span>
                 <div style={{ display: 'inline-flex', alignItems: 'center', minHeight: '44px' }}>
-                  <input 
-                    type="range" 
-                    min="0.1" 
-                    max="1.0" 
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="1.0"
                     step="0.05"
                     value={vibrationIntensity}
                     onChange={(e) => onSetVibrationIntensity(parseFloat(e.target.value))}
@@ -554,25 +596,26 @@ export function SettingsView({
               </div>
             )}
 
-            <div 
+            {/* Row 5 (or 4 if !vibration): Clear Records */}
+            <div
               className="settings-option-span-2"
-              style={{ 
-                ...menuStyles.optionRow, 
+              style={{
+                ...menuStyles.optionRow,
                 minHeight: '44px',
                 justifyContent: 'space-between',
-                border: resetConfirmState === 'confirming' 
-                  ? '1px solid #E31837' 
-                  : resetConfirmState === 'done' 
-                    ? '1px solid #10b981' 
+                border: resetConfirmState === 'confirming'
+                  ? '1px solid #E31837'
+                  : resetConfirmState === 'done'
+                    ? '1px solid #10b981'
                     : '1px solid transparent',
-                background: resetConfirmState === 'confirming' 
-                  ? 'rgba(227, 24, 55, 0.08)' 
-                  : resetConfirmState === 'done' 
-                    ? 'rgba(16, 185, 129, 0.08)' 
+                background: resetConfirmState === 'confirming'
+                  ? 'rgba(227, 24, 55, 0.08)'
+                  : resetConfirmState === 'done'
+                    ? 'rgba(16, 185, 129, 0.08)'
                     : 'rgba(0,0,0,0.1)',
-                ...getFocusStyle(focusedIndex === resetIdx),
+                ...getFocusStyle(focusedIndex === (vibrationEnabled ? 5 : 4)),
               }}
-              onPointerMove={(e) => onPointerMoveItem(resetIdx, e)}
+              onPointerMove={(e) => onPointerMoveItem(vibrationEnabled ? 5 : 4, e)}
             >
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }}>
                 <span style={{ fontWeight: 700, color: '#F1F5F9' }}>Clear Stage Lap Records</span>
@@ -614,18 +657,19 @@ export function SettingsView({
         )}
       </div>
 
-      <button 
-        style={{ 
-          ...menuStyles.button, 
+      {/* Back Button */}
+      <button
+        style={{
+          ...menuStyles.button,
           ...menuStyles.secondaryButton,
           color: textColor,
           borderColor: 'rgba(255, 255, 255, 0.1)',
-          marginTop: '12px', 
+          marginTop: '12px',
           width: '100%',
           minHeight: '44px',
           justifyContent: 'center',
           ...getFocusStyle(focusedIndex === backIdx),
-        }} 
+        }}
         onPointerMove={(e) => onPointerMoveItem(backIdx, e)}
         onClick={() => onSelectView('main')}
       >

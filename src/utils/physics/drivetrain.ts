@@ -2,26 +2,58 @@ import type { VehicleConfig, IRapierVehicleController } from '@/types/vehicle';
 import type { InputState } from '@/types/game';
 import type { RapierRigidBody } from '@react-three/rapier';
 import { Vector3 } from 'three';
-import { GEAR_RATIOS, BRAKE_SPEED_THRESHOLD, REVERSE_FORCE_MULTIPLIER } from '@/config/vehicle';
+import {
+  GEAR_RATIOS,
+  GEAR_MAX_SPEEDS,
+  REVERSE_MAX_SPEED,
+  BRAKE_SPEED_THRESHOLD,
+  REVERSE_FORCE_MULTIPLIER,
+} from '@/config/vehicle';
 
 const _thrustImpulse = new Vector3();
 
+/**
+ * Calculates and applies engine forces, AWD torque distribution, launch ramping,
+ * and per-gear mechanical rev limiter governors across all driven wheels.
+ */
 export function applyDrivetrain(
   controller: IRapierVehicleController,
   config: VehicleConfig,
   input: Pick<InputState, 'throttle' | 'brake'> & { steering?: number },
   forwardSpeed: number,
   currentGear: number,
-  slipAngle?: number
+  slipAngle?: number,
+  speedKmh?: number
 ): void {
-  const gearRatio = currentGear > 0 ? GEAR_RATIOS[currentGear] : 1;
+  const gearRatio = currentGear > 0 && currentGear < GEAR_RATIOS.length ? GEAR_RATIOS[currentGear] : 1;
   const steerAmount = input.steering ? Math.abs(input.steering) : 0;
   const slipAmount = slipAngle ? Math.min(1.0, Math.abs(slipAngle) / (Math.PI / 4)) : 0;
+  const effectiveSpeedKmh = speedKmh !== undefined ? speedKmh : Math.abs(forwardSpeed) * 3.6;
+
+  // Mechanical Rev Limiter & Speed Governor per gear:
+  // In manual mode (and automatic at redline), prevent driving beyond the mechanical ratio limit of the gear.
+  let revLimiterGovernor = 1.0;
+  if (currentGear > 0 && currentGear < GEAR_MAX_SPEEDS.length) {
+    const maxSpeedForGear = GEAR_MAX_SPEEDS[currentGear];
+    if (effectiveSpeedKmh >= maxSpeedForGear) {
+      // Hard rev limiter cut when reaching gear top speed
+      revLimiterGovernor = 0.0;
+    } else if (effectiveSpeedKmh > maxSpeedForGear * 0.90) {
+      // Progressive power reduction in the last 10% before redline
+      revLimiterGovernor = Math.max(0, (maxSpeedForGear - effectiveSpeedKmh) / (maxSpeedForGear * 0.10));
+    }
+  } else if (currentGear === -1) {
+    if (effectiveSpeedKmh >= REVERSE_MAX_SPEED) {
+      revLimiterGovernor = 0.0;
+    } else if (effectiveSpeedKmh > REVERSE_MAX_SPEED * 0.88) {
+      revLimiterGovernor = Math.max(0, (REVERSE_MAX_SPEED - effectiveSpeedKmh) / (REVERSE_MAX_SPEED * 0.12));
+    }
+  }
 
   // Continuous Symmetrical AWD Differential & Drift Power Compensation:
   // When cornering or sliding under throttle, overcome lateral tire scrub drag
   // and deliver robust continuous 4-wheel pull so the car powers dynamically through slides.
-  const driftPowerBoost = 1.0 + steerAmount * 0.35 + slipAmount * 0.65;
+  const driftPowerBoost = 1.0 + steerAmount * 0.35 + slipAmount * 0.75;
 
   // Progressive launch torque delivery in 1st gear from dead stop:
   // Smoothly ramps torque over 0 -> 3.5 m/s (~12.6 km/h) to prevent violent instantaneous
@@ -61,14 +93,23 @@ export function applyDrivetrain(
         ? baseTorqueMultiplier
         : (baseTorqueMultiplier * (1.0 - frontUnweightedRatio * 0.45));
 
-      if (input.throttle > 0) {
-        engineForce = config.engine.maxForce * input.throttle * gearRatio * torqueMultiplier * driftPowerBoost * launchRamp;
+      if (currentGear === 0) {
+        // Neutral: zero tractive drive force to wheels (engine revs freely in neutral)
+        engineForce = 0;
+      } else if (currentGear === -1) {
+        // Reverse gear: Throttle powers car backward; in automatic mode, Brake also powers reverse
+        const revDrive = input.throttle > 0 ? input.throttle : (input.brake > 0 && forwardSpeed < BRAKE_SPEED_THRESHOLD ? input.brake : 0);
+        if (revDrive > 0) {
+          engineForce = -config.engine.maxForce * revDrive * REVERSE_FORCE_MULTIPLIER * baseTorqueMultiplier * revLimiterGovernor;
+        }
+      } else if (input.throttle > 0) {
+        engineForce = config.engine.maxForce * input.throttle * gearRatio * torqueMultiplier * driftPowerBoost * launchRamp * revLimiterGovernor;
       } else if (input.brake > 0 && forwardSpeed > BRAKE_SPEED_THRESHOLD) {
         // Braking when moving forward
         engineForce = 0;
       } else if (input.brake > 0) {
-        // Reverse
-        engineForce = -config.engine.maxForce * input.brake * REVERSE_FORCE_MULTIPLIER * baseTorqueMultiplier;
+        // Auto reverse trigger when stopped
+        engineForce = -config.engine.maxForce * input.brake * REVERSE_FORCE_MULTIPLIER * baseTorqueMultiplier * revLimiterGovernor;
       }
       controller.setWheelEngineForce(i, engineForce);
     } else {
@@ -90,27 +131,35 @@ export function applyAwdDriftPropulsion(
   speedKmh: number,
   slipAngle: number,
   groundedRatio: number,
-  dt: number
+  dt: number,
+  currentGear: number = 1
 ): void {
   if (input.throttle <= 0.05 || groundedRatio <= 0) return;
 
   const absSlip = Math.abs(slipAngle);
   if (absSlip < 0.05) return;
 
+  const gearRatio = currentGear > 0 && currentGear < GEAR_RATIOS.length ? GEAR_RATIOS[currentGear] : 1.0;
+  const maxGearSpeed = currentGear > 0 && currentGear < GEAR_MAX_SPEEDS.length
+    ? GEAR_MAX_SPEEDS[currentGear]
+    : config.engine.maxSpeed;
+
   // Slip engagement factor: ramps up as vehicle enters drift
-  const slipFactor = Math.min(1.0, (absSlip - 0.04) / (Math.PI / 4.5));
-  // Engine power headroom relative to top speed
-  const speedGovernor = Math.max(0, 1.0 - speedKmh / (config.engine.maxSpeed * 1.05));
+  const slipFactor = Math.min(1.0, (absSlip - 0.04) / 0.35);
+  // Engine power headroom relative to current gear's mechanical top speed
+  const speedGovernor = Math.max(0, 1.0 - speedKmh / (maxGearSpeed * 1.02));
   
-  // AWD directional propulsion impulse along chassis heading
+  // AWD directional propulsion impulse along chassis heading:
+  // Delivers robust forward throttle thrust to counteract lateral scrub friction,
+  // sustaining drift momentum and allowing the vehicle to power dynamically through slides.
   const thrustMagnitude =
-    (config.engine.maxForce / Math.max(1, config.chassisMass)) *
-    0.65 *
+    config.engine.maxForce *
+    2.2 *
+    gearRatio *
     input.throttle *
     slipFactor *
     speedGovernor *
     groundedRatio *
-    body.mass() *
     dt;
 
   if (thrustMagnitude > 0) {

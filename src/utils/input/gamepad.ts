@@ -103,8 +103,12 @@ export interface GamepadSample {
   throttle: number;
   /** Analog brake value [0.0 to 1.0] */
   brake: number;
-  /** Whether the handbrake (A / Cross / RB / R1) is held */
+  /** Whether the handbrake (Square / X / RB / R1) is held */
   handbrake: boolean;
+  /** Edge-triggered: Shift gear up (PS5 Cross / Xbox A) */
+  gearUp: boolean;
+  /** Edge-triggered: Shift gear down (PS5 Circle / Xbox B) */
+  gearDown: boolean;
   /** Edge-triggered: Camera toggle (Y / Triangle / LB / L1) pressed this frame */
   cameraToggle: boolean;
   /** Edge-triggered: Reset car (X / Square / View / Create) pressed this frame */
@@ -121,18 +125,23 @@ export interface GamepadSample {
   cameraLookX: number;
   /** Right Stick Y axis for Free-look Orbit Camera [-1.0 (Up) to +1.0 (Down)] */
   cameraLookY: number;
+  /** Discrete D-Pad directional button states */
+  dpadUp: boolean;
+  dpadDown: boolean;
+  dpadLeft: boolean;
+  dpadRight: boolean;
   /** UI Navigation edge-triggered signals */
   menuUp: boolean;
-  /** UI Navigation down */
   menuDown: boolean;
-  /** UI Navigation left */
   menuLeft: boolean;
-  /** UI Navigation right */
   menuRight: boolean;
   /** UI Confirm (A / Cross button) */
   menuConfirm: boolean;
   /** UI Back (B / Circle button) */
   menuBack: boolean;
+  /** UI Tab Navigation edge-triggered signals (LB / L1 for Left, RB / R1 for Right) */
+  menuTabLeft: boolean;
+  menuTabRight: boolean;
 }
 
 
@@ -192,12 +201,16 @@ const prevButtonStates: Record<string, boolean> = {
   pause: false,
   telemetry: false,
   reset: false,
+  gearUp: false,
+  gearDown: false,
   menuUp: false,
   menuDown: false,
   menuLeft: false,
   menuRight: false,
   menuConfirm: false,
   menuBack: false,
+  menuTabLeft: false,
+  menuTabRight: false,
 };
 
 // Delayed Auto Shift (DAS) repeat timings for menu directional navigation
@@ -240,8 +253,8 @@ export function resetGamepadEdgeState(customGamepad?: Gamepad | null): void {
     const axes = gp.axes || [];
     const btnA = isButtonPressed(buttons[0]);
     const btnB = isButtonPressed(buttons[1]);
-    const btnX = isButtonPressed(buttons[2]);
     const btnY = isButtonPressed(buttons[3]);
+    const btnView = isButtonPressed(buttons[8]);
     const btnMenu = isButtonPressed(buttons[9]);
     const dpadUp = isButtonPressed(buttons[12]);
     const dpadDown = isButtonPressed(buttons[13]);
@@ -269,11 +282,17 @@ export function resetGamepadEdgeState(customGamepad?: Gamepad | null): void {
       }
     }
 
+    const btnLB = isButtonPressed(buttons[4]);
+    const btnRB = isButtonPressed(buttons[5]);
+    prevButtonStates.gearUp = btnA;
+    prevButtonStates.gearDown = btnB;
     prevButtonStates.menuConfirm = btnA;
     prevButtonStates.menuBack = btnB;
+    prevButtonStates.menuTabLeft = btnLB;
+    prevButtonStates.menuTabRight = btnRB;
     prevButtonStates.pause = btnMenu;
     prevButtonStates.camera = btnY;
-    prevButtonStates.reset = btnX;
+    prevButtonStates.reset = btnView;
     prevButtonStates.menuUp = dpadUp || stickUp;
     prevButtonStates.menuDown = dpadDown || stickDown;
     prevButtonStates.menuLeft = dpadLeft || stickLeft;
@@ -332,6 +351,8 @@ export function sampleGamepad(sensitivity = 1.0, customGamepad?: Gamepad | null)
       throttle: 0,
       brake: 0,
       handbrake: false,
+      gearUp: false,
+      gearDown: false,
       cameraToggle: false,
       resetToggle: false,
       resetHeld: false,
@@ -340,12 +361,18 @@ export function sampleGamepad(sensitivity = 1.0, customGamepad?: Gamepad | null)
       lookBack: false,
       cameraLookX: 0,
       cameraLookY: 0,
+      dpadUp: false,
+      dpadDown: false,
+      dpadLeft: false,
+      dpadRight: false,
       menuUp: false,
       menuDown: false,
       menuLeft: false,
       menuRight: false,
       menuConfirm: false,
       menuBack: false,
+      menuTabLeft: false,
+      menuTabRight: false,
     };
   }
 
@@ -381,33 +408,39 @@ export function sampleGamepad(sensitivity = 1.0, customGamepad?: Gamepad | null)
   const dpadDown = isButtonPressed(buttons[XBOX_BUTTONS.DPAD_DOWN]);
   const brake = Math.max(ltValue, dpadDown ? 1 : 0);
 
-  // 4. Handbrake (A button or Right Bumper RB)
+  // 4. Manual Gear Shifting (X on PS5 / A on Xbox: UP; Circle on PS5 / B on Xbox: DOWN)
   const btnA = isButtonPressed(buttons[XBOX_BUTTONS.A]);
-  const btnRB = isButtonPressed(buttons[XBOX_BUTTONS.RB]);
-  const handbrake = btnA || btnRB;
-
-  // 5. Look Back (B button or Right Stick Click RSB)
   const btnB = isButtonPressed(buttons[XBOX_BUTTONS.B]);
-  const btnRSB = isButtonPressed(buttons[XBOX_BUTTONS.RSB]);
-  const lookBack = btnB || btnRSB;
+  const gearUp = btnA && !prevButtonStates.gearUp;
+  const gearDown = btnB && !prevButtonStates.gearDown;
+  prevButtonStates.gearUp = btnA;
+  prevButtonStates.gearDown = btnB;
 
-  // 6. Free Look Orbit Camera (Right Analog Stick — Forza Horizon style)
+  // 5. Handbrake (Square on PS5 / X on Xbox or Right Bumper RB / R1)
+  const btnSquare = isButtonPressed(buttons[XBOX_BUTTONS.X]);
+  const btnRB = isButtonPressed(buttons[XBOX_BUTTONS.RB]);
+  const handbrake = btnSquare || btnRB;
+
+  // 6. Look Back (Right Stick Click RSB / R3)
+  const btnRSB = isButtonPressed(buttons[XBOX_BUTTONS.RSB]);
+  const lookBack = btnRSB;
+
+  // 7. Free Look Orbit Camera (Right Analog Stick — Forza Horizon style)
   const rawRightStickX = axes[XBOX_AXES.RIGHT_STICK_X] ?? 0;
   const rawRightStickY = axes[XBOX_AXES.RIGHT_STICK_Y] ?? 0;
   const cameraLookX = applyScaledDeadzone(rawRightStickX, 0.08);
   const cameraLookY = applyScaledDeadzone(rawRightStickY, 0.08);
 
-  // 7. Camera Toggle (Y button or Left Bumper LB) — Rising edge detection
+  // 8. Camera Toggle (Triangle on PS5 / Y on Xbox or Left Bumper LB / L1) — Rising edge detection
   const btnY = isButtonPressed(buttons[XBOX_BUTTONS.Y]);
   const btnLB = isButtonPressed(buttons[XBOX_BUTTONS.LB]);
   const camPressedNow = btnY || btnLB;
   const cameraToggle = camPressedNow && !prevButtonStates.camera;
   prevButtonStates.camera = camPressedNow;
 
-  // 8. Reset Car (X button or View button)
-  const btnX = isButtonPressed(buttons[XBOX_BUTTONS.X]);
+  // 9. Reset Car (View / Create button)
   const btnView = isButtonPressed(buttons[XBOX_BUTTONS.VIEW]);
-  const resetPressedNow = btnX || btnView;
+  const resetPressedNow = btnView;
   const resetToggle = resetPressedNow && !prevButtonStates.reset;
   prevButtonStates.reset = resetPressedNow;
 
@@ -485,6 +518,8 @@ export function sampleGamepad(sensitivity = 1.0, customGamepad?: Gamepad | null)
 
   const menuConfirm = btnA && !prevButtonStates.menuConfirm;
   const menuBack = btnB && !prevButtonStates.menuBack;
+  const menuTabLeft = btnLB && !prevButtonStates.menuTabLeft;
+  const menuTabRight = btnRB && !prevButtonStates.menuTabRight;
 
   prevButtonStates.menuUp = upPressed;
   prevButtonStates.menuDown = downPressed;
@@ -492,6 +527,8 @@ export function sampleGamepad(sensitivity = 1.0, customGamepad?: Gamepad | null)
   prevButtonStates.menuRight = rightPressed;
   prevButtonStates.menuConfirm = btnA;
   prevButtonStates.menuBack = btnB;
+  prevButtonStates.menuTabLeft = btnLB;
+  prevButtonStates.menuTabRight = btnRB;
 
   const gamepadType = detectGamepadType(gp.id);
 
@@ -503,6 +540,8 @@ export function sampleGamepad(sensitivity = 1.0, customGamepad?: Gamepad | null)
     throttle,
     brake,
     handbrake,
+    gearUp,
+    gearDown,
     cameraToggle,
     resetToggle,
     resetHeld: resetPressedNow,
@@ -511,11 +550,17 @@ export function sampleGamepad(sensitivity = 1.0, customGamepad?: Gamepad | null)
     lookBack,
     cameraLookX,
     cameraLookY,
+    dpadUp,
+    dpadDown,
+    dpadLeft,
+    dpadRight,
     menuUp,
     menuDown,
     menuLeft,
     menuRight,
     menuConfirm,
     menuBack,
+    menuTabLeft,
+    menuTabRight,
   };
 }

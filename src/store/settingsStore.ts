@@ -7,6 +7,7 @@ import type {
   TouchControlMode,
   TouchSteeringScheme,
   TouchButtonSize,
+  TransmissionMode,
   GameSettings,
 } from '@/types';
 import { DEFAULT_SETTINGS, BALANCED_MOBILE_SETTINGS } from '@/types/settings';
@@ -101,6 +102,9 @@ export function loadSettingsFromStorage(isAndroidDevice: boolean = isMobileOrAnd
     if (typeof parsed.postProcessingEnabled === 'boolean') {
       validated.postProcessingEnabled = parsed.postProcessingEnabled;
     }
+    if (['automatic', 'manual'].includes(parsed.transmissionMode)) {
+      validated.transmissionMode = parsed.transmissionMode as TransmissionMode;
+    }
     if (typeof parsed.sensitivity === 'number' && Number.isFinite(parsed.sensitivity)) {
       validated.sensitivity = parsed.sensitivity;
     }
@@ -179,6 +183,7 @@ export interface SettingsStore extends GameSettings {
   toggleShadows: () => void;
   togglePostProcessing: () => void;
   setSensitivity: (sensitivity: number) => void;
+  setTransmissionMode: (mode: TransmissionMode) => void;
   toggleDebugPhysics: () => void;
   setSfxVolume: (vol: number) => void;
   setMenuMusicVolume: (vol: number) => void;
@@ -299,6 +304,10 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   setVibrationIntensity: (vibrationIntensity) => {
     set({ vibrationIntensity });
     saveSettingsToStorage({ vibrationIntensity });
+  },
+  setTransmissionMode: (transmissionMode) => {
+    set({ transmissionMode });
+    saveSettingsToStorage({ transmissionMode });
   },
 
   // Touch Actions

@@ -79,6 +79,7 @@ export function useTireTracksLogic(
 
     const currentTime = state.clock.elapsedTime;
     const gameState = useGameStore.getState();
+    if (gameState.gameState !== 'playing') return;
     const surfaceType = gameState.surface;
 
     const linvel = chassis.linvel();

@@ -156,30 +156,40 @@ describe('gamepad input utilities', () => {
       expect(sample4.cameraToggle).toBe(true);
     });
 
-    it('samples Look Back and Handbrake buttons', () => {
+    it('samples gear shifts (gearUp / gearDown) and Square/X Handbrake', () => {
       const mock = createMockGamepad({
-        [XBOX_BUTTONS.A]: { pressed: true, value: 1.0 }, // Handbrake
-        [XBOX_BUTTONS.B]: { pressed: true, value: 1.0 }, // Look Back
+        [XBOX_BUTTONS.A]: { pressed: true, value: 1.0 }, // Shift Up (A / Cross)
+        [XBOX_BUTTONS.X]: { pressed: true, value: 1.0 }, // Handbrake (X / Square)
+        [XBOX_BUTTONS.RSB]: { pressed: true, value: 1.0 }, // Look Back (RSB / R3)
       });
 
       const sample = sampleGamepad(1.0, mock);
+      expect(sample.gearUp).toBe(true);
+      expect(sample.gearDown).toBe(false);
       expect(sample.handbrake).toBe(true);
       expect(sample.lookBack).toBe(true);
     });
 
-    it('correctly maps DualSense PlayStation buttons and triggers', () => {
+    it('correctly maps DualSense PlayStation buttons and triggers with edge-triggered gear shifts', () => {
       const ps5Mock = createMockGamepad({
-        [DUALSENSE_BUTTONS.CROSS]: { pressed: true, value: 1.0 }, // Handbrake (✕)
+        [DUALSENSE_BUTTONS.SQUARE]: { pressed: true, value: 1.0 }, // Handbrake (□)
+        [DUALSENSE_BUTTONS.CIRCLE]: { pressed: true, value: 1.0 }, // Shift Down (○)
         [DUALSENSE_BUTTONS.R2]: { pressed: true, value: 0.85 },    // Throttle (R2)
         [DUALSENSE_BUTTONS.L2]: { pressed: true, value: 0.35 },    // Brake (L2)
       });
       (ps5Mock as { id: string }).id = 'DualSense Wireless Controller';
 
-      const sample = sampleGamepad(1.0, ps5Mock);
-      expect(sample.type).toBe('dualsense');
-      expect(sample.handbrake).toBe(true);
-      expect(sample.throttle).toBeCloseTo(0.85, 1);
-      expect(sample.brake).toBeCloseTo(0.35, 1);
+      const sample1 = sampleGamepad(1.0, ps5Mock);
+      expect(sample1.type).toBe('dualsense');
+      expect(sample1.handbrake).toBe(true);
+      expect(sample1.gearDown).toBe(true);
+      expect(sample1.gearUp).toBe(false);
+      expect(sample1.throttle).toBeCloseTo(0.85, 1);
+      expect(sample1.brake).toBeCloseTo(0.35, 1);
+
+      // Frame 2: Circle still held -> gearDown should not re-trigger (edge-triggered)
+      const sample2 = sampleGamepad(1.0, ps5Mock);
+      expect(sample2.gearDown).toBe(false);
     });
 
     it('samples Right Stick cameraLookX and cameraLookY with deadzone filtering', () => {

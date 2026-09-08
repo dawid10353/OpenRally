@@ -8,8 +8,9 @@ import { useInputUpdater } from '@/hooks/useInput';
 import { useGameStore } from '@/store/gameStore';
 import { useRacingStore } from '@/store/racingStore';
 import { useGymkhanaStore } from '@/store/gymkhanaStore';
+import { useSettingsStore } from '@/store/settingsStore';
 import { DEFAULT_VEHICLE_CONFIG, MS_TO_KMH, MAX_DELTA } from '@/config/vehicle';
-import { updateGearbox, calculateRPM } from '@/utils/physics/powertrain';
+import { updateGearbox, handleManualGearShift, calculateRPM } from '@/utils/physics/powertrain';
 import { applyDrivetrain, applyAwdDriftPropulsion } from '@/utils/physics/drivetrain';
 import { applyTireFrictionAndBrakes } from '@/utils/physics/tires';
 import { applyAerodynamics } from '@/utils/physics/aerodynamics';
@@ -69,6 +70,17 @@ export function useVehiclePhysics(
   const isAirborneRef = useRef<boolean>(false);
   const settleFramesRef = useRef<number>(0);
   const isSettledRef = useRef<boolean>(false);
+  const pausedStateRef = useRef<{
+    linvel: { x: number; y: number; z: number };
+    angvel: { x: number; y: number; z: number };
+    pos: { x: number; y: number; z: number };
+    rot: { x: number; y: number; z: number; w: number };
+    speed: number;
+    rpm: number;
+    gear: number;
+    isAirborne: boolean;
+  } | null>(null);
+  const isPausedRef = useRef<boolean>(false);
   const vehicleControllerRef = useRef<InstanceType<
     typeof rapier.DynamicRayCastVehicleController
   > | null>(null);
@@ -132,6 +144,8 @@ export function useVehiclePhysics(
     isSettledRef.current = false;
     currentRpmRef.current = 1000;
     isAirborneRef.current = false;
+    pausedStateRef.current = null;
+    isPausedRef.current = false;
 
     const body = chassisRef.current;
     if (body && (typeof body.isValid !== 'function' || body.isValid())) {
@@ -186,6 +200,8 @@ export function useVehiclePhysics(
       isAirborneRef.current = false;
       settleFramesRef.current = 0;
       isSettledRef.current = false;
+      pausedStateRef.current = null;
+      isPausedRef.current = false;
 
       emitGameEvent('vehicle_reset', {
         reason: currentBodyPos.y < fallResetY ? 'out_of_bounds' : 'manual',
@@ -203,7 +219,68 @@ export function useVehiclePhysics(
       }
     }
 
-    if (gameState !== 'playing') {
+    // ─── 0. PAUSE STATE HANDLING (FREEZE & RESTORE IDENTICAL PRE-PAUSE MOMENTUM) ───
+    if (gameState === 'paused') {
+      if (!isPausedRef.current) {
+        // First frame entering pause: capture the exact simulation state
+        const curLinvel = body.linvel();
+        const curAngvel = body.angvel();
+        const curPos = body.translation();
+        const curRot = body.rotation();
+
+        pausedStateRef.current = {
+          linvel: { x: curLinvel.x, y: curLinvel.y, z: curLinvel.z },
+          angvel: { x: curAngvel.x, y: curAngvel.y, z: curAngvel.z },
+          pos: { x: curPos.x, y: curPos.y, z: curPos.z },
+          rot: { x: curRot.x, y: curRot.y, z: curRot.z, w: curRot.w },
+          speed: prevSpeedKmhRef.current,
+          rpm: currentRpmRef.current,
+          gear: prevGearRef.current,
+          isAirborne: isAirborneRef.current,
+        };
+        isPausedRef.current = true;
+      }
+
+      // While paused: keep the vehicle solidly stationary at paused coordinates
+      // Do NOT apply braking forces or step vehicle controller to avoid altering wheel/suspension physics!
+      if (pausedStateRef.current) {
+        body.setTranslation(pausedStateRef.current.pos, true);
+        body.setRotation(pausedStateRef.current.rot, true);
+        body.setLinvel(_zeroVel, true);
+        body.setAngvel(_zeroVel, true);
+      }
+      return;
+    }
+
+    // Resuming from pause back to 'playing':
+    if (isPausedRef.current) {
+      isPausedRef.current = false;
+      if (pausedStateRef.current) {
+        const saved = pausedStateRef.current;
+        body.setTranslation(saved.pos, true);
+        body.setRotation(saved.rot, true);
+        body.setLinvel(saved.linvel, true);
+        body.setAngvel(saved.angvel, true);
+        prevSpeedKmhRef.current = saved.speed;
+        currentRpmRef.current = saved.rpm;
+        prevGearRef.current = saved.gear;
+        isAirborneRef.current = saved.isAirborne;
+
+        useGameStore.setState({
+          speed: Math.round(saved.speed),
+          rpm: Math.round(saved.rpm),
+          gear: saved.gear,
+        });
+
+        pausedStateRef.current = null;
+      }
+    }
+
+    // ─── 0.5. TITLE / MENU / LOADING SPAWN SETTLE ───
+    if (gameState === 'title' || gameState === 'menu' || gameState === 'loading') {
+      pausedStateRef.current = null;
+      isPausedRef.current = false;
+
       // 1. If already settled in menu: keep vehicle 100% frozen, solid, and motionless
       if (isSettledRef.current) {
         body.setTranslation(_settledPos, true);
@@ -308,7 +385,25 @@ export function useVehiclePhysics(
       body.setAngvel({ x: 0, y: 0, z: 0 }, true);
     }
 
-    const currentGear = updateGearbox(speedKmh, forwardSpeed, input, state.gear, isAirborneRef.current);
+    const isGymkhanaFinished =
+      useGymkhanaStore.getState().showResultsModal ||
+      (state.gameMode === 'gymkhana_blitz' && useGymkhanaStore.getState().status === 'completed');
+
+    if (isGymkhanaFinished) {
+      body.setLinvel({ x: linvel.x * 0.88, y: Math.min(0, linvel.y), z: linvel.z * 0.88 }, true);
+      body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    }
+
+    const transmissionMode = useSettingsStore.getState().transmissionMode;
+    let currentGear: number;
+
+    if (transmissionMode === 'manual') {
+      currentGear = handleManualGearShift(state.gear, input, isAirborneRef.current);
+    } else {
+      currentGear = updateGearbox(speedKmh, forwardSpeed, input, state.gear, isAirborneRef.current, {
+        slipAngle,
+      });
+    }
 
     if (currentGear !== prevGearRef.current) {
       emitGameEvent('gear_shifted', {
@@ -318,8 +413,8 @@ export function useVehiclePhysics(
       prevGearRef.current = currentGear;
     }
 
-    // --- 1. APPLY DRIVETRAIN (Engine, Reverse) ---
-    applyDrivetrain(controller, config, input, forwardSpeed, currentGear, slipAngle);
+    // --- 1. APPLY DRIVETRAIN (Engine, Reverse, Rev Limiter) ---
+    applyDrivetrain(controller, config, input, forwardSpeed, currentGear, slipAngle, speedKmh);
 
     // --- 2. APPLY TIRE FRICTION & BRAKES ---
     const { grips: tireGrips, surface } = applyTireFrictionAndBrakes(
@@ -406,6 +501,7 @@ export function useVehiclePhysics(
       slipAngle,
       groundedRatio,
       dt,
+      currentGear,
     );
 
     // --- 6. UPDATE TELEMETRY & ENGINE RPM ---
@@ -458,6 +554,8 @@ export function useVehiclePhysics(
       currentRpmRef.current = 1000;
       isAirborneRef.current = false;
       settleFramesRef.current = 0;
+      pausedStateRef.current = null;
+      isPausedRef.current = false;
 
       emitGameEvent('vehicle_reset', {
         reason: 'manual',

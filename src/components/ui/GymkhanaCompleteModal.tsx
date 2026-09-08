@@ -1,6 +1,7 @@
-import { memo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useGymkhanaStore } from '@/store/gymkhanaStore';
 import { useGameStore } from '@/store/gameStore';
+import { sampleGamepad, resetGamepadEdgeState } from '@/utils/input/gamepad';
 
 function formatScore(score: number): string {
   return score.toLocaleString('en-US');
@@ -8,13 +9,24 @@ function formatScore(score: number): string {
 
 /**
  * Stage Complete modal displayed when the 60-second Gymkhana Blitz timer expires.
- * Displays total drift score, personal best, new record badges, and performance breakdown.
+ * Displays total drift score, personal best, new record badges, performance breakdown,
+ * and full controller / gamepad (DualSense, Xbox) and keyboard navigation support.
  */
-const GymkhanaCompleteModalContent = memo(function GymkhanaCompleteModalContent() {
-  const totalScore = useGymkhanaStore((s) => s.totalScore);
-  const bestScore = useGymkhanaStore((s) => s.bestScore);
-  const isNewRecord = useGymkhanaStore((s) => s.isNewRecord);
-  const stats = useGymkhanaStore((s) => s.stats);
+function GymkhanaCompleteModalContent() {
+  const storeTotalScore = useGymkhanaStore((s) => s.totalScore);
+  const storeBestScore = useGymkhanaStore((s) => s.bestScore);
+  const storeIsNewRecord = useGymkhanaStore((s) => s.isNewRecord);
+  const storeStats = useGymkhanaStore((s) => s.stats);
+  const storeGamepadConnected = useGameStore((s) => s.gamepadConnected);
+  const storeGamepadType = useGameStore((s) => s.gamepadType);
+
+  const totalScore = useGymkhanaStore.getState().totalScore ?? storeTotalScore;
+  const bestScore = useGymkhanaStore.getState().bestScore ?? storeBestScore;
+  const isNewRecord = useGymkhanaStore.getState().isNewRecord ?? storeIsNewRecord;
+  const stats = useGymkhanaStore.getState().stats ?? storeStats;
+  const gamepadConnected = useGameStore.getState().gamepadConnected ?? storeGamepadConnected;
+  const gamepadType = useGameStore.getState().gamepadType ?? storeGamepadType;
+
   const dismissResultsModal = useGymkhanaStore((s) => s.dismissResultsModal);
   const startCountdown = useGymkhanaStore((s) => s.startCountdown);
 
@@ -22,26 +34,118 @@ const GymkhanaCompleteModalContent = memo(function GymkhanaCompleteModalContent(
   const setGameMode = useGameStore((s) => s.setGameMode);
   const triggerReset = useGameStore((s) => s.triggerReset);
 
-  const handlePlayAgain = () => {
+  const [focusedIndex, setFocusedIndex] = useState(0);
+  const focusedIndexRef = useRef(0);
+  focusedIndexRef.current = focusedIndex;
+
+  const handlePlayAgain = useCallback(() => {
+    resetGamepadEdgeState();
     dismissResultsModal();
+    useGymkhanaStore.getState().resetBlitz();
     triggerReset(true);
     startCountdown();
-  };
+  }, [dismissResultsModal, startCountdown, triggerReset]);
 
-  const handleSwitchToFreeRoam = () => {
+  const handleSwitchToFreeRoam = useCallback(() => {
+    resetGamepadEdgeState();
     dismissResultsModal();
+    useGymkhanaStore.getState().resetBlitz();
     setGameMode('freeroam');
-  };
+  }, [dismissResultsModal, setGameMode]);
 
-  const handleReturnToMenu = () => {
+  const handleReturnToMenu = useCallback(() => {
+    resetGamepadEdgeState();
     dismissResultsModal();
+    useGymkhanaStore.getState().resetBlitz();
     setGameState('menu');
-  };
+  }, [dismissResultsModal, setGameState]);
+
+  const playAgainRef = useRef(handlePlayAgain);
+  playAgainRef.current = handlePlayAgain;
+  const freeRoamRef = useRef(handleSwitchToFreeRoam);
+  freeRoamRef.current = handleSwitchToFreeRoam;
+  const returnMenuRef = useRef(handleReturnToMenu);
+  returnMenuRef.current = handleReturnToMenu;
+
+  // Clear edges on open
+  useEffect(() => {
+    resetGamepadEdgeState();
+  }, []);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'ArrowUp' || e.code === 'KeyW') {
+        e.preventDefault();
+        setFocusedIndex((prev) => (prev - 1 + 3) % 3);
+      } else if (e.code === 'ArrowDown' || e.code === 'KeyS') {
+        e.preventDefault();
+        setFocusedIndex((prev) => (prev + 1) % 3);
+      } else if (e.code === 'Enter' || e.code === 'Space') {
+        e.preventDefault();
+        const cur = focusedIndexRef.current;
+        if (cur === 0) playAgainRef.current();
+        else if (cur === 1) freeRoamRef.current();
+        else if (cur === 2) returnMenuRef.current();
+      } else if (e.code === 'Escape' || e.code === 'Backspace') {
+        e.preventDefault();
+        returnMenuRef.current();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Gamepad loop
+  useEffect(() => {
+    let animId: number;
+    const pollGamepad = () => {
+      const gp = sampleGamepad();
+      if (gp.connected) {
+        if (gp.menuUp) {
+          setFocusedIndex((prev) => (prev - 1 + 3) % 3);
+        } else if (gp.menuDown) {
+          setFocusedIndex((prev) => (prev + 1) % 3);
+        }
+
+        if (gp.menuConfirm) {
+          const cur = focusedIndexRef.current;
+          if (cur === 0) playAgainRef.current();
+          else if (cur === 1) freeRoamRef.current();
+          else if (cur === 2) returnMenuRef.current();
+        } else if (gp.menuBack) {
+          returnMenuRef.current();
+        }
+      }
+      animId = requestAnimationFrame(pollGamepad);
+    };
+
+    animId = requestAnimationFrame(pollGamepad);
+    return () => cancelAnimationFrame(animId);
+  }, []);
 
   return (
     <div style={styles.backdrop}>
       <div style={styles.modalCard}>
-        {/* Header Badge */}
+        {/* Top Rally Hazard Chevron Strip */}
+        <div style={styles.hazardStripTop} />
+
+        {/* Rally Championship Stage Finish Badge & Header */}
+        <div style={styles.headerSection}>
+          <div style={styles.badgeWrapperLogo}>
+            <img
+              src="/images/ui/rally_finish_badge.jpg"
+              alt="Rally Stage Finish Badge"
+              style={styles.badgeImage}
+            />
+          </div>
+
+          <span style={styles.championshipTag}>OPEN RALLY CHAMPIONSHIP</span>
+          <span style={styles.finishControlTag}>STOP CONTROL • OFFICIAL CLASSIFICATION</span>
+        </div>
+
+        {/* Header Badges */}
         <div style={styles.badgeWrapper}>
           <span style={styles.categoryBadge}>STAGE COMPLETE</span>
           {isNewRecord && <span style={styles.newRecordBadge}>★ NEW RECORD! ★</span>}
@@ -49,151 +153,290 @@ const GymkhanaCompleteModalContent = memo(function GymkhanaCompleteModalContent(
 
         <h1 style={styles.title}>GYMKHANA BLITZ</h1>
 
-        {/* Final Drift Score */}
+        {/* Final Drift Score with carbon fiber backing & digital rally display */}
         <div style={styles.scoreContainer}>
-          <div style={styles.scoreLabel}>TOTAL DRIFT SCORE</div>
+          <div style={styles.scoreHeaderRow}>
+            <span style={styles.scoreLabel}>TOTAL DRIFT SCORE</span>
+            <span style={styles.liveTimingBadge}>OFFICIAL STAGE TIMING</span>
+          </div>
           <div style={styles.scoreNumber}>{formatScore(totalScore)}</div>
           <div style={styles.scoreUnit}>POINTS</div>
         </div>
 
         {/* Personal Best Pill */}
         <div style={styles.bestPill}>
+          <span style={styles.trophyIcon}>🏆</span>
           <span>STAGE RECORD:</span>
-          <strong style={{ color: '#38BDF8' }}>
+          <strong style={{ color: '#38BDF8', letterSpacing: '0.8px' }}>
             {bestScore !== null ? `${formatScore(bestScore)} PTS` : `${formatScore(totalScore)} PTS`}
           </strong>
         </div>
 
-        {/* Performance Stats Breakdown Grid */}
+        {/* Performance Stats Breakdown Grid with Rally Telemetry Icons */}
         <div style={styles.statsGrid}>
           <div style={styles.statBox}>
+            <span style={styles.statIcon}>⚡</span>
             <span style={styles.statLabel}>MAX MULTIPLIER</span>
             <span style={styles.statValue}>x{stats.maxMultiplier}</span>
           </div>
           <div style={styles.statBox}>
+            <span style={styles.statIcon}>📐</span>
             <span style={styles.statLabel}>PEAK SLIP ANGLE</span>
             <span style={styles.statValue}>{stats.maxAngleDeg}°</span>
           </div>
           <div style={styles.statBox}>
+            <span style={styles.statIcon}>⏱️</span>
             <span style={styles.statLabel}>LONGEST DRIFT</span>
             <span style={styles.statValue}>{stats.longestDriftSeconds.toFixed(1)}s</span>
           </div>
           <div style={styles.statBox}>
+            <span style={styles.statIcon}>⛓️</span>
             <span style={styles.statLabel}>DRIFT CHAINS</span>
             <span style={styles.statValue}>{stats.totalDrifts}</span>
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* Action Buttons with Dynamic Gamepad / Keyboard Focus Styles */}
         <div style={styles.buttonGroup}>
-          <button style={styles.primaryButton} onClick={handlePlayAgain}>
+          <button
+            type="button"
+            style={{
+              ...styles.primaryButton,
+              ...(focusedIndex === 0 ? styles.focusedPrimaryButton : {}),
+            }}
+            onPointerMove={() => setFocusedIndex(0)}
+            onClick={handlePlayAgain}
+          >
             <span>PLAY AGAIN</span>
             <span style={styles.buttonArrow}>➜</span>
           </button>
 
-          <button style={styles.secondaryButton} onClick={handleSwitchToFreeRoam}>
+          <button
+            type="button"
+            style={{
+              ...styles.secondaryButton,
+              ...(focusedIndex === 1 ? styles.focusedSecondaryButton : {}),
+            }}
+            onPointerMove={() => setFocusedIndex(1)}
+            onClick={handleSwitchToFreeRoam}
+          >
             CONTINUE IN FREE ROAM
           </button>
 
-          <button style={styles.tertiaryButton} onClick={handleReturnToMenu}>
+          <button
+            type="button"
+            style={{
+              ...styles.tertiaryButton,
+              ...(focusedIndex === 2 ? styles.focusedTertiaryButton : {}),
+            }}
+            onPointerMove={() => setFocusedIndex(2)}
+            onClick={handleReturnToMenu}
+          >
             RETURN TO MENU
           </button>
         </div>
+
+        {/* Gamepad / Controller / Keyboard Navigation Helper Badge */}
+        <div style={styles.controllerHelperRow}>
+          {gamepadConnected ? (
+            <>
+              <span style={styles.helperBadge}>
+                {gamepadType === 'dualsense' ? '✕ Wybierz' : 'A Select'}
+              </span>
+              <span style={styles.helperBadge}>
+                {gamepadType === 'dualsense' ? '◯ Menu' : 'B Menu'}
+              </span>
+              <span style={styles.helperBadge}>▲▼ Nawigacja</span>
+            </>
+          ) : (
+            <>
+              <span style={styles.helperBadge}>Enter / Space Select</span>
+              <span style={styles.helperBadge}>Esc Menu</span>
+              <span style={styles.helperBadge}>W / S Navigate</span>
+            </>
+          )}
+        </div>
+
+        {/* Bottom Rally Hazard Chevron Strip */}
+        <div style={styles.hazardStripBottom} />
       </div>
     </div>
   );
-});
+}
 
-export const GymkhanaCompleteModal = memo(function GymkhanaCompleteModal() {
-  const showResultsModal = useGymkhanaStore((s) => s.showResultsModal);
+export function GymkhanaCompleteModal() {
+  const storeShow = useGymkhanaStore((s) => s.showResultsModal);
+  const showResultsModal = useGymkhanaStore.getState().showResultsModal ?? storeShow;
   if (!showResultsModal) return null;
   return <GymkhanaCompleteModalContent />;
-});
+}
 
 const styles: Record<string, React.CSSProperties> = {
   backdrop: {
     position: 'absolute',
     inset: 0,
-    background: 'rgba(5, 8, 16, 0.75)',
-    backdropFilter: 'blur(16px)',
-    WebkitBackdropFilter: 'blur(16px)',
+    background: 'rgba(5, 8, 16, 0.85)',
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 100,
     pointerEvents: 'auto',
     animation: 'fadeIn 0.25s ease-out',
+    padding: '16px',
+    boxSizing: 'border-box',
   },
   modalCard: {
-    background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%)',
-    border: '1px solid rgba(255, 255, 255, 0.12)',
-    borderRadius: '20px',
-    padding: '32px 40px',
-    maxWidth: '480px',
-    width: '90%',
+    position: 'relative',
+    backgroundImage: 'linear-gradient(180deg, rgba(15, 23, 42, 0.93) 0%, rgba(8, 12, 22, 0.97) 100%), url(/images/ui/rally_stage_card_bg.jpg)',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    border: '2px solid rgba(245, 158, 11, 0.45)',
+    borderRadius: '24px',
+    padding: '24px 32px',
+    maxWidth: '500px',
+    width: '92%',
+    maxHeight: '92vh',
+    overflowY: 'auto',
     textAlign: 'center',
-    boxShadow: '0 24px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(245, 158, 11, 0.15)',
+    boxShadow: '0 32px 80px rgba(0, 0, 0, 0.85), 0 0 50px rgba(245, 158, 11, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+    boxSizing: 'border-box',
+  },
+  hazardStripTop: {
+    height: '6px',
+    width: '100%',
+    borderRadius: '4px 4px 0 0',
+    background: 'repeating-linear-gradient(45deg, #F59E0B, #F59E0B 12px, #0F172A 12px, #0F172A 24px)',
+    marginBottom: '12px',
+  },
+  hazardStripBottom: {
+    height: '6px',
+    width: '100%',
+    borderRadius: '0 0 4px 4px',
+    background: 'repeating-linear-gradient(45deg, #F59E0B, #F59E0B 12px, #0F172A 12px, #0F172A 24px)',
+    marginTop: '16px',
+  },
+  headerSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginBottom: '8px',
+  },
+  badgeWrapperLogo: {
+    width: '68px',
+    height: '68px',
+    borderRadius: '50%',
+    padding: '3px',
+    background: 'linear-gradient(135deg, #F59E0B 0%, #EF4444 50%, #F59E0B 100%)',
+    boxShadow: '0 4px 20px rgba(245, 158, 11, 0.45), inset 0 0 10px rgba(0, 0, 0, 0.6)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: '6px',
+  },
+  badgeImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: '50%',
+    objectFit: 'cover',
+    display: 'block',
+  },
+  championshipTag: {
+    fontSize: '11px',
+    fontWeight: 900,
+    letterSpacing: '2.5px',
+    color: '#FACC15',
+    textTransform: 'uppercase',
+    textShadow: '0 2px 8px rgba(0, 0, 0, 0.9)',
+  },
+  finishControlTag: {
+    fontSize: '9px',
+    fontWeight: 800,
+    letterSpacing: '1.2px',
+    color: '#94A3B8',
+    marginBottom: '6px',
+    textTransform: 'uppercase',
   },
   badgeWrapper: {
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
     gap: '8px',
-    marginBottom: '10px',
+    marginBottom: '8px',
   },
   categoryBadge: {
     fontSize: '11px',
-    fontWeight: 800,
-    letterSpacing: '1.5px',
-    padding: '4px 12px',
+    fontWeight: 900,
+    letterSpacing: '1.8px',
+    padding: '4px 14px',
     borderRadius: '12px',
-    background: 'rgba(255, 255, 255, 0.08)',
-    color: '#94A3B8',
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    color: '#CBD5E1',
+    textTransform: 'uppercase',
   },
   newRecordBadge: {
     fontSize: '11px',
     fontWeight: 900,
     letterSpacing: '1px',
-    padding: '4px 12px',
+    padding: '4px 14px',
     borderRadius: '12px',
     background: 'linear-gradient(90deg, #F59E0B, #EF4444)',
     color: '#FFFFFF',
-    boxShadow: '0 2px 10px rgba(239, 68, 68, 0.4)',
-    animation: 'pulse 1.5s infinite',
+    boxShadow: '0 2px 14px rgba(239, 68, 68, 0.5)',
   },
   title: {
-    margin: '0 0 16px 0',
-    fontSize: '28px',
+    margin: '0 0 12px 0',
+    fontSize: '26px',
     fontWeight: 900,
-    letterSpacing: '2px',
+    fontStyle: 'italic',
+    letterSpacing: '2.5px',
     color: '#F8FAFC',
     textTransform: 'uppercase',
+    textShadow: '0 2px 12px rgba(0, 0, 0, 0.9), 0 0 25px rgba(245, 158, 11, 0.3)',
   },
   scoreContainer: {
-    background: 'rgba(0, 0, 0, 0.35)',
-    border: '1px solid rgba(245, 158, 11, 0.3)',
+    background: 'linear-gradient(180deg, rgba(0, 0, 0, 0.75) 0%, rgba(15, 23, 42, 0.85) 100%)',
+    border: '1.5px solid rgba(245, 158, 11, 0.5)',
     borderRadius: '16px',
-    padding: '16px 20px',
-    marginBottom: '14px',
-    boxShadow: 'inset 0 2px 8px rgba(0, 0, 0, 0.4)',
+    padding: '12px 20px',
+    marginBottom: '10px',
+    boxShadow: 'inset 0 2px 12px rgba(0, 0, 0, 0.7), 0 4px 20px rgba(0, 0, 0, 0.4)',
+  },
+  scoreHeaderRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '2px',
   },
   scoreLabel: {
     fontSize: '11px',
-    fontWeight: 800,
-    letterSpacing: '1.5px',
+    fontWeight: 900,
+    letterSpacing: '1.8px',
     color: '#F59E0B',
-    marginBottom: '4px',
+  },
+  liveTimingBadge: {
+    fontSize: '8px',
+    fontWeight: 800,
+    letterSpacing: '1px',
+    color: '#CBD5E1',
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: '1px solid rgba(255, 255, 255, 0.15)',
+    padding: '2px 6px',
+    borderRadius: '6px',
   },
   scoreNumber: {
-    fontFamily: "'SF Mono', Consolas, Monaco, monospace",
+    fontFamily: "'SF Mono', 'Consolas', 'Courier New', monospace",
     fontSize: '44px',
     fontWeight: 900,
     color: '#FACC15',
-    textShadow: '0 0 20px rgba(250, 204, 21, 0.4)',
+    textShadow: '0 0 25px rgba(250, 204, 21, 0.5), 0 2px 4px rgba(0, 0, 0, 0.9)',
     lineHeight: 1.1,
+    letterSpacing: '1.5px',
   },
   scoreUnit: {
-    fontSize: '12px',
+    fontSize: '11px',
     fontWeight: 800,
     letterSpacing: '2px',
     color: '#94A3B8',
@@ -203,89 +446,142 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'inline-flex',
     alignItems: 'center',
     gap: '8px',
-    padding: '6px 16px',
+    padding: '5px 16px',
     borderRadius: '20px',
     background: 'rgba(255, 255, 255, 0.05)',
-    border: '1px solid rgba(255, 255, 255, 0.08)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
     fontSize: '12px',
     fontWeight: 700,
     color: '#94A3B8',
-    marginBottom: '20px',
+    marginBottom: '14px',
+  },
+  trophyIcon: {
+    fontSize: '13px',
   },
   statsGrid: {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
-    gap: '10px',
-    marginBottom: '24px',
+    gap: '8px',
+    marginBottom: '18px',
   },
   statBox: {
-    background: 'rgba(255, 255, 255, 0.03)',
-    border: '1px solid rgba(255, 255, 255, 0.06)',
-    borderRadius: '10px',
-    padding: '10px 12px',
+    background: 'linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.85) 100%)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    borderRadius: '12px',
+    padding: '8px 10px',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
+    boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 8px rgba(0, 0, 0, 0.3)',
+  },
+  statIcon: {
+    fontSize: '14px',
+    marginBottom: '2px',
   },
   statLabel: {
-    fontSize: '10px',
-    fontWeight: 700,
+    fontSize: '9px',
+    fontWeight: 800,
     letterSpacing: '0.8px',
-    color: '#64748B',
-    marginBottom: '4px',
+    color: '#94A3B8',
+    marginBottom: '2px',
     textTransform: 'uppercase',
   },
   statValue: {
     fontFamily: "'SF Mono', Consolas, monospace",
-    fontSize: '16px',
-    fontWeight: 800,
+    fontSize: '17px',
+    fontWeight: 900,
     color: '#F8FAFC',
+    textShadow: '0 0 10px rgba(255, 255, 255, 0.2)',
   },
   buttonGroup: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '10px',
+    gap: '8px',
   },
   primaryButton: {
-    border: 'none',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
     borderRadius: '12px',
-    background: 'linear-gradient(90deg, #D97706, #F59E0B)',
-    padding: '14px 20px',
+    background: 'linear-gradient(90deg, #B91C1C 0%, #E11D48 50%, #EA580C 100%)',
+    padding: '13px 20px',
     color: '#FFFFFF',
     fontSize: '14px',
-    fontWeight: 800,
-    letterSpacing: '1px',
+    fontWeight: 900,
+    letterSpacing: '1.2px',
     cursor: 'pointer',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
     gap: '8px',
-    boxShadow: '0 4px 16px rgba(245, 158, 11, 0.35)',
-    transition: 'transform 0.1s ease, box-shadow 0.1s ease',
+    boxShadow: '0 4px 18px rgba(225, 29, 72, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
+    transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
+    textTransform: 'uppercase',
+  },
+  focusedPrimaryButton: {
+    outline: '3px solid #FACC15',
+    outlineOffset: '2px',
+    boxShadow: '0 0 26px rgba(250, 204, 21, 0.6), 0 6px 20px rgba(225, 29, 72, 0.5)',
+    transform: 'scale(1.03)',
   },
   secondaryButton: {
-    border: '1px solid rgba(16, 185, 129, 0.4)',
+    border: '1.5px solid rgba(16, 185, 129, 0.45)',
     borderRadius: '12px',
-    background: 'rgba(16, 185, 129, 0.1)',
-    padding: '12px 20px',
+    background: 'rgba(16, 185, 129, 0.12)',
+    padding: '11px 20px',
     color: '#34D399',
     fontSize: '13px',
-    fontWeight: 700,
-    letterSpacing: '0.5px',
+    fontWeight: 800,
+    letterSpacing: '0.8px',
     cursor: 'pointer',
-    transition: 'background 0.15s ease',
+    transition: 'all 0.15s ease',
+    textTransform: 'uppercase',
+  },
+  focusedSecondaryButton: {
+    borderColor: '#34D399',
+    background: 'rgba(16, 185, 129, 0.28)',
+    boxShadow: '0 0 22px rgba(16, 185, 129, 0.55), 0 0 0 2px #FFFFFF',
+    transform: 'scale(1.03)',
+    color: '#FFFFFF',
   },
   tertiaryButton: {
-    border: 'none',
-    background: 'transparent',
-    padding: '8px',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    borderRadius: '10px',
+    background: 'rgba(255, 255, 255, 0.04)',
+    padding: '9px 16px',
     color: '#94A3B8',
     fontSize: '12px',
-    fontWeight: 700,
+    fontWeight: 800,
+    letterSpacing: '0.5px',
     cursor: 'pointer',
+    transition: 'all 0.15s ease',
+    textTransform: 'uppercase',
+  },
+  focusedTertiaryButton: {
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    background: 'rgba(255, 255, 255, 0.12)',
+    boxShadow: '0 0 16px rgba(148, 163, 184, 0.4), 0 0 0 1px #FFFFFF',
+    transform: 'scale(1.02)',
+    color: '#FFFFFF',
   },
   buttonArrow: {
     fontSize: '16px',
     fontWeight: 900,
+  },
+  controllerHelperRow: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: '8px',
+    marginTop: '12px',
+    flexWrap: 'wrap',
+  },
+  helperBadge: {
+    background: 'rgba(255, 255, 255, 0.08)',
+    border: '1px solid rgba(255, 255, 255, 0.14)',
+    borderRadius: '4px',
+    padding: '3px 8px',
+    fontSize: '10px',
+    fontWeight: 700,
+    color: '#CBD5E1',
+    letterSpacing: '0.5px',
   },
 };

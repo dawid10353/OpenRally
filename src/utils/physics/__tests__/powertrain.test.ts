@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { updateGearbox, calculateRPM, IDLE_RPM, MAX_RPM } from '../powertrain';
+import { updateGearbox, calculateRPM, handleManualGearShift, IDLE_RPM, MAX_RPM } from '../powertrain';
 
 describe('powertrain physics', () => {
   const baseInput = {
@@ -8,6 +8,8 @@ describe('powertrain physics', () => {
     reset: false,
     steering: 0,
     handbrake: false,
+    gearUp: false,
+    gearDown: false,
   };
 
   describe('updateGearbox', () => {
@@ -67,6 +69,86 @@ describe('powertrain physics', () => {
       const gear = updateGearbox(75, 20.8, { ...baseInput, throttle: 1 }, 3);
       expect(gear).toBe(2);
     });
+
+    it('triggers aggressive downshift kickdown during slides and drifts to sustain wheel torque', () => {
+      // Car in 3rd gear sliding sideways: forward velocity is 12 m/s (43 km/h), slipAngle is 0.45 rad (~26 deg)
+      // Even with total speed magnitude of 50 km/h, automatic transmission downshifts to 2nd gear to keep drift alive
+      const gear = updateGearbox(50, 12.0, { ...baseInput, throttle: 1 }, 3, false, {
+        slipAngle: 0.45,
+      });
+      expect(gear).toBe(2);
+    });
+
+    it('suppresses premature upshift into 3rd or 4th gear while sideways in a drift slide', () => {
+      // Car in 2nd gear at 85 km/h with high slip angle (0.35 rad) and full throttle
+      // Normally 85 km/h upshifts to 3rd gear (>80 km/h), but during a drift, 2nd gear is held for maximum wheel spin
+      const gear = updateGearbox(85, 18.0, { ...baseInput, throttle: 1 }, 2, false, {
+        slipAngle: 0.35,
+      });
+      expect(gear).toBe(2);
+    });
+  });
+
+  describe('handleManualGearShift', () => {
+    it('shifts up sequentially from Neutral (0) to 1st gear and up to 5th gear', () => {
+      let gear = 0;
+      gear = handleManualGearShift(gear, { ...baseInput, gearUp: true });
+      expect(gear).toBe(1);
+
+      gear = handleManualGearShift(gear, { ...baseInput, gearUp: true });
+      expect(gear).toBe(2);
+
+      gear = handleManualGearShift(gear, { ...baseInput, gearUp: true });
+      expect(gear).toBe(3);
+
+      gear = handleManualGearShift(gear, { ...baseInput, gearUp: true });
+      expect(gear).toBe(4);
+
+      gear = handleManualGearShift(gear, { ...baseInput, gearUp: true });
+      expect(gear).toBe(5);
+
+      // Clamps at 5th gear
+      gear = handleManualGearShift(gear, { ...baseInput, gearUp: true });
+      expect(gear).toBe(5);
+    });
+
+    it('shifts down sequentially from 5th gear to 1st, Neutral (0), and Reverse (-1)', () => {
+      let gear = 5;
+      gear = handleManualGearShift(gear, { ...baseInput, gearDown: true });
+      expect(gear).toBe(4);
+
+      gear = handleManualGearShift(gear, { ...baseInput, gearDown: true });
+      expect(gear).toBe(3);
+
+      gear = handleManualGearShift(gear, { ...baseInput, gearDown: true });
+      expect(gear).toBe(2);
+
+      gear = handleManualGearShift(gear, { ...baseInput, gearDown: true });
+      expect(gear).toBe(1);
+
+      gear = handleManualGearShift(gear, { ...baseInput, gearDown: true });
+      expect(gear).toBe(0);
+
+      gear = handleManualGearShift(gear, { ...baseInput, gearDown: true });
+      expect(gear).toBe(-1);
+
+      // Clamps at -1 (Reverse)
+      gear = handleManualGearShift(gear, { ...baseInput, gearDown: true });
+      expect(gear).toBe(-1);
+    });
+
+    it('ignores gear shift requests while vehicle is airborne', () => {
+      const currentGear = 3;
+      const shiftedUpAirborne = handleManualGearShift(currentGear, { ...baseInput, gearUp: true }, true);
+      expect(shiftedUpAirborne).toBe(3);
+
+      const shiftedDownAirborne = handleManualGearShift(currentGear, { ...baseInput, gearDown: true }, true);
+      expect(shiftedDownAirborne).toBe(3);
+    });
+
+    it('maintains current gear when no gear shift input is triggered', () => {
+      expect(handleManualGearShift(3, baseInput)).toBe(3);
+    });
   });
 
   describe('calculateRPM', () => {
@@ -93,6 +175,13 @@ describe('powertrain physics', () => {
       const reverseRpm = calculateRPM(20, -1, { ...baseInput, brake: 1 });
       expect(reverseRpm).toBeGreaterThan(1500);
       expect(reverseRpm).toBeLessThanOrEqual(MAX_RPM);
+    });
+
+    it('hits redline rev limiter at maximum gear speed under full throttle', () => {
+      // 1st gear maximum speed is 52 km/h; at 51 km/h under full throttle, RPM should hit rev limiter
+      const revLimiterRpm = calculateRPM(51, 1, { ...baseInput, throttle: 1 });
+      expect(revLimiterRpm).toBeGreaterThanOrEqual(7400);
+      expect(revLimiterRpm).toBeLessThanOrEqual(MAX_RPM);
     });
 
     describe('rally cornering and loose surface dynamics', () => {

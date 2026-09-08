@@ -9,6 +9,7 @@ import { getLastInputType, isTouchDevice, type InputType } from '@/utils/input/t
  */
 export const AnalogGauges = memo(function AnalogGauges() {
   const gameState = useGameStore((s) => s.gameState);
+  const transmissionMode = useSettingsStore((s) => s.transmissionMode);
   const storeTouchControlMode = useSettingsStore((s) => s.touchControlMode);
   const touchControlMode = useSettingsStore.getState().touchControlMode ?? storeTouchControlMode;
   const [activeInputType, setActiveInputType] = useState<InputType>(() => getLastInputType());
@@ -329,7 +330,9 @@ export const AnalogGauges = memo(function AnalogGauges() {
         <div style={styles.gearBox}>
           <span ref={gearTextRef} style={styles.gearBoxText}>N</span>
         </div>
-        <span style={styles.gearLabel}>GEAR</span>
+        <span style={styles.gearLabel}>
+          {transmissionMode === 'manual' ? 'MANUAL' : 'AUTO'}
+        </span>
       </div>
 
       {/* Real-time RPM readout */}

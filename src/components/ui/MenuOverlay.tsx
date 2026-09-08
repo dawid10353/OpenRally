@@ -23,6 +23,7 @@ import {
   type MenuView,
   type ControlsTab,
   type ResetConfirmState,
+  type SettingsCategory,
 } from './menu';
 
 
@@ -52,17 +53,26 @@ export function MenuOverlay() {
   const [view, setViewInternal] = useState<MenuView>('main');
   const [previewVehicleId, setPreviewVehicleIdInternal] = useState(selectedVehicleId);
   const [controlsTab, setControlsTabInternal] = useState<ControlsTab>('dualsense');
+  const [settingsCategory, setSettingsCategoryInternal] = useState<SettingsCategory>('graphics');
   const [focusedIndex, setFocusedIndexInternal] = useState(0);
   const [resetConfirmState, setResetConfirmState] = useState<ResetConfirmState>('idle');
   const resetConfirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const lastPointerPosRef = useRef<{ x: number; y: number }>({ x: -1, y: -1 });
 
+  const setSettingsCategory = useCallback((cat: SettingsCategory) => {
+    setSettingsCategoryInternal(cat);
+    setFocusedIndexInternal(0);
+  }, []);
+
   const setView = useCallback((nextView: MenuView) => {
     resetGamepadEdgeState();
     setViewInternal(nextView);
     setFocusedIndexInternal(0);
     setResetConfirmState('idle');
+    if (nextView === 'options') {
+      setSettingsCategoryInternal('graphics');
+    }
   }, []);
 
   const setFocusedIndex = useCallback((index: number) => {
@@ -264,6 +274,8 @@ export function MenuOverlay() {
     focusedIndex,
     previewVehicleId,
     controlsTab,
+    settingsCategory,
+    onSetSettingsCategory: setSettingsCategory,
     resetConfirmState,
     setView,
     setFocusedIndex,
@@ -570,6 +582,8 @@ export function MenuOverlay() {
             gameMusicVolume={gameMusicVolume}
             sfxVolume={sfxVolume}
             resetConfirmState={resetConfirmState}
+            activeCategory={settingsCategory}
+            onSetActiveCategory={setSettingsCategory}
             gamepadConnected={gamepadConnected}
             gamepadName={gamepadName}
             gamepadType={gamepadType}

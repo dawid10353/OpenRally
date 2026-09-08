@@ -3,6 +3,7 @@ import { getLastInputType, isTouchDevice, type InputType } from '@/utils/input/t
 import { useSettingsStore } from '@/store/settingsStore';
 import { useGameStore } from '@/store/gameStore';
 import { useRacingStore } from '@/store/racingStore';
+import { CARBON_FIBER_BG, RALLY_HAZARD_STRIPES_YELLOW, rallyHudTheme } from './rallyHudStyles';
 
 function formatLapTime(seconds: number): string {
   if (seconds <= 0) return '00:00.00';
@@ -14,11 +15,24 @@ function formatLapTime(seconds: number): string {
 
 /**
  * Rally Stage Timing Card & Classic 3-2-1-GO Countdown overlay for Time Attack mode.
- * Uses transient Zustand subscriptions for 0 React re-renders on timing updates.
+ * Features authentic motorsport carbon fiber texture, rally hazard chevrons, and hex rivets.
+ * Dynamically scales to an ultra-compact horizontal timing strip on mobile devices to prevent blocking road visibility.
  */
 export const TimingBoard = memo(function TimingBoard() {
   const touchControlMode = useSettingsStore((s) => s.touchControlMode);
   const [activeInputType, setActiveInputType] = useState<InputType>(() => getLastInputType());
+  const [isMobileScreen, setIsMobileScreen] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth < 768 || window.innerHeight < 520;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileScreen(window.innerWidth < 768 || window.innerHeight < 520);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const handleInputSwitch = (e?: Event) => {
@@ -47,6 +61,9 @@ export const TimingBoard = memo(function TimingBoard() {
       (effectiveInputType === 'touch' || isTouchDevice()) &&
       effectiveInputType !== 'keyboard' &&
       effectiveInputType !== 'gamepad');
+
+  const isMobile = isTouchActive || isMobileScreen;
+
   const gameState = useGameStore((s) => s.gameState);
   const gameMode = useGameStore((s) => s.gameMode);
   const bestLapTime = useRacingStore((s) => s.bestLapTime);
@@ -86,46 +103,88 @@ export const TimingBoard = memo(function TimingBoard() {
 
   return (
     <>
-      {/* Time Attack Rally Stage Timing Card */}
-      <div style={{
-        ...styles.timerCard,
-        top: isTouchActive ? 'calc(68px + var(--sat, 0px))' : 'calc(20px + var(--sat))',
-      }}>
-        <div style={styles.timerHeader}>
-          <span style={styles.stageTitle}>RALLY STAGE</span>
-        </div>
+      {/* Mobile Streamlined Timing Strip (Unobtrusive & Road-Clear) */}
+      {isMobile ? (
+        <div style={{ ...styles.mobileTimerBar, top: isTouchActive ? 'calc(68px + var(--sat, 0px))' : 'calc(12px + var(--sat, 0px))' }}>
+          {/* Corner Rivets */}
+          <div style={{ ...rallyHudTheme.cornerRivet, top: '3px', left: '3px' }} />
+          <div style={{ ...rallyHudTheme.cornerRivet, top: '3px', right: '3px' }} />
 
-        <div ref={lapTimeRef} style={styles.lapTimeText}>
-          00:00.00
+          <div style={styles.mobileInner}>
+            <span style={styles.mobileRallyBadge}>STAGE</span>
+            <div ref={lapTimeRef} style={styles.mobileLapTimeText}>
+              00:00.00
+            </div>
+            <div style={styles.mobileDivider} />
+            <div style={styles.mobileMetaItem}>
+              <span style={styles.mobileMetaLabel}>CP</span>
+              <span ref={cpValueRef} style={styles.mobileCpValue}>
+                START
+              </span>
+            </div>
+            <div style={styles.mobileDivider} />
+            <div style={styles.mobileMetaItem}>
+              <span style={styles.mobileMetaLabel}>BEST</span>
+              <span ref={bestValueRef} style={styles.mobileBestValue}>
+                {bestLapTime ? formatLapTime(bestLapTime) : '--:--.--'}
+              </span>
+            </div>
+          </div>
         </div>
+      ) : (
+        /* Desktop Rally Stage Timing Card with Carbon Fiber & Hazard Chevrons */
+        <div style={styles.timerCard}>
+          {/* 4 Corner Screws */}
+          <div style={{ ...rallyHudTheme.cornerRivet, top: '6px', left: '6px' }} />
+          <div style={{ ...rallyHudTheme.cornerRivet, top: '6px', right: '6px' }} />
+          <div style={{ ...rallyHudTheme.cornerRivet, bottom: '6px', left: '6px' }} />
+          <div style={{ ...rallyHudTheme.cornerRivet, bottom: '6px', right: '6px' }} />
 
-        <div style={styles.timerFooter}>
-          <div style={styles.checkpointProgress}>
-            <span style={styles.cpLabel}>CHECKPOINT</span>
-            <span ref={cpValueRef} style={styles.cpValue}>
-              START GATE
-            </span>
+          {/* Top Hazard Caution Stripe Accent */}
+          <div style={styles.rallyHazardBar} />
+
+          <div style={styles.timerHeader}>
+            <span style={styles.stageTitle}>OPEN RALLY STAGE</span>
+            <span style={styles.chronoTag}>CHRONO</span>
           </div>
 
-          <div style={styles.bestTime}>
-            <span style={styles.cpLabel}>STAGE RECORD</span>
-            <span ref={bestValueRef} style={styles.bestValue}>
-              {bestLapTime ? formatLapTime(bestLapTime) : '--:--.--'}
-            </span>
+          <div ref={lapTimeRef} style={styles.lapTimeText}>
+            00:00.00
+          </div>
+
+          <div style={styles.timerFooter}>
+            <div style={styles.checkpointProgress}>
+              <span style={styles.cpLabel}>CHECKPOINT</span>
+              <span ref={cpValueRef} style={styles.cpValue}>
+                START GATE
+              </span>
+            </div>
+
+            <div style={styles.bestTime}>
+              <span style={styles.cpLabel}>STAGE RECORD</span>
+              <span ref={bestValueRef} style={styles.bestValue}>
+                {bestLapTime ? formatLapTime(bestLapTime) : '--:--.--'}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Authentic Classic Rally 3-2-1-GO Countdown */}
       {countdown !== null && (
         <div style={styles.classicRallyCountdown}>
           <div key={countdown} style={styles.rallyCountdownContent}>
-            <div style={styles.rallyStageRibbon}>
+            <div style={{
+              ...styles.rallyStageRibbon,
+              padding: isMobile ? '2px 18px' : '4px 32px',
+              fontSize: isMobile ? '12px' : '15px',
+            }}>
               <span>STAGE START</span>
             </div>
             <div
               style={{
                 ...styles.rallyCountdownDigit,
+                fontSize: isMobile ? '64px' : '110px',
                 color:
                   countdown === 0
                     ? '#00ff66'
@@ -150,16 +209,93 @@ export const TimingBoard = memo(function TimingBoard() {
 });
 
 const styles: Record<string, React.CSSProperties> = {
+  // Mobile Streamlined Horizontal Strip
+  mobileTimerBar: {
+    position: 'absolute',
+    top: 'calc(12px + var(--sat, 0px))',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    background: `${CARBON_FIBER_BG}, linear-gradient(180deg, #18202d 0%, #0c1017 100%)`,
+    backgroundBlendMode: 'overlay',
+    border: '1.5px solid #475569',
+    borderRadius: '18px',
+    padding: '3px 12px',
+    boxShadow: '0 4px 18px rgba(0, 0, 0, 0.8), inset 0 1px 1px rgba(255, 255, 255, 0.15)',
+    zIndex: 30,
+    pointerEvents: 'none',
+  },
+  mobileInner: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  mobileRallyBadge: {
+    background: '#f59e0b',
+    color: '#0f172a',
+    fontSize: '9px',
+    fontWeight: 900,
+    padding: '1px 5px',
+    borderRadius: '3px',
+    letterSpacing: '0.8px',
+  },
+  mobileLapTimeText: {
+    fontFamily: "'SF Mono', Consolas, Monaco, monospace",
+    fontSize: '17px',
+    fontWeight: 900,
+    color: '#ffffff',
+    letterSpacing: '1px',
+    textShadow: '0 0 8px rgba(255, 255, 255, 0.4)',
+  },
+  mobileDivider: {
+    width: '1px',
+    height: '14px',
+    background: 'rgba(255, 255, 255, 0.15)',
+  },
+  mobileMetaItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+  },
+  mobileMetaLabel: {
+    fontSize: '9px',
+    fontWeight: 800,
+    color: '#94a3b8',
+  },
+  mobileCpValue: {
+    fontSize: '11px',
+    fontWeight: 800,
+    color: '#22c55e',
+    fontFamily: 'monospace',
+  },
+  mobileBestValue: {
+    fontSize: '11px',
+    fontWeight: 800,
+    color: '#eab308',
+    fontFamily: 'monospace',
+  },
+
+  // Desktop Timing Card
   timerCard: {
     position: 'absolute',
     top: 'calc(20px + var(--sat))',
     left: 'calc(20px + var(--sal))',
-    background: '#121620',
-    border: '2px solid #374151',
+    background: `${CARBON_FIBER_BG}, linear-gradient(180deg, #18202d 0%, #0c1017 100%)`,
+    backgroundBlendMode: 'overlay',
+    border: '2px solid #334155',
     borderRadius: '12px',
     padding: '12px 18px',
-    boxShadow: '0 8px 30px rgba(0,0,0,0.8), inset 0 1px 1px rgba(255,255,255,0.1)',
+    boxShadow: '0 10px 32px rgba(0, 0, 0, 0.75), inset 0 1px 1px rgba(255, 255, 255, 0.18), inset 0 0 16px rgba(0, 0, 0, 0.8)',
     minWidth: '220px',
+    zIndex: 20,
+    overflow: 'hidden',
+  },
+  rallyHazardBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '3px',
+    background: RALLY_HAZARD_STRIPES_YELLOW,
   },
   timerHeader: {
     display: 'flex',
@@ -170,16 +306,27 @@ const styles: Record<string, React.CSSProperties> = {
   stageTitle: {
     fontSize: '11px',
     fontWeight: 900,
-    color: '#94a3b8',
+    color: '#cbd5e1',
     letterSpacing: '1.5px',
+  },
+  chronoTag: {
+    fontSize: '9px',
+    fontWeight: 900,
+    color: '#f59e0b',
+    background: 'rgba(245, 158, 11, 0.15)',
+    border: '1px solid rgba(245, 158, 11, 0.3)',
+    borderRadius: '3px',
+    padding: '1px 4px',
+    letterSpacing: '0.8px',
   },
   lapTimeText: {
     fontSize: '32px',
     fontWeight: 900,
     color: '#ffffff',
-    fontFamily: 'monospace',
+    fontFamily: "'SF Mono', Consolas, Monaco, monospace",
     letterSpacing: '1.5px',
     margin: '2px 0 6px 0',
+    textShadow: '0 0 12px rgba(255, 255, 255, 0.35)',
   },
   timerFooter: {
     display: 'flex',

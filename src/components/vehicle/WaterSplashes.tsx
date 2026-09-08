@@ -4,6 +4,7 @@ import type { RapierRigidBody } from '@react-three/rapier';
 import { InstancedMesh, Object3D, Color, Vector3, CanvasTexture, Quaternion } from 'three';
 import { isMobileDevice } from '@/utils/device';
 import { WATER_MAX_PARTICLES, WATER_MOBILE_MAX_PARTICLES } from '@/config/particles';
+import { useGameStore } from '@/store/gameStore';
 
 // Reusable objects for matrix composition
 const _q = new Quaternion();
@@ -103,6 +104,7 @@ export function WaterSplashes({ wheelsRef, chassisRef }: WaterSplashesProps) {
   const dummy = useMemo(() => new Object3D(), []);
 
   useFrame((state, delta) => {
+    if (useGameStore.getState().gameState !== 'playing') return;
     if (!meshRef.current || !chassisRef.current || !wheelsRef.current) return;
 
     const body = chassisRef.current;

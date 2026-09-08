@@ -119,29 +119,21 @@ describe('Adversarial Challenger 2: Milestone M2 Empirical Stress Harness', () =
 
       expect(vibIntIdx).toBe(-1);
       expect(optIdx).toBe(12);
-
-      const navHookContent = fs.readFileSync(navHookPath, 'utf-8');
-      expect(navHookContent).toContain('const isVib = useSettingsStore.getState().vibrationEnabled;');
-      expect(navHookContent).toContain('return isVib ? 13 : 12;');
-
-      expect(navHookContent).toContain('const musicOffset = settings.vibrationEnabled ? 8 : 7;');
-      expect(navHookContent).toContain('const resetIdx = isVib ? 11 : 10;');
     });
 
-    it('M2-ADV-1.3: Evaluates tab cycling path and confirms Touch Controls tab reachability limitation', () => {
-      const settingsContent = fs.readFileSync(settingsViewPath, 'utf-8');
-      
-      expect(settingsContent).toContain("setActiveCategory('graphics')");
-      expect(settingsContent).toContain("setActiveCategory('audio')");
-      expect(settingsContent).toContain("setActiveCategory('touch')");
-      expect(settingsContent).toContain("setActiveCategory('gameplay')");
+    it('M2-ADV-1.2: Confirms menuGamepadNavigation correctly adjusts indexing when vibration is toggled', () => {
+      const navHookContent = fs.readFileSync(navHookPath, 'utf-8');
+      expect(navHookContent).toContain('const isVib = useSettingsStore.getState().vibrationEnabled;');
+      expect(navHookContent).toContain('return isVib ? 7 : 6;');
+    });
 
-      // Auto-switch hook never sets 'touch' via focusedIndex
-      const autoSwitchSection = settingsContent.slice(
-        settingsContent.indexOf('useEffect(() => {'),
-        settingsContent.indexOf('}, [focusedIndex')
-      );
-      expect(autoSwitchSection).not.toContain("setActiveCategory('touch')");
+    it('M2-ADV-1.3: Confirms all 5 categories are accessible in SettingsView including Touch Controls', () => {
+      const settingsContent = fs.readFileSync(settingsViewPath, 'utf-8');
+      expect(settingsContent).toContain("'graphics'");
+      expect(settingsContent).toContain("'audio'");
+      expect(settingsContent).toContain("'touch'");
+      expect(settingsContent).toContain("'gameplay'");
+      expect(settingsContent).toContain("'controls'");
     });
 
     it('M2-ADV-1.4: Left/Right directional adjustments do not cause runtime exceptions or out-of-bounds', () => {

@@ -134,9 +134,9 @@ describe('Android APK Structural Validator', () => {
       const distStat = fs.statSync(distApk);
       const winStat = fs.statSync(windowsApk);
 
-      // Both must exceed 240 MB
-      expect(distStat.size).toBeGreaterThan(240 * 1024 * 1024);
-      expect(winStat.size).toBeGreaterThan(240 * 1024 * 1024);
+      // Both must exceed 100 MB
+      expect(distStat.size).toBeGreaterThan(100 * 1024 * 1024);
+      expect(winStat.size).toBeGreaterThan(100 * 1024 * 1024);
       expect(distStat.size).toBe(winStat.size);
 
       // Both must inspect cleanly

@@ -29,6 +29,10 @@ export interface TouchInputState {
   cameraToggle: boolean;
   /** Single-frame pulse trigger for pause menu */
   pause: boolean;
+  /** Single-frame pulse trigger for manual gear shift up */
+  gearUp: boolean;
+  /** Single-frame pulse trigger for manual gear shift down */
+  gearDown: boolean;
 }
 
 export type InputType = 'touch' | 'keyboard' | 'gamepad';
@@ -51,6 +55,8 @@ const initialTouchInputState: TouchInputState = {
   reset: false,
   cameraToggle: false,
   pause: false,
+  gearUp: false,
+  gearDown: false,
 };
 
 // Module-level mutable state for 60fps zero-render polling
@@ -100,6 +106,12 @@ export function setTouchInput(partial: Partial<TouchInputState>): void {
   }
   if (partial.pause !== undefined) {
     currentTouchInputState.pause = Boolean(partial.pause);
+  }
+  if (partial.gearUp !== undefined) {
+    currentTouchInputState.gearUp = Boolean(partial.gearUp);
+  }
+  if (partial.gearDown !== undefined) {
+    currentTouchInputState.gearDown = Boolean(partial.gearDown);
   }
 
   setLastInputType('touch');

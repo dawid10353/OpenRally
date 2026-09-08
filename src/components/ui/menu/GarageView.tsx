@@ -1,15 +1,106 @@
 import { useRef, useEffect } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Environment } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { WebGLRenderer, PCFShadowMap } from 'three';
 import type { VehiclePreset, GameMode } from '@/types';
 import { useSettingsStore, saveSettingsToStorage } from '@/store/settingsStore';
+import { useGameStore } from '@/store/gameStore';
+import { getActiveGamepad, XBOX_AXES, XBOX_BUTTONS } from '@/utils/input/gamepad';
 import { shouldEnableCanvasShadows } from '@/components/canvas/GameCanvas';
 import { isMobileOrAndroid } from '@/utils/device';
 import { menuStyles, getFocusStyle } from './menuStyles';
 import { CarModelDisplay, StatBar } from './CarModelDisplay';
 import type { MenuView } from './types';
+
+const TURNTABLE_DEADZONE = 0.12;
+const TURNTABLE_ROTATE_SPEED = 2.8;
+
+function applyTurntableDeadzone(v: number): number {
+  const abs = Math.abs(v);
+  if (abs <= TURNTABLE_DEADZONE) return 0;
+  return (Math.sign(v) * (abs - TURNTABLE_DEADZONE)) / (1 - TURNTABLE_DEADZONE);
+}
+
+interface GarageGamepadTurntableProps {
+  controlsRef: React.RefObject<OrbitControlsImpl | null>;
+}
+
+/**
+ * 360° Gamepad Turntable Controller for the Garage 3D Canvas.
+ * Supports smooth camera orbit via Right or Left analog stick,
+ * analog zoom via LT / RT triggers, and camera reset via RSB / LSB stick click.
+ * Zero-allocation in useFrame to satisfy enterprise performance standards.
+ */
+function GarageGamepadTurntable({ controlsRef }: GarageGamepadTurntableProps) {
+  useFrame((_, delta) => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+
+    // Direct read without modifying global menu button edge states
+    const gp = getActiveGamepad();
+    if (!gp || !gp.connected) return;
+
+    const axes = gp.axes || [];
+    const buttons = gp.buttons || [];
+    const dt = Math.min(0.1, Math.max(0.001, delta));
+
+    // Right analog stick (Primary 360 camera orbit)
+    const rightX = applyTurntableDeadzone(axes[XBOX_AXES.RIGHT_STICK_X] ?? 0);
+    const rightY = applyTurntableDeadzone(axes[XBOX_AXES.RIGHT_STICK_Y] ?? 0);
+
+    // Left analog stick (Alternative rotation stick)
+    const leftX = applyTurntableDeadzone(axes[XBOX_AXES.LEFT_STICK_X] ?? 0);
+    const leftY = applyTurntableDeadzone(axes[XBOX_AXES.LEFT_STICK_Y] ?? 0);
+
+    let stickX = 0;
+    let stickY = 0;
+
+    if (Math.abs(rightX) > 0 || Math.abs(rightY) > 0) {
+      stickX = rightX;
+      stickY = rightY;
+    } else if (Math.abs(leftX) > 0 || Math.abs(leftY) > 0) {
+      stickX = leftX;
+      stickY = leftY;
+    }
+
+    if (Math.abs(stickX) > 0) {
+      const currentTheta = controls.getAzimuthalAngle();
+      controls.setAzimuthalAngle(currentTheta - stickX * TURNTABLE_ROTATE_SPEED * dt);
+    }
+    if (Math.abs(stickY) > 0) {
+      const currentPhi = controls.getPolarAngle();
+      controls.setPolarAngle(currentPhi + stickY * TURNTABLE_ROTATE_SPEED * dt);
+    }
+    if (Math.abs(stickX) > 0 || Math.abs(stickY) > 0) {
+      controls.update();
+    }
+
+    // Analog Triggers (LT = zoom out, RT = zoom in)
+    const ltValue = buttons[XBOX_BUTTONS.LT]?.value ?? (buttons[XBOX_BUTTONS.LT]?.pressed ? 1 : 0);
+    const rtValue = buttons[XBOX_BUTTONS.RT]?.value ?? (buttons[XBOX_BUTTONS.RT]?.pressed ? 1 : 0);
+    const zoomDelta = rtValue - ltValue;
+
+    if (Math.abs(zoomDelta) > 0.1) {
+      const zoomFactor = 1 + Math.abs(zoomDelta) * 1.6 * dt;
+      if (zoomDelta > 0) {
+        controls.dollyIn(zoomFactor);
+      } else {
+        controls.dollyOut(zoomFactor);
+      }
+      controls.update();
+    }
+
+    // Reset view: RSB (Right Stick Click), LSB (Left Stick Click)
+    const btnRSB = buttons[XBOX_BUTTONS.RSB]?.pressed;
+    const btnLSB = buttons[XBOX_BUTTONS.LSB]?.pressed;
+    if (btnRSB || btnLSB) {
+      controls.reset();
+    }
+  });
+
+  return null;
+}
 
 interface GarageViewProps {
   availableVehicles: VehiclePreset[];
@@ -59,6 +150,10 @@ export function GarageView({
   const isEquipped = selectedVehicleId === previewVehicleId;
   const shadowsEnabled = useSettingsStore((s) => s.shadowsEnabled);
   const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
+  const storeGamepadConnected = useGameStore((s) => s.gamepadConnected);
+  const storeGamepadType = useGameStore((s) => s.gamepadType);
+  const gamepadConnected = useGameStore.getState().gamepadConnected ?? storeGamepadConnected;
+  const gamepadType = useGameStore.getState().gamepadType ?? storeGamepadType;
   const controlsRef = useRef<OrbitControlsImpl>(null);
   const glRef = useRef<WebGLRenderer | null>(null);
   const activeCardRef = useRef<HTMLButtonElement | null>(null);
@@ -261,6 +356,7 @@ export function GarageView({
               dampingFactor={0.08}
               target={[0, 0.4, 0]}
             />
+            <GarageGamepadTurntable controlsRef={controlsRef} />
             <Environment preset="city" />
           </Canvas>
 
@@ -307,11 +403,15 @@ export function GarageView({
             fontSize: '10px',
             fontWeight: 700,
             letterSpacing: '1px',
-            color: 'rgba(255, 255, 255, 0.5)',
+            color: 'rgba(255, 255, 255, 0.65)',
             pointerEvents: 'none',
             textShadow: '0 1px 4px rgba(0, 0, 0, 0.8)',
           }}>
-            DRAG TO ROTATE • SCROLL TO ZOOM
+            {gamepadConnected
+              ? (gamepadType === 'dualsense'
+                  ? '🎮 ANALOG: OBRÓT 360° • L2/R2: ZOOM • L3/R3: RESET'
+                  : '🎮 ANALOG: OBRÓT 360° • LT/RT: ZOOM • LSB/RSB: RESET')
+              : 'DRAG TO ROTATE • SCROLL TO ZOOM'}
           </span>
         </div>
 

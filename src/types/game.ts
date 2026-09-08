@@ -45,4 +45,8 @@ export interface InputState {
   cameraToggle: boolean;
   /** Whether the reset button (R) is pressed */
   reset: boolean;
+  /** Edge-triggered: manual gear shift up */
+  gearUp?: boolean;
+  /** Edge-triggered: manual gear shift down */
+  gearDown?: boolean;
 }

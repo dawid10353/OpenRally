@@ -163,6 +163,17 @@ export function applyTireFrictionAndBrakes(
       currentFriction *= config.handling.assists.driftGripMultiplier;
     }
 
+    // Dynamic power-slide wheelspin friction relaxation:
+    // When wheels are spinning under throttle during a slide, dynamic kinetic friction drops,
+    // allowing smooth, sustained, controllable drifts rather than violently bogging down.
+    if (throttle > 0.15 && Math.abs(slipAngle) > 0.10 && wheel.powered) {
+      const slideIntensity = Math.min(1.0, (Math.abs(slipAngle) - 0.10) / 0.35);
+      const throttleSpin = throttle * slideIntensity;
+      // Front wheels retain directional bite (slight 10% reduction), while rear wheels break away (up to 30% reduction)
+      const wheelspinFrictionDrop = wheel.steerable ? (throttleSpin * 0.10) : (throttleSpin * 0.30);
+      currentFriction *= Math.max(0.60, 1.0 - wheelspinFrictionDrop);
+    }
+
     controller.setWheelFrictionSlip(i, currentFriction);
     controller.setWheelBrake(i, brakeForce);
     _gripsBuffer[i] = currentFriction;

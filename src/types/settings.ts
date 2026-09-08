@@ -22,6 +22,7 @@ export const DEFAULT_TOUCH_SETTINGS: TouchSettings = {
 
 export type TargetFps = 30 | 60 | 120;
 export type DrawDistance = 'short' | 'medium' | 'far' | 'ultra';
+export type TransmissionMode = 'automatic' | 'manual';
 
 export interface GameSettings extends TouchSettings {
   graphicsQuality: GraphicsQuality;
@@ -31,6 +32,7 @@ export interface GameSettings extends TouchSettings {
   resolutionScale: number;
   shadowsEnabled: boolean;
   postProcessingEnabled: boolean;
+  transmissionMode: TransmissionMode;
   sensitivity: number;
   debugPhysics: boolean;
   sfxVolume: number;
@@ -60,6 +62,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   resolutionScale: 1.0,
   shadowsEnabled: true,
   postProcessingEnabled: true,
+  transmissionMode: 'automatic',
   sensitivity: 1.0,
   debugPhysics: false,
   sfxVolume: 1.0,

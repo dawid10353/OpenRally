@@ -10,10 +10,16 @@ export const BRAKE_SPEED_THRESHOLD = 0.5;
 /** Reverse engine force multiplier (fraction of max engine force) */
 export const REVERSE_FORCE_MULTIPLIER = 0.8;
 
-// ─── Gearbox (5-speed automatic) ────────────────────────────────────
+// ─── Gearbox (5-speed automatic / manual) ───────────────────────────
 export const GEAR_RATIOS = [0, 2.5, 1.8, 1.3, 1.0, 0.8]; // Index is gear (0=N/R, 1..5)
 export const SHIFT_UP_SPEEDS = [0, 40, 80, 130, 180, 999]; // Shift to next gear when exceeding these speeds (km/h)
 export const SHIFT_DOWN_SPEEDS = [0, 0, 30, 70, 120, 170]; // Shift to previous gear when falling below these speeds (km/h)
+
+/** Maximum speeds (km/h) for each gear before hitting mechanical redline / rev limiter */
+export const GEAR_MAX_SPEEDS: readonly number[] = [0, 52, 95, 145, 195, 245];
+
+/** Maximum speed (km/h) in reverse gear */
+export const REVERSE_MAX_SPEED = 45;
 
 /** Terrain elevation threshold below which coastal sand friction is applied (ocean surface is at -8.0) */
 export const SAND_ELEVATION_THRESHOLD = -5.0;

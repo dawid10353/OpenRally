@@ -48,6 +48,7 @@ export const TouchControlsOverlay: React.FC<TouchControlsOverlayProps> = memo(fu
   const storeOpacity = useSettingsStore((s) => s.touchOpacity);
   const storeSize = useSettingsStore((s) => s.touchButtonSize);
   const storeHaptics = useSettingsStore((s) => s.touchHaptics);
+  const transmissionMode = useSettingsStore((s) => s.transmissionMode);
 
   const effectiveMode = useSettingsStore.getState().touchControlMode ?? storeMode;
   const effectiveScheme = useSettingsStore.getState().touchSteeringScheme ?? storeScheme;
@@ -355,6 +356,16 @@ export const TouchControlsOverlay: React.FC<TouchControlsOverlayProps> = memo(fu
     setTouchInput({ cameraToggle: true });
     cycleCameraMode();
   }, [touchHaptics, cycleCameraMode]);
+
+  const handleShiftUp = useCallback(() => {
+    if (touchHaptics) triggerHapticFeedback(15);
+    setTouchInput({ gearUp: true });
+  }, [touchHaptics]);
+
+  const handleShiftDown = useCallback(() => {
+    if (touchHaptics) triggerHapticFeedback(15);
+    setTouchInput({ gearDown: true });
+  }, [touchHaptics]);
 
   if (!isVisible) {
     return null;
@@ -674,6 +685,61 @@ export const TouchControlsOverlay: React.FC<TouchControlsOverlayProps> = memo(fu
           <span style={{ fontSize: '8px', opacity: 0.7 }}>HANDBRAKE</span>
         </button>
       </div>
+
+      {/* Manual Transmission Shift Buttons (Shift UP / DOWN) */}
+      {transmissionMode === 'manual' && (
+        <div
+          data-testid="touch-manual-shifter"
+          style={{
+            position: 'absolute',
+            right: `calc(${Math.round(120 * sizeMultiplier)}px + var(--sar, 0px))`,
+            bottom: `calc(${Math.round(150 * sizeMultiplier)}px + var(--sab, 0px))`,
+            display: 'flex',
+            gap: '8px',
+            pointerEvents: 'auto',
+          }}
+        >
+          {/* Shift Down */}
+          <button
+            type="button"
+            data-testid="touch-btn-shift-down"
+            aria-label="Shift Down"
+            onPointerDown={handleShiftDown}
+            style={{
+              ...utilityBtnStyle,
+              width: `${Math.max(44, Math.round(48 * sizeMultiplier))}px`,
+              height: `${Math.max(44, Math.round(48 * sizeMultiplier))}px`,
+              background: 'rgba(245, 158, 11, 0.35)',
+              borderColor: '#f59e0b',
+              color: '#fde68a',
+              fontWeight: 900,
+              fontSize: '18px',
+            }}
+          >
+            -
+          </button>
+
+          {/* Shift Up */}
+          <button
+            type="button"
+            data-testid="touch-btn-shift-up"
+            aria-label="Shift Up"
+            onPointerDown={handleShiftUp}
+            style={{
+              ...utilityBtnStyle,
+              width: `${Math.max(44, Math.round(48 * sizeMultiplier))}px`,
+              height: `${Math.max(44, Math.round(48 * sizeMultiplier))}px`,
+              background: 'rgba(56, 189, 248, 0.35)',
+              borderColor: '#38bdf8',
+              color: '#bae6fd',
+              fontWeight: 900,
+              fontSize: '18px',
+            }}
+          >
+            +
+          </button>
+        </div>
+      )}
     </div>
   );
 });

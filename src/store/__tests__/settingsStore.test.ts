@@ -373,5 +373,35 @@ describe('settingsStore', () => {
     const loaded = loadSettingsFromStorage(false);
     expect(loaded.drawDistance).toBe('short');
   });
+
+  describe('transmissionMode', () => {
+    it('defaults to automatic transmission', () => {
+      expect(useSettingsStore.getState().transmissionMode).toBe('automatic');
+    });
+
+    it('updates transmission mode and persists to localStorage', () => {
+      const { setTransmissionMode } = useSettingsStore.getState();
+      setTransmissionMode('manual');
+      expect(useSettingsStore.getState().transmissionMode).toBe('manual');
+
+      const saved = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}');
+      expect(saved.transmissionMode).toBe('manual');
+
+      setTransmissionMode('automatic');
+      expect(useSettingsStore.getState().transmissionMode).toBe('automatic');
+    });
+
+    it('loads transmissionMode from localStorage', () => {
+      localStorage.setItem(
+        SETTINGS_STORAGE_KEY,
+        JSON.stringify({
+          transmissionMode: 'manual',
+        })
+      );
+
+      const loaded = loadSettingsFromStorage(false);
+      expect(loaded.transmissionMode).toBe('manual');
+    });
+  });
 });
 

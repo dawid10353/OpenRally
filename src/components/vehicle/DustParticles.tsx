@@ -110,6 +110,7 @@ export function DustParticles({ wheelsRef, chassisRef }: DustParticlesProps) {
   const dummy = useMemo(() => new Object3D(), []);
 
   useFrame((state, delta) => {
+    if (useGameStore.getState().gameState !== 'playing') return;
     if (!meshRef.current || !chassisRef.current || !wheelsRef.current) return;
 
     const body = chassisRef.current;

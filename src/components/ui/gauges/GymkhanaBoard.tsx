@@ -3,6 +3,7 @@ import { getLastInputType, isTouchDevice, type InputType } from '@/utils/input/t
 import { useSettingsStore } from '@/store/settingsStore';
 import { useGameStore } from '@/store/gameStore';
 import { useGymkhanaStore, DRIFT_GRACE_PERIOD_SECONDS } from '@/store/gymkhanaStore';
+import { CARBON_FIBER_BG, RALLY_HAZARD_STRIPES_YELLOW, rallyHudTheme } from './rallyHudStyles';
 
 function formatTime(seconds: number): string {
   if (seconds <= 0) return '00:00.00';
@@ -19,12 +20,25 @@ function formatScore(score: number): string {
 /**
  * Gymkhana Blitz HUD — digital 60s countdown timer, banked score,
  * real-time floating drift chain gauge with combo multiplier and grace timer,
- * and 3-2-1-GO countdown overlay.
+ * and authentic rally countdown overlay.
  * Uses transient Zustand subscriptions for 0 React re-renders during high-frequency gameplay.
+ * Adapts dynamically to an ultra-compact horizontal strip on mobile phones to keep the road and vehicle completely clear.
  */
 export const GymkhanaBoard = memo(function GymkhanaBoard() {
   const touchControlMode = useSettingsStore((s) => s.touchControlMode);
   const [activeInputType, setActiveInputType] = useState<InputType>(() => getLastInputType());
+  const [isMobileScreen, setIsMobileScreen] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth < 768 || window.innerHeight < 520;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileScreen(window.innerWidth < 768 || window.innerHeight < 520);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const handleInputSwitch = (e?: Event) => {
@@ -53,6 +67,8 @@ export const GymkhanaBoard = memo(function GymkhanaBoard() {
       (effectiveInputType === 'touch' || isTouchDevice()) &&
       effectiveInputType !== 'keyboard' &&
       effectiveInputType !== 'gamepad');
+
+  const isMobile = isTouchActive || isMobileScreen;
 
   const gameState = useGameStore((s) => s.gameState);
   const gameMode = useGameStore((s) => s.gameMode);
@@ -98,7 +114,9 @@ export const GymkhanaBoard = memo(function GymkhanaBoard() {
       const showDriftCard = state.currentDriftScore > 0 || state.isDrifting;
       if (driftCardRef.current) {
         driftCardRef.current.style.opacity = showDriftCard ? '1' : '0';
-        driftCardRef.current.style.transform = showDriftCard ? 'translate(-50%, 0) scale(1)' : 'translate(-50%, -10px) scale(0.95)';
+        driftCardRef.current.style.transform = showDriftCard
+          ? 'translate(-50%, 0) scale(1)'
+          : 'translate(-50%, -8px) scale(0.95)';
       }
 
       if (showDriftCard) {
@@ -156,76 +174,142 @@ export const GymkhanaBoard = memo(function GymkhanaBoard() {
 
   return (
     <>
-      {/* Top Header Card (Timer & Total Score) */}
-      <div
-        style={{
-          ...styles.timerCard,
-          top: isTouchActive ? 'calc(68px + var(--sat, 0px))' : 'calc(20px + var(--sat))',
-        }}
-      >
-        <div style={styles.timerHeader}>
-          <span style={styles.stageTitle}>GYMKHANA BLITZ</span>
-        </div>
+      {/* Top Header Card (Timer & Banked Score) */}
+      {isMobile ? (
+        <div style={styles.mobileTimerBar}>
+          {/* Corner Rivets */}
+          <div style={{ ...rallyHudTheme.cornerRivet, top: '3px', left: '3px' }} />
+          <div style={{ ...rallyHudTheme.cornerRivet, top: '3px', right: '3px' }} />
 
-        {/* 60s Digital Countdown */}
-        <div ref={timerTextRef} style={styles.lapTimeText}>
-          01:00.00
+          <div style={styles.mobileInner}>
+            <span style={styles.mobileRallyBadge}>GYMKHANA</span>
+            <div ref={timerTextRef} style={styles.mobileLapTimeText}>
+              01:00.00
+            </div>
+            <div style={styles.mobileDivider} />
+            <div style={styles.mobileMetaItem}>
+              <span style={styles.mobileMetaLabel}>SCORE</span>
+              <span ref={totalScoreRef} style={styles.mobileScoreValue}>
+                0 PTS
+              </span>
+            </div>
+            <div style={styles.mobileDivider} />
+            <div style={styles.mobileMetaItem}>
+              <span style={styles.mobileMetaLabel}>BEST</span>
+              <span ref={bestScoreRef} style={styles.mobileBestValue}>
+                --- PTS
+              </span>
+            </div>
+          </div>
         </div>
+      ) : (
+        <div style={styles.timerCard}>
+          {/* 4 Corner Rivets */}
+          <div style={{ ...rallyHudTheme.cornerRivet, top: '6px', left: '6px' }} />
+          <div style={{ ...rallyHudTheme.cornerRivet, top: '6px', right: '6px' }} />
+          <div style={{ ...rallyHudTheme.cornerRivet, bottom: '6px', left: '6px' }} />
+          <div style={{ ...rallyHudTheme.cornerRivet, bottom: '6px', right: '6px' }} />
 
-        {/* Banked Score & Best Score */}
-        <div style={styles.scoreRow}>
-          <span style={styles.scoreLabel}>SCORE:</span>
-          <span ref={totalScoreRef} style={styles.scoreValue}>
-            0 PTS
-          </span>
-        </div>
-        <div style={styles.bestRow}>
-          <span style={styles.bestLabel}>BEST:</span>
-          <span ref={bestScoreRef} style={styles.bestValue}>
-            --- PTS
-          </span>
-        </div>
-      </div>
+          {/* Top Hazard Caution Stripe Accent */}
+          <div style={styles.rallyHazardBar} />
 
-      {/* Floating Active Drift Card (Center Upper Screen) */}
+          <div style={styles.timerHeader}>
+            <span style={styles.stageTitle}>GYMKHANA BLITZ</span>
+            <span style={styles.driftTag}>DRIFT STAGE</span>
+          </div>
+
+          {/* 60s Digital Countdown */}
+          <div ref={timerTextRef} style={styles.lapTimeText}>
+            01:00.00
+          </div>
+
+          {/* Banked Score & Best Score */}
+          <div style={styles.scoreRow}>
+            <span style={styles.scoreLabel}>BANKED SCORE</span>
+            <span ref={totalScoreRef} style={styles.scoreValue}>
+              0 PTS
+            </span>
+          </div>
+          <div style={styles.bestRow}>
+            <span style={styles.bestLabel}>STAGE RECORD</span>
+            <span ref={bestScoreRef} style={styles.bestValue}>
+              --- PTS
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Active Drift Card (Upper Screen, Streamlined on Mobile) */}
       <div
         ref={driftCardRef}
         style={{
-          ...styles.driftCard,
-          top: isTouchActive ? 'calc(170px + var(--sat, 0px))' : 'calc(135px + var(--sat))',
+          ...(isMobile ? styles.mobileDriftCard : styles.driftCard),
+          top: isMobile ? 'calc(52px + var(--sat, 0px))' : 'calc(145px + var(--sat))',
         }}
       >
-        <div style={styles.driftCardHeader}>
-          <span ref={driftQualityRef} style={styles.driftQualityText}>
-            DRIFTING...
-          </span>
-          <span ref={multiplierBadgeRef} style={styles.multiplierBadge}>
-            x1
-          </span>
-        </div>
+        <div style={{ ...rallyHudTheme.cornerRivet, top: '4px', left: '4px' }} />
+        <div style={{ ...rallyHudTheme.cornerRivet, top: '4px', right: '4px' }} />
+        {!isMobile && (
+          <>
+            <div style={{ ...rallyHudTheme.cornerRivet, bottom: '4px', left: '4px' }} />
+            <div style={{ ...rallyHudTheme.cornerRivet, bottom: '4px', right: '4px' }} />
+          </>
+        )}
 
-        <div ref={driftPointsRef} style={styles.driftPointsText}>
-          +0
+        <div style={isMobile ? styles.mobileDriftRow : styles.driftCardHeader}>
+          <div style={isMobile ? styles.mobileDriftLeft : undefined}>
+            <span ref={multiplierBadgeRef} style={isMobile ? styles.mobileMultiplierBadge : styles.multiplierBadge}>
+              x1
+            </span>
+            <span ref={driftQualityRef} style={isMobile ? styles.mobileDriftQualityText : styles.driftQualityText}>
+              DRIFTING...
+            </span>
+          </div>
+
+          <div ref={driftPointsRef} style={isMobile ? styles.mobileDriftPointsText : styles.driftPointsText}>
+            +0
+          </div>
         </div>
 
         {/* Grace Timer Progress Bar */}
-        <div style={styles.graceBarTrack}>
+        <div style={isMobile ? styles.mobileGraceBarTrack : styles.graceBarTrack}>
           <div ref={graceBarRef} style={styles.graceBarFill} />
         </div>
       </div>
 
-      {/* Classic 3-2-1-GO Countdown Overlay */}
+      {/* Authentic Classic Rally 3-2-1-GO Countdown */}
       {countdown !== null && (
-        <div style={styles.countdownOverlay}>
-          <div
-            key={countdown}
-            style={{
-              ...styles.countdownNumber,
-              color: countdown === 0 ? '#10B981' : '#FFFFFF',
-              textShadow: countdown === 0 ? '0 0 40px #10B981' : '0 0 30px rgba(0,0,0,0.8)',
-            }}
-          >
-            {countdown === 0 ? 'GO!' : countdown}
+        <div style={styles.classicRallyCountdown}>
+          <div key={countdown} style={styles.rallyCountdownContent}>
+            <div
+              style={{
+                ...styles.rallyStageRibbon,
+                padding: isMobile ? '2px 18px' : '4px 32px',
+                fontSize: isMobile ? '12px' : '15px',
+              }}
+            >
+              <span>GYMKHANA START</span>
+            </div>
+            <div
+              style={{
+                ...styles.rallyCountdownDigit,
+                fontSize: isMobile ? '64px' : '110px',
+                color:
+                  countdown === 0
+                    ? '#00ff66'
+                    : countdown === 1
+                    ? '#ff3333'
+                    : countdown === 2
+                    ? '#ff9900'
+                    : '#ffcc00',
+                textShadow:
+                  countdown === 0
+                    ? '0 6px 0 #000000, 0 0 35px rgba(0, 255, 102, 0.9), 0 0 60px rgba(0, 255, 102, 0.5)'
+                    : '0 6px 0 #000000, 0 0 25px rgba(0, 0, 0, 0.9), 0 0 45px currentColor',
+              }}
+            >
+              {countdown === 0 ? 'GO!' : countdown}
+            </div>
           </div>
         </div>
       )}
@@ -234,38 +318,124 @@ export const GymkhanaBoard = memo(function GymkhanaBoard() {
 });
 
 const styles: Record<string, React.CSSProperties> = {
+  // Mobile Streamlined Horizontal Strip
+  mobileTimerBar: {
+    position: 'absolute',
+    top: 'calc(12px + var(--sat, 0px))',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    background: `${CARBON_FIBER_BG}, linear-gradient(180deg, #18202d 0%, #0c1017 100%)`,
+    backgroundBlendMode: 'overlay',
+    border: '1.5px solid #475569',
+    borderRadius: '18px',
+    padding: '3px 12px',
+    boxShadow: '0 4px 18px rgba(0, 0, 0, 0.8), inset 0 1px 1px rgba(255, 255, 255, 0.15)',
+    zIndex: 30,
+    pointerEvents: 'none',
+  },
+  mobileInner: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  mobileRallyBadge: {
+    background: '#f59e0b',
+    color: '#0f172a',
+    fontSize: '9px',
+    fontWeight: 900,
+    padding: '1px 5px',
+    borderRadius: '3px',
+    letterSpacing: '0.8px',
+  },
+  mobileLapTimeText: {
+    fontFamily: "'SF Mono', Consolas, Monaco, monospace",
+    fontSize: '17px',
+    fontWeight: 900,
+    color: '#ffffff',
+    letterSpacing: '1px',
+    textShadow: '0 0 8px rgba(255, 255, 255, 0.4)',
+  },
+  mobileDivider: {
+    width: '1px',
+    height: '14px',
+    background: 'rgba(255, 255, 255, 0.2)',
+  },
+  mobileMetaItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+  },
+  mobileMetaLabel: {
+    fontSize: '9px',
+    fontWeight: 800,
+    color: '#94a3b8',
+    letterSpacing: '0.5px',
+  },
+  mobileScoreValue: {
+    fontFamily: "'SF Mono', Consolas, monospace",
+    fontSize: '11px',
+    fontWeight: 800,
+    color: '#38bdf8',
+  },
+  mobileBestValue: {
+    fontFamily: "'SF Mono', Consolas, monospace",
+    fontSize: '11px',
+    fontWeight: 800,
+    color: '#cbd5e1',
+  },
+
+  // Desktop Timing Card
   timerCard: {
     position: 'absolute',
     left: '50%',
     transform: 'translateX(-50%)',
-    background: 'rgba(15, 23, 42, 0.75)',
-    backdropFilter: 'blur(12px)',
-    WebkitBackdropFilter: 'blur(12px)',
-    border: '1px solid rgba(255, 255, 255, 0.1)',
+    top: 'calc(20px + var(--sat))',
+    background: `${CARBON_FIBER_BG}, linear-gradient(180deg, #18202d 0%, #0c1017 100%)`,
+    backgroundBlendMode: 'overlay',
+    border: '2px solid #334155',
     borderRadius: '12px',
     padding: '10px 22px',
-    minWidth: '220px',
+    minWidth: '240px',
     textAlign: 'center',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.65), inset 0 1px 1px rgba(255, 255, 255, 0.15)',
     pointerEvents: 'none',
     zIndex: 20,
   },
+  rallyHazardBar: {
+    width: '100%',
+    height: '5px',
+    background: RALLY_HAZARD_STRIPES_YELLOW,
+    borderRadius: '4px',
+    marginBottom: '6px',
+    boxShadow: '0 1px 4px rgba(0, 0, 0, 0.5)',
+  },
   timerHeader: {
     display: 'flex',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: '2px',
   },
   stageTitle: {
     fontSize: '11px',
-    fontWeight: 800,
+    fontWeight: 900,
     letterSpacing: '1.5px',
     color: '#F59E0B',
     textTransform: 'uppercase',
   },
+  driftTag: {
+    background: '#1e293b',
+    border: '1px solid #334155',
+    color: '#38bdf8',
+    fontSize: '8.5px',
+    fontWeight: 800,
+    padding: '1px 5px',
+    borderRadius: '3px',
+    letterSpacing: '0.8px',
+  },
   lapTimeText: {
     fontFamily: "'SF Mono', Consolas, Monaco, monospace",
-    fontSize: '26px',
-    fontWeight: 800,
+    fontSize: '28px',
+    fontWeight: 900,
     letterSpacing: '1px',
     color: '#FFFFFF',
     textShadow: '0 2px 8px rgba(0, 0, 0, 0.6)',
@@ -275,7 +445,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    fontSize: '13px',
+    fontSize: '12px',
     fontWeight: 800,
     color: '#E2E8F0',
     marginTop: '2px',
@@ -283,41 +453,106 @@ const styles: Record<string, React.CSSProperties> = {
   scoreLabel: {
     color: '#94A3B8',
     letterSpacing: '0.5px',
+    fontSize: '10px',
   },
   scoreValue: {
     color: '#38BDF8',
     fontFamily: "'SF Mono', Consolas, monospace",
-    fontWeight: 800,
+    fontWeight: 900,
+    fontSize: '13px',
   },
   bestRow: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    fontSize: '11px',
+    fontSize: '10px',
     fontWeight: 700,
     color: '#64748B',
     marginTop: '2px',
   },
   bestLabel: {
     letterSpacing: '0.5px',
+    color: '#94a3b8',
   },
   bestValue: {
     fontFamily: "'SF Mono', Consolas, monospace",
-    color: '#94A3B8',
+    color: '#cbd5e1',
+    fontWeight: 800,
   },
+
+  // Mobile Floating Drift Card (Super slim 28px ribbon right under the timer bar)
+  mobileDriftCard: {
+    position: 'absolute',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    background: `${CARBON_FIBER_BG}, linear-gradient(180deg, #18202d 0%, #0c1017 100%)`,
+    backgroundBlendMode: 'overlay',
+    border: '1.5px solid #475569',
+    borderRadius: '12px',
+    padding: '4px 14px 7px 14px',
+    minWidth: '220px',
+    boxShadow: '0 4px 18px rgba(0, 0, 0, 0.8), inset 0 1px 1px rgba(255, 255, 255, 0.15)',
+    zIndex: 25,
+    pointerEvents: 'none',
+    transition: 'opacity 0.18s ease-out, transform 0.18s ease-out',
+    opacity: 0,
+  },
+  mobileDriftRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '10px',
+  },
+  mobileDriftLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  mobileMultiplierBadge: {
+    fontSize: '10px',
+    fontWeight: 900,
+    padding: '1px 6px',
+    borderRadius: '6px',
+    color: '#FFFFFF',
+    letterSpacing: '0.5px',
+  },
+  mobileDriftQualityText: {
+    fontSize: '9.5px',
+    fontWeight: 800,
+    letterSpacing: '0.8px',
+    textTransform: 'uppercase',
+  },
+  mobileDriftPointsText: {
+    fontFamily: "'SF Mono', Consolas, monospace",
+    fontSize: '15px',
+    fontWeight: 900,
+    color: '#FACC15',
+    textShadow: '0 0 8px rgba(250, 204, 21, 0.6)',
+  },
+  mobileGraceBarTrack: {
+    position: 'absolute',
+    bottom: '2px',
+    left: '10px',
+    right: '10px',
+    height: '2.5px',
+    background: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: '1.5px',
+    overflow: 'hidden',
+  },
+
+  // Desktop Floating Drift Card
   driftCard: {
     position: 'absolute',
     left: '50%',
     transform: 'translateX(-50%)',
-    background: 'rgba(15, 23, 42, 0.85)',
-    backdropFilter: 'blur(12px)',
-    WebkitBackdropFilter: 'blur(12px)',
-    border: '1px solid rgba(255, 255, 255, 0.12)',
+    background: `${CARBON_FIBER_BG}, linear-gradient(180deg, #18202d 0%, #0c1017 100%)`,
+    backgroundBlendMode: 'overlay',
+    border: '2px solid #334155',
     borderRadius: '12px',
-    padding: '8px 18px',
-    minWidth: '200px',
+    padding: '10px 20px',
+    minWidth: '220px',
     textAlign: 'center',
-    boxShadow: '0 8px 30px rgba(0, 0, 0, 0.45)',
+    boxShadow: '0 8px 30px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.15)',
     pointerEvents: 'none',
     zIndex: 20,
     transition: 'opacity 0.18s ease-out, transform 0.18s ease-out',
@@ -347,16 +582,16 @@ const styles: Record<string, React.CSSProperties> = {
   },
   driftPointsText: {
     fontFamily: "'SF Mono', Consolas, monospace",
-    fontSize: '24px',
+    fontSize: '26px',
     fontWeight: 900,
     color: '#FACC15',
     textShadow: '0 0 12px rgba(250, 204, 21, 0.5)',
-    margin: '2px 0 4px 0',
+    margin: '2px 0 6px 0',
   },
   graceBarTrack: {
     width: '100%',
     height: '4px',
-    background: 'rgba(255, 255, 255, 0.1)',
+    background: 'rgba(255, 255, 255, 0.12)',
     borderRadius: '2px',
     overflow: 'hidden',
   },
@@ -366,22 +601,42 @@ const styles: Record<string, React.CSSProperties> = {
     background: '#10B981',
     transition: 'width 0.05s linear',
   },
-  countdownOverlay: {
-    position: 'absolute',
-    top: '30%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
+
+  // Classic Rally 3-2-1-GO Countdown Styles
+  classicRallyCountdown: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100vw',
+    height: '100vh',
     display: 'flex',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
     pointerEvents: 'none',
-    zIndex: 100,
+    zIndex: 9999,
   },
-  countdownNumber: {
-    fontFamily: "'Impact', 'Arial Black', sans-serif",
-    fontSize: '120px',
+  rallyCountdownContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    animation: 'rallyPop 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+  },
+  rallyStageRibbon: {
+    background: 'linear-gradient(90deg, #f59e0b 0%, #d97706 100%)',
+    color: '#0f172a',
     fontWeight: 900,
-    letterSpacing: '4px',
-    animation: 'countdownPop 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+    letterSpacing: '3px',
+    textTransform: 'uppercase',
+    borderRadius: '4px',
+    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.4)',
+    marginBottom: '8px',
+  },
+  rallyCountdownDigit: {
+    fontFamily: "'Impact', 'Arial Black', sans-serif",
+    fontWeight: 900,
+    letterSpacing: '2px',
+    lineHeight: 1,
+    filter: 'drop-shadow(0 8px 16px rgba(0, 0, 0, 0.9))',
   },
 };

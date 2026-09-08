@@ -53,6 +53,8 @@ export function useChaseCamera(
     if (!targetRef.current) return;
 
     const gameState = useGameStore.getState().gameState;
+    if (gameState === 'paused') return;
+
     const loadingTarget = useGameStore.getState().loadingTarget;
     const isMenuOrbit =
       gameState === 'menu' ||

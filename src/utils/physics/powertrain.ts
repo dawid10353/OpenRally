@@ -1,4 +1,4 @@
-import { SHIFT_UP_SPEEDS, SHIFT_DOWN_SPEEDS, BRAKE_SPEED_THRESHOLD } from '@/config/vehicle';
+import { SHIFT_UP_SPEEDS, SHIFT_DOWN_SPEEDS, BRAKE_SPEED_THRESHOLD, GEAR_MAX_SPEEDS } from '@/config/vehicle';
 
 export const IDLE_RPM = 1000;
 export const MAX_RPM = 8000;
@@ -43,9 +43,44 @@ const GEAR_SPEED_BANDS: readonly GearSpeedBand[] = [
   { minSpeed: 145, maxSpeed: 240, minRpm: 5000, maxRpm: 7800 },      // 5th gear
 ];
 
+export interface GearboxOptions {
+  /** Lateral slip angle in radians */
+  slipAngle?: number;
+}
+
+/**
+ * Processes manual sequential gear shifting commands.
+ * Gear sequence:
+ * -1 (Reverse) <-> 0 (Neutral) <-> 1 (1st) <-> 2 (2nd) <-> 3 (3rd) <-> 4 (4th) <-> 5 (5th)
+ *
+ * @param currentGear - Current gear index (-1 to 5)
+ * @param input - Input containing edge-triggered gearUp / gearDown
+ * @returns New gear index after shift command
+ */
+export function handleManualGearShift(
+  currentGear: number,
+  input: { gearUp?: boolean; gearDown?: boolean },
+  isAirborne: boolean = false
+): number {
+  if (isAirborne) {
+    return currentGear;
+  }
+  let gear = currentGear;
+  if (input.gearUp && !input.gearDown) {
+    if (gear < 5) {
+      gear++;
+    }
+  } else if (input.gearDown && !input.gearUp) {
+    if (gear > -1) {
+      gear--;
+    }
+  }
+  return gear;
+}
+
 /**
  * Updates the automatic gearbox based on speed and input.
- * Implements kickdown / sport downshifting under full throttle or heavy cornering load.
+ * Implements kickdown / sport downshifting under full throttle, heavy cornering load, or drift slide.
  * When airborne, locks the current gear to prevent erratic mid-air shifting.
  */
 export function updateGearbox(
@@ -53,7 +88,8 @@ export function updateGearbox(
   forwardSpeed: number,
   input: { throttle: number; brake: number; reset?: boolean; steering?: number; handbrake?: boolean },
   currentGear: number,
-  isAirborne: boolean = false
+  isAirborne: boolean = false,
+  options?: GearboxOptions
 ): number {
   if (isAirborne) {
     // Hold gear during jump to avoid erratic shifting in mid-air
@@ -69,17 +105,34 @@ export function updateGearbox(
   } else {
     if (newGear < 1) newGear = 1; // Ensure forward gear
 
-    // Shift up
-    if (newGear < 5 && speedKmh > SHIFT_UP_SPEEDS[newGear]) {
-      newGear++;
-    } 
-    // Shift down
-    else if (newGear > 1) {
-      // Kickdown margin under heavy throttle or cornering load to keep engine in powerband
-      const kickdownMargin =
-        (input.throttle > 0.65 || (input.steering && Math.abs(input.steering) > 0.4)) ? 10 : 0;
-      if (speedKmh < SHIFT_DOWN_SPEEDS[newGear] + kickdownMargin) {
+    const absSlip = options?.slipAngle !== undefined ? Math.abs(options.slipAngle) : 0;
+    const isDrifting = absSlip > 0.18 || Boolean(input.handbrake);
+    // In a slide or drift, evaluate gear based on forward tractive speed along wheels rather than sideways scrub
+    const effectiveSpeed = isDrifting ? Math.max(0, forwardSpeed * 3.6) : speedKmh;
+
+    // Shift down: evaluate first under high load / drift
+    if (newGear > 1) {
+      // Aggressive kickdown margin under heavy throttle, hard cornering, or active drift/slide
+      const kickdownMargin = isDrifting
+        ? 24
+        : (input.throttle > 0.65 || (input.steering && Math.abs(input.steering) > 0.4))
+        ? 12
+        : 0;
+
+      if (effectiveSpeed < SHIFT_DOWN_SPEEDS[newGear] + kickdownMargin) {
         newGear--;
+      }
+    }
+
+    // Shift up (only if not already downshifting, and forbid upshifting during heavy sideways drift)
+    if (newGear < 5 && newGear === currentGear) {
+      // While sideways in a drift, suppress premature upshifting to preserve maximum wheel torque
+      const upshiftThreshold = isDrifting
+        ? SHIFT_UP_SPEEDS[newGear] + 15
+        : SHIFT_UP_SPEEDS[newGear];
+
+      if (effectiveSpeed > upshiftThreshold) {
+        newGear++;
       }
     }
   }
@@ -119,20 +172,23 @@ export function calculateRPM(
   let targetRpmGround = IDLE_RPM;
 
   if (currentGear === -1) {
-    // Reverse gear
+    // Reverse gear: revs up under throttle (manual mode) or brake (auto mode)
+    const revInput = Math.max(throttle, brake);
     targetRpmGround = IDLE_RPM + (Math.min(safeSpeed, 40) / 40) * 4000;
-    if (brake > 0) {
-      targetRpmGround += brake * 2500 * (1 - Math.min(1, safeSpeed / 25));
+    if (revInput > 0) {
+      targetRpmGround += revInput * 2500 * (1 - Math.min(1, safeSpeed / 25));
     }
   } else if (currentGear >= 1 && currentGear <= 5) {
-    // Forward gears (1 to 5)
     const band = GEAR_SPEED_BANDS[currentGear];
     let mechanicalRpm = IDLE_RPM;
+    const maxSpeedForGear = currentGear > 0 && currentGear < GEAR_MAX_SPEEDS.length
+      ? GEAR_MAX_SPEEDS[currentGear]
+      : band.maxSpeed;
 
     if (safeSpeed >= band.minSpeed) {
-      const range = Math.max(1, band.maxSpeed - band.minSpeed);
+      const range = Math.max(1, maxSpeedForGear - band.minSpeed);
       const ratio = Math.min(1.0, (safeSpeed - band.minSpeed) / range);
-      mechanicalRpm = band.minRpm + ratio * (band.maxRpm - band.minRpm);
+      mechanicalRpm = band.minRpm + ratio * (MAX_RPM - band.minRpm);
     } else {
       // Speed below minimum engaged gear speed (before downshift)
       const ratio = band.minSpeed > 0 ? safeSpeed / band.minSpeed : 0;
@@ -155,6 +211,12 @@ export function calculateRPM(
       const launchBoost = safeSpeed < 10 ? throttle * 2200 * (1.0 - safeSpeed / 10) : 0;
 
       targetRpmGround = Math.max(mechanicalRpm, powerbandFloor) + wheelspinBoost + launchBoost;
+
+      // Rev limiter flutter at top of gear band
+      if (safeSpeed >= maxSpeedForGear * 0.95) {
+        const limiterBounce = Math.sin(Date.now() * 0.05) > 0 ? 120 : -180;
+        targetRpmGround = Math.min(MAX_RPM, REV_LIMITER_THRESHOLD + limiterBounce);
+      }
     } else {
       // Off-throttle: mechanical engine braking speed
       targetRpmGround = mechanicalRpm;

@@ -4,8 +4,26 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { sampleGamepad } from '@/utils/input/gamepad';
 import { getAvailableLevels, getLevelPreset } from '@/config/levelRegistry';
 import { getAvailableVehicles } from '@/config/vehicleRegistry';
-import type { GraphicsQuality, AntiAliasingMode, GameMode } from '@/types';
-import type { MenuView, ControlsTab, ResetConfirmState } from './types';
+import type {
+  GraphicsQuality,
+  AntiAliasingMode,
+  TargetFps,
+  DrawDistance,
+  TouchControlMode,
+  TouchSteeringScheme,
+  TouchButtonSize,
+  TransmissionMode,
+  GameMode,
+} from '@/types';
+import type { MenuView, ControlsTab, ResetConfirmState, SettingsCategory } from './types';
+
+export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
+  'graphics',
+  'audio',
+  'controls',
+  'touch',
+  'gameplay',
+] as const;
 
 export interface MenuNavigationOptions {
   readonly view: MenuView;
@@ -13,6 +31,8 @@ export interface MenuNavigationOptions {
   readonly previewVehicleId: string;
   readonly controlsTab: ControlsTab;
   readonly resetConfirmState: ResetConfirmState;
+  readonly settingsCategory?: SettingsCategory;
+  readonly onSetSettingsCategory?: (cat: SettingsCategory) => void;
   readonly setView: (v: MenuView) => void;
   readonly setFocusedIndex: (idx: number) => void;
   readonly setPreviewVehicleId: (id: string) => void;
@@ -27,12 +47,15 @@ export interface MenuNavigationOptions {
 
 /**
  * Custom hook isolating gamepad and keyboard menu navigation loops and direction handlers.
+ * Supports D-Pad, Left Stick, Bumpers (LB/RB), Action Buttons (A/B), and Keyboard (Arrows/WASD/QE/Enter/Esc).
  */
 export function useMenuGamepadNavigation({
   view,
   focusedIndex,
   previewVehicleId,
   controlsTab,
+  settingsCategory = 'graphics',
+  onSetSettingsCategory,
   setView,
   setFocusedIndex,
   setPreviewVehicleId,
@@ -46,7 +69,6 @@ export function useMenuGamepadNavigation({
 }: MenuNavigationOptions) {
   const gameState = useGameStore((s) => s.gameState);
   const setGameState = useGameStore((s) => s.setGameState);
-  const selectedVehicleId = useGameStore((s) => s.selectedVehicleId);
   const setSelectedVehicleId = useGameStore((s) => s.setSelectedVehicleId);
 
   const availableVehicles = getAvailableVehicles();
@@ -60,6 +82,10 @@ export function useMenuGamepadNavigation({
   controlsTabRef.current = controlsTab;
   const previewVehicleIdRef = useRef(previewVehicleId);
   previewVehicleIdRef.current = previewVehicleId;
+  const settingsCategoryRef = useRef(settingsCategory);
+  settingsCategoryRef.current = settingsCategory;
+  const onSetSettingsCategoryRef = useRef(onSetSettingsCategory);
+  onSetSettingsCategoryRef.current = onSetSettingsCategory;
 
   const getItemCount = useCallback((): number => {
     const curView = viewRef.current;
@@ -76,13 +102,59 @@ export function useMenuGamepadNavigation({
     if (curView === 'garage') return 2;
     if (curView === 'multiplayer') return 1;
     if (curView === 'options') {
-      const isVib = useSettingsStore.getState().vibrationEnabled;
-      return isVib ? 13 : 12;
+      const cat = settingsCategoryRef.current;
+      if (cat === 'graphics') return 9; // 0: Tabs, 1: Quality, 2: FPS, 3: DrawDist, 4: AA, 5: Res, 6: Shadows, 7: PP, 8: Back
+      if (cat === 'audio') return 5; // 0: Tabs, 1: MenuMusic, 2: GameMusic, 3: SFX, 4: Back
+      if (cat === 'controls') return 3; // 0: Tabs, 1: TabSelector, 2: Back
+      if (cat === 'touch') return 7; // 0: Tabs, 1: OverlayMode, 2: Scheme, 3: Size, 4: Opacity, 5: Haptics, 6: Back
+      if (cat === 'gameplay') {
+        const isVib = useSettingsStore.getState().vibrationEnabled;
+        return isVib ? 7 : 6; // 0: Tabs, 1: Transmission, 2: Sens, 3: VibToggle, [4: VibInt], 4/5: Reset, 5/6: Back
+      }
+      return 2;
     }
     if (curView === 'controls') return 1;
     if (curView === 'credits') return 2;
     return 1;
   }, [availableLevels.length]);
+
+  const handleTabLeft = useCallback(() => {
+    const curView = viewRef.current;
+    if (curView === 'options') {
+      const curCat = settingsCategoryRef.current;
+      const idx = SETTINGS_CATEGORIES.indexOf(curCat);
+      const nextIdx = (idx - 1 + SETTINGS_CATEGORIES.length) % SETTINGS_CATEGORIES.length;
+      onSetSettingsCategoryRef.current?.(SETTINGS_CATEGORIES[nextIdx]);
+      setFocusedIndex(0);
+    } else if (curView === 'controls') {
+      const tabs: ControlsTab[] = ['dualsense', 'xbox', 'keyboard'];
+      const tabIdx = tabs.indexOf(controlsTabRef.current);
+      setControlsTab(tabs[(tabIdx - 1 + tabs.length) % tabs.length]);
+    } else if (curView === 'garage') {
+      const currentIndex = availableVehicles.findIndex((v) => v.id === previewVehicleIdRef.current);
+      const nextIdx = (currentIndex - 1 + availableVehicles.length) % availableVehicles.length;
+      setPreviewVehicleId(availableVehicles[nextIdx].id);
+    }
+  }, [availableVehicles, setControlsTab, setFocusedIndex, setPreviewVehicleId]);
+
+  const handleTabRight = useCallback(() => {
+    const curView = viewRef.current;
+    if (curView === 'options') {
+      const curCat = settingsCategoryRef.current;
+      const idx = SETTINGS_CATEGORIES.indexOf(curCat);
+      const nextIdx = (idx + 1) % SETTINGS_CATEGORIES.length;
+      onSetSettingsCategoryRef.current?.(SETTINGS_CATEGORIES[nextIdx]);
+      setFocusedIndex(0);
+    } else if (curView === 'controls') {
+      const tabs: ControlsTab[] = ['dualsense', 'xbox', 'keyboard'];
+      const tabIdx = tabs.indexOf(controlsTabRef.current);
+      setControlsTab(tabs[(tabIdx + 1) % tabs.length]);
+    } else if (curView === 'garage') {
+      const currentIndex = availableVehicles.findIndex((v) => v.id === previewVehicleIdRef.current);
+      const nextIdx = (currentIndex + 1) % availableVehicles.length;
+      setPreviewVehicleId(availableVehicles[nextIdx].id);
+    }
+  }, [availableVehicles, setControlsTab, setFocusedIndex, setPreviewVehicleId]);
 
   const handleNavUp = useCallback(() => {
     const count = getItemCount();
@@ -107,46 +179,90 @@ export function useMenuGamepadNavigation({
       const nextIdx = (currentIndex - 1 + availableVehicles.length) % availableVehicles.length;
       setPreviewVehicleId(availableVehicles[nextIdx].id);
     } else if (curView === 'controls') {
-      const tabs: ControlsTab[] = ['dualsense', 'xbox', 'keyboard'];
-      const tabIdx = tabs.indexOf(controlsTabRef.current);
-      setControlsTab(tabs[(tabIdx - 1 + tabs.length) % tabs.length]);
+      handleTabLeft();
     } else if (curView === 'options') {
-      const settings = useSettingsStore.getState();
-      const qualities: GraphicsQuality[] = ['low', 'medium', 'high', 'very_high'];
-      const aaModes: AntiAliasingMode[] = ['off', 'msaa', 'smaa'];
-      const scales = [0.5, 0.75, 1.0, 1.25, 1.5];
-
       if (curIdx === 0) {
-        const qIdx = qualities.indexOf(settings.graphicsQuality);
-        if (qIdx > 0) settings.setGraphicsQuality(qualities[qIdx - 1]);
-      } else if (curIdx === 1) {
-        const aaIdx = aaModes.indexOf(settings.antiAliasing);
-        if (aaIdx > 0) settings.setAntiAliasing(aaModes[aaIdx - 1]);
-      } else if (curIdx === 2) {
-        const sIdx = scales.indexOf(settings.resolutionScale);
-        if (sIdx > 0) settings.setResolutionScale(scales[sIdx - 1]);
-      } else if (curIdx === 3) {
-        settings.toggleShadows();
-      } else if (curIdx === 4) {
-        settings.togglePostProcessing();
-      } else if (curIdx === 5) {
-        settings.setSensitivity(Math.max(0.5, Math.min(2.0, settings.sensitivity - 0.1)));
-      } else if (curIdx === 6) {
-        settings.toggleVibration();
-      } else if (settings.vibrationEnabled && curIdx === 7) {
-        settings.setVibrationIntensity(Math.max(0.1, Math.min(1.0, settings.vibrationIntensity - 0.05)));
-      } else {
-        const musicOffset = settings.vibrationEnabled ? 8 : 7;
-        if (curIdx === musicOffset) {
-          settings.setMenuMusicVolume(Math.max(0, Math.min(1, settings.menuMusicVolume - 0.05)));
-        } else if (curIdx === musicOffset + 1) {
-          settings.setGameMusicVolume(Math.max(0, Math.min(1, settings.gameMusicVolume - 0.05)));
-        } else if (curIdx === musicOffset + 2) {
-          settings.setSfxVolume(Math.max(0, Math.min(1, settings.sfxVolume - 0.05)));
+        handleTabLeft();
+        return;
+      }
+      const cat = settingsCategoryRef.current;
+      const settings = useSettingsStore.getState();
+
+      if (cat === 'graphics') {
+        const qualities: GraphicsQuality[] = ['low', 'medium', 'high', 'very_high'];
+        const targetFpsList: TargetFps[] = [30, 60, 120];
+        const drawDistances: DrawDistance[] = ['short', 'medium', 'far', 'ultra'];
+        const aaModes: AntiAliasingMode[] = ['off', 'smaa', 'msaa'];
+        const scales = [0.5, 0.75, 1.0, 1.25, 1.5];
+
+        if (curIdx === 1) {
+          const qIdx = qualities.indexOf(settings.graphicsQuality);
+          if (qIdx > 0) settings.setGraphicsQuality(qualities[qIdx - 1]);
+        } else if (curIdx === 2) {
+          const fIdx = targetFpsList.indexOf(settings.targetFps);
+          if (fIdx > 0) settings.setTargetFps(targetFpsList[fIdx - 1]);
+        } else if (curIdx === 3) {
+          const dIdx = drawDistances.indexOf(settings.drawDistance);
+          if (dIdx > 0) settings.setDrawDistance(drawDistances[dIdx - 1]);
+        } else if (curIdx === 4) {
+          const aaIdx = aaModes.indexOf(settings.antiAliasing);
+          if (aaIdx > 0) settings.setAntiAliasing(aaModes[aaIdx - 1]);
+        } else if (curIdx === 5) {
+          const sIdx = scales.indexOf(settings.resolutionScale);
+          if (sIdx > 0) settings.setResolutionScale(scales[sIdx - 1]);
+        } else if (curIdx === 6) {
+          settings.toggleShadows();
+        } else if (curIdx === 7) {
+          settings.togglePostProcessing();
+        }
+      } else if (cat === 'audio') {
+        if (curIdx === 1) {
+          settings.setMenuMusicVolume(Math.max(0, Math.min(1, Math.round((settings.menuMusicVolume - 0.05) * 100) / 100)));
+        } else if (curIdx === 2) {
+          settings.setGameMusicVolume(Math.max(0, Math.min(1, Math.round((settings.gameMusicVolume - 0.05) * 100) / 100)));
+        } else if (curIdx === 3) {
+          settings.setSfxVolume(Math.max(0, Math.min(1, Math.round((settings.sfxVolume - 0.05) * 100) / 100)));
+        }
+      } else if (cat === 'controls') {
+        if (curIdx === 1) {
+          const tabs: ControlsTab[] = ['dualsense', 'xbox', 'keyboard'];
+          const tabIdx = tabs.indexOf(controlsTabRef.current);
+          setControlsTab(tabs[(tabIdx - 1 + tabs.length) % tabs.length]);
+        }
+      } else if (cat === 'touch') {
+        const modes: TouchControlMode[] = ['auto', 'always', 'off'];
+        const schemes: TouchSteeringScheme[] = ['joystick', 'buttons'];
+        const sizes: TouchButtonSize[] = ['small', 'medium', 'large'];
+
+        if (curIdx === 1) {
+          const mIdx = modes.indexOf(settings.touchControlMode);
+          if (mIdx > 0) settings.setTouchControlMode(modes[mIdx - 1]);
+        } else if (curIdx === 2) {
+          const scIdx = schemes.indexOf(settings.touchSteeringScheme);
+          if (scIdx > 0) settings.setTouchSteeringScheme(schemes[scIdx - 1]);
+        } else if (curIdx === 3) {
+          const szIdx = sizes.indexOf(settings.touchButtonSize);
+          if (szIdx > 0) settings.setTouchButtonSize(sizes[szIdx - 1]);
+        } else if (curIdx === 4) {
+          settings.setTouchOpacity(Math.max(0.2, Math.min(1.0, Math.round((settings.touchOpacity - 0.05) * 100) / 100)));
+        } else if (curIdx === 5) {
+          settings.setTouchHaptics(!settings.touchHaptics);
+        }
+      } else if (cat === 'gameplay') {
+        const isVib = settings.vibrationEnabled;
+        if (curIdx === 1) {
+          const next: TransmissionMode = settings.transmissionMode === 'manual' ? 'automatic' : 'manual';
+          settings.setTransmissionMode(next);
+        } else if (curIdx === 2) {
+          settings.setSensitivity(Math.max(0.5, Math.min(2.0, Math.round((settings.sensitivity - 0.1) * 10) / 10)));
+        } else if (curIdx === 3) {
+          settings.toggleVibration();
+        } else if (isVib && curIdx === 4) {
+          settings.setVibrationIntensity(Math.max(0.1, Math.min(1.0, Math.round((settings.vibrationIntensity - 0.05) * 100) / 100)));
         }
       }
     }
-  }, [availableVehicles, setControlsTab, setFocusedIndex, setPreviewVehicleId]);
+  }, [availableVehicles, handleTabLeft, setControlsTab, setFocusedIndex, setPreviewVehicleId]);
 
   const handleNavRight = useCallback(() => {
     const curView = viewRef.current;
@@ -159,46 +275,90 @@ export function useMenuGamepadNavigation({
       const nextIdx = (currentIndex + 1) % availableVehicles.length;
       setPreviewVehicleId(availableVehicles[nextIdx].id);
     } else if (curView === 'controls') {
-      const tabs: ControlsTab[] = ['dualsense', 'xbox', 'keyboard'];
-      const tabIdx = tabs.indexOf(controlsTabRef.current);
-      setControlsTab(tabs[(tabIdx + 1) % tabs.length]);
+      handleTabRight();
     } else if (curView === 'options') {
-      const settings = useSettingsStore.getState();
-      const qualities: GraphicsQuality[] = ['low', 'medium', 'high', 'very_high'];
-      const aaModes: AntiAliasingMode[] = ['off', 'msaa', 'smaa'];
-      const scales = [0.5, 0.75, 1.0, 1.25, 1.5];
-
       if (curIdx === 0) {
-        const qIdx = qualities.indexOf(settings.graphicsQuality);
-        if (qIdx < qualities.length - 1) settings.setGraphicsQuality(qualities[qIdx + 1]);
-      } else if (curIdx === 1) {
-        const aaIdx = aaModes.indexOf(settings.antiAliasing);
-        if (aaIdx < aaModes.length - 1) settings.setAntiAliasing(aaModes[aaIdx + 1]);
-      } else if (curIdx === 2) {
-        const sIdx = scales.indexOf(settings.resolutionScale);
-        if (sIdx < scales.length - 1) settings.setResolutionScale(scales[sIdx + 1]);
-      } else if (curIdx === 3) {
-        settings.toggleShadows();
-      } else if (curIdx === 4) {
-        settings.togglePostProcessing();
-      } else if (curIdx === 5) {
-        settings.setSensitivity(Math.max(0.5, Math.min(2.0, settings.sensitivity + 0.1)));
-      } else if (curIdx === 6) {
-        settings.toggleVibration();
-      } else if (settings.vibrationEnabled && curIdx === 7) {
-        settings.setVibrationIntensity(Math.max(0.1, Math.min(1.0, settings.vibrationIntensity + 0.05)));
-      } else {
-        const musicOffset = settings.vibrationEnabled ? 8 : 7;
-        if (curIdx === musicOffset) {
-          settings.setMenuMusicVolume(Math.max(0, Math.min(1, settings.menuMusicVolume + 0.05)));
-        } else if (curIdx === musicOffset + 1) {
-          settings.setGameMusicVolume(Math.max(0, Math.min(1, settings.gameMusicVolume + 0.05)));
-        } else if (curIdx === musicOffset + 2) {
-          settings.setSfxVolume(Math.max(0, Math.min(1, settings.sfxVolume + 0.05)));
+        handleTabRight();
+        return;
+      }
+      const cat = settingsCategoryRef.current;
+      const settings = useSettingsStore.getState();
+
+      if (cat === 'graphics') {
+        const qualities: GraphicsQuality[] = ['low', 'medium', 'high', 'very_high'];
+        const targetFpsList: TargetFps[] = [30, 60, 120];
+        const drawDistances: DrawDistance[] = ['short', 'medium', 'far', 'ultra'];
+        const aaModes: AntiAliasingMode[] = ['off', 'smaa', 'msaa'];
+        const scales = [0.5, 0.75, 1.0, 1.25, 1.5];
+
+        if (curIdx === 1) {
+          const qIdx = qualities.indexOf(settings.graphicsQuality);
+          if (qIdx < qualities.length - 1) settings.setGraphicsQuality(qualities[qIdx + 1]);
+        } else if (curIdx === 2) {
+          const fIdx = targetFpsList.indexOf(settings.targetFps);
+          if (fIdx < targetFpsList.length - 1) settings.setTargetFps(targetFpsList[fIdx + 1]);
+        } else if (curIdx === 3) {
+          const dIdx = drawDistances.indexOf(settings.drawDistance);
+          if (dIdx < drawDistances.length - 1) settings.setDrawDistance(drawDistances[dIdx + 1]);
+        } else if (curIdx === 4) {
+          const aaIdx = aaModes.indexOf(settings.antiAliasing);
+          if (aaIdx < aaModes.length - 1) settings.setAntiAliasing(aaModes[aaIdx + 1]);
+        } else if (curIdx === 5) {
+          const sIdx = scales.indexOf(settings.resolutionScale);
+          if (sIdx < scales.length - 1) settings.setResolutionScale(scales[sIdx + 1]);
+        } else if (curIdx === 6) {
+          settings.toggleShadows();
+        } else if (curIdx === 7) {
+          settings.togglePostProcessing();
+        }
+      } else if (cat === 'audio') {
+        if (curIdx === 1) {
+          settings.setMenuMusicVolume(Math.max(0, Math.min(1, Math.round((settings.menuMusicVolume + 0.05) * 100) / 100)));
+        } else if (curIdx === 2) {
+          settings.setGameMusicVolume(Math.max(0, Math.min(1, Math.round((settings.gameMusicVolume + 0.05) * 100) / 100)));
+        } else if (curIdx === 3) {
+          settings.setSfxVolume(Math.max(0, Math.min(1, Math.round((settings.sfxVolume + 0.05) * 100) / 100)));
+        }
+      } else if (cat === 'controls') {
+        if (curIdx === 1) {
+          const tabs: ControlsTab[] = ['dualsense', 'xbox', 'keyboard'];
+          const tabIdx = tabs.indexOf(controlsTabRef.current);
+          setControlsTab(tabs[(tabIdx + 1) % tabs.length]);
+        }
+      } else if (cat === 'touch') {
+        const modes: TouchControlMode[] = ['auto', 'always', 'off'];
+        const schemes: TouchSteeringScheme[] = ['joystick', 'buttons'];
+        const sizes: TouchButtonSize[] = ['small', 'medium', 'large'];
+
+        if (curIdx === 1) {
+          const mIdx = modes.indexOf(settings.touchControlMode);
+          if (mIdx < modes.length - 1) settings.setTouchControlMode(modes[mIdx + 1]);
+        } else if (curIdx === 2) {
+          const scIdx = schemes.indexOf(settings.touchSteeringScheme);
+          if (scIdx < schemes.length - 1) settings.setTouchSteeringScheme(schemes[scIdx + 1]);
+        } else if (curIdx === 3) {
+          const szIdx = sizes.indexOf(settings.touchButtonSize);
+          if (szIdx < sizes.length - 1) settings.setTouchButtonSize(sizes[szIdx + 1]);
+        } else if (curIdx === 4) {
+          settings.setTouchOpacity(Math.max(0.2, Math.min(1.0, Math.round((settings.touchOpacity + 0.05) * 100) / 100)));
+        } else if (curIdx === 5) {
+          settings.setTouchHaptics(!settings.touchHaptics);
+        }
+      } else if (cat === 'gameplay') {
+        const isVib = settings.vibrationEnabled;
+        if (curIdx === 1) {
+          const next: TransmissionMode = settings.transmissionMode === 'manual' ? 'automatic' : 'manual';
+          settings.setTransmissionMode(next);
+        } else if (curIdx === 2) {
+          settings.setSensitivity(Math.max(0.5, Math.min(2.0, Math.round((settings.sensitivity + 0.1) * 10) / 10)));
+        } else if (curIdx === 3) {
+          settings.toggleVibration();
+        } else if (isVib && curIdx === 4) {
+          settings.setVibrationIntensity(Math.max(0.1, Math.min(1.0, Math.round((settings.vibrationIntensity + 0.05) * 100) / 100)));
         }
       }
     }
-  }, [availableVehicles, setControlsTab, setFocusedIndex, setPreviewVehicleId]);
+  }, [availableVehicles, handleTabRight, setControlsTab, setFocusedIndex, setPreviewVehicleId]);
 
   const handleConfirm = useCallback(() => {
     const curView = viewRef.current;
@@ -248,19 +408,36 @@ export function useMenuGamepadNavigation({
     } else if (curView === 'multiplayer') {
       setView('main');
     } else if (curView === 'options') {
-      const isVib = useSettingsStore.getState().vibrationEnabled;
-      const optionsCount = isVib ? 13 : 12;
-      const resetIdx = isVib ? 11 : 10;
-      if (curIdx === 3) {
-        useSettingsStore.getState().toggleShadows();
-      } else if (curIdx === 4) {
-        useSettingsStore.getState().togglePostProcessing();
-      } else if (curIdx === 6) {
-        useSettingsStore.getState().toggleVibration();
-      } else if (curIdx === resetIdx) {
-        handleResetRecordsAction();
-      } else if (curIdx === optionsCount - 1) {
+      const cat = settingsCategoryRef.current;
+      const count = getItemCount();
+      const backIndex = count - 1;
+
+      if (curIdx === backIndex) {
         setView('main');
+        return;
+      }
+
+      if (curIdx === 0) {
+        handleTabRight();
+        return;
+      }
+
+      if (cat === 'graphics') {
+        if (curIdx === 6) useSettingsStore.getState().toggleShadows();
+        else if (curIdx === 7) useSettingsStore.getState().togglePostProcessing();
+      } else if (cat === 'touch') {
+        if (curIdx === 5) useSettingsStore.getState().setTouchHaptics(!useSettingsStore.getState().touchHaptics);
+      } else if (cat === 'gameplay') {
+        const isVib = useSettingsStore.getState().vibrationEnabled;
+        const resetIdx = isVib ? 5 : 4;
+        if (curIdx === 1) {
+          const current = useSettingsStore.getState().transmissionMode;
+          useSettingsStore.getState().setTransmissionMode(current === 'manual' ? 'automatic' : 'manual');
+        } else if (curIdx === 3) {
+          useSettingsStore.getState().toggleVibration();
+        } else if (curIdx === resetIdx) {
+          handleResetRecordsAction();
+        }
       }
     } else if (curView === 'controls') {
       setView('main');
@@ -273,16 +450,16 @@ export function useMenuGamepadNavigation({
     }
   }, [
     availableLevels,
+    getItemCount,
     handleLaunchMode,
     handleReset,
     handleResetRecordsAction,
     handleReturnToMainMenu,
     handleSelectTrack,
     handleStartRace,
-    selectedVehicleId,
+    handleTabRight,
     setGameState,
     setSelectedVehicleId,
-    setPreviewVehicleId,
     setView,
   ]);
 
@@ -306,6 +483,8 @@ export function useMenuGamepadNavigation({
     handleNavDown,
     handleNavLeft,
     handleNavRight,
+    handleTabLeft,
+    handleTabRight,
     handleConfirm,
     handleBack,
   });
@@ -314,6 +493,8 @@ export function useMenuGamepadNavigation({
     handleNavDown,
     handleNavLeft,
     handleNavRight,
+    handleTabLeft,
+    handleTabRight,
     handleConfirm,
     handleBack,
   };
@@ -335,6 +516,12 @@ export function useMenuGamepadNavigation({
       } else if (e.code === 'ArrowRight' || e.code === 'KeyD') {
         e.preventDefault();
         actionsRef.current.handleNavRight();
+      } else if (e.code === 'KeyQ' || e.code === 'PageUp') {
+        e.preventDefault();
+        actionsRef.current.handleTabLeft();
+      } else if (e.code === 'KeyE' || e.code === 'PageDown') {
+        e.preventDefault();
+        actionsRef.current.handleTabRight();
       } else if (e.code === 'Enter' || e.code === 'Space') {
         e.preventDefault();
         actionsRef.current.handleConfirm();
@@ -353,9 +540,12 @@ export function useMenuGamepadNavigation({
     if (gameState === 'playing') return;
 
     let animId: number;
+    let prevDpadLeft = false;
+    let prevDpadRight = false;
     const pollMenuGamepad = () => {
       const gp = sampleGamepad();
       if (gp.connected) {
+        const curView = viewRef.current;
         if (gp.menuConfirm) {
           actionsRef.current.handleConfirm();
         } else if (gp.menuBack) {
@@ -364,17 +554,34 @@ export function useMenuGamepadNavigation({
           actionsRef.current.handleBack();
         }
 
+        if (gp.menuTabLeft) {
+          actionsRef.current.handleTabLeft();
+        } else if (gp.menuTabRight) {
+          actionsRef.current.handleTabRight();
+        }
+
         if (gp.menuUp) {
           actionsRef.current.handleNavUp();
         } else if (gp.menuDown) {
           actionsRef.current.handleNavDown();
         }
 
-        if (gp.menuLeft) {
-          actionsRef.current.handleNavLeft();
-        } else if (gp.menuRight) {
-          actionsRef.current.handleNavRight();
+        if (curView === 'garage') {
+          // In garage, D-Pad Left/Right and Bumpers switch vehicles, freeing analog sticks for 360° vehicle rotation
+          if (gp.dpadLeft && !prevDpadLeft) {
+            actionsRef.current.handleNavLeft();
+          } else if (gp.dpadRight && !prevDpadRight) {
+            actionsRef.current.handleNavRight();
+          }
+        } else {
+          if (gp.menuLeft) {
+            actionsRef.current.handleNavLeft();
+          } else if (gp.menuRight) {
+            actionsRef.current.handleNavRight();
+          }
         }
+        prevDpadLeft = gp.dpadLeft;
+        prevDpadRight = gp.dpadRight;
       }
       animId = requestAnimationFrame(pollMenuGamepad);
     };
@@ -388,6 +595,8 @@ export function useMenuGamepadNavigation({
     handleNavDown,
     handleNavLeft,
     handleNavRight,
+    handleTabLeft,
+    handleTabRight,
     handleConfirm,
     handleBack,
   };

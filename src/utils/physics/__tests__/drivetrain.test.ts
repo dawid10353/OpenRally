@@ -194,10 +194,11 @@ describe('drivetrain physics', () => {
         DEFAULT_VEHICLE_CONFIG,
         { throttle: 1, steering: 0.5 },
         forwardVec,
-        60,
+        50, // 50 km/h in 2nd gear
         Math.PI / 6, // 30 deg slip
         1.0,
-        0.016
+        0.016,
+        2 // 2nd gear
       );
 
       expect(mockBody.applyImpulse).toHaveBeenCalled();
@@ -221,7 +222,8 @@ describe('drivetrain physics', () => {
         60,
         Math.PI / 6,
         1.0,
-        0.016
+        0.016,
+        2
       );
       expect(mockBody.applyImpulse).not.toHaveBeenCalled();
 
@@ -234,9 +236,38 @@ describe('drivetrain physics', () => {
         60,
         0,
         1.0,
-        0.016
+        0.016,
+        2
       );
       expect(mockBody.applyImpulse).not.toHaveBeenCalled();
+    });
+
+    it('cuts engine force when hitting mechanical gear speed limits (rev limiter)', () => {
+      const controllerUnderLimit = createMockController();
+      applyDrivetrain(
+        controllerUnderLimit,
+        DEFAULT_VEHICLE_CONFIG,
+        { throttle: 1, brake: 0 },
+        10, // ~36 km/h in 1st gear
+        1,
+        0,
+        36
+      );
+      expect(controllerUnderLimit.forces[0]).toBeGreaterThan(0);
+
+      const controllerOverLimit = createMockController();
+      applyDrivetrain(
+        controllerOverLimit,
+        DEFAULT_VEHICLE_CONFIG,
+        { throttle: 1, brake: 0 },
+        15, // ~54 km/h in 1st gear (exceeds 52 km/h limit)
+        1,
+        0,
+        54
+      );
+      // Rev limiter cuts engine force to 0
+      expect(controllerOverLimit.forces[0]).toBe(0);
+      expect(controllerOverLimit.forces[2]).toBe(0);
     });
   });
 });

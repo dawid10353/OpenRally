@@ -265,9 +265,21 @@ export function ControlsView({
           </div>
           <div style={menuStyles.controlRow}>
             <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={styles.psCross}>✕</span> Cross / R1
+              <span style={styles.psCross}>✕</span> Cross
             </strong>
-            <span style={{ color: '#94A3B8' }}>Handbrake / Drift</span>
+            <span style={{ color: '#38BDF8', fontWeight: 600 }}>Bieg wyższy (Shift UP)</span>
+          </div>
+          <div style={menuStyles.controlRow}>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.psCircle}>●</span> Circle
+            </strong>
+            <span style={{ color: '#F59E0B', fontWeight: 600 }}>Bieg niższy (Shift DOWN)</span>
+          </div>
+          <div style={menuStyles.controlRow}>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.psSquare}>■</span> Square / R1
+            </strong>
+            <span style={{ color: '#EF4444', fontWeight: 600 }}>Hamulec ręczny (Handbrake)</span>
           </div>
           <div style={menuStyles.controlRow}>
             <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -277,13 +289,13 @@ export function ControlsView({
           </div>
           <div style={menuStyles.controlRow}>
             <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={styles.psCircle}>●</span> Circle / R3
+              <span style={styles.badge}>R3</span> Right Stick Click
             </strong>
             <span style={{ color: '#94A3B8' }}>Look Back (Instant)</span>
           </div>
           <div style={menuStyles.controlRow}>
             <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={styles.psSquare}>■</span> Square / Create
+              <span style={styles.badge}>CREATE</span> Share / Create
             </strong>
             <span style={{ color: '#94A3B8' }}>Reset Vehicle</span>
           </div>
@@ -295,9 +307,9 @@ export function ControlsView({
           </div>
           <div style={menuStyles.controlRow}>
             <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={styles.badge}>SHARE / L3</span> Telemetry
+              <span style={styles.badge}>L3</span> Left Stick Click
             </strong>
-            <span style={{ color: '#94A3B8' }}>Toggle Inspector</span>
+            <span style={{ color: '#94A3B8' }}>Toggle Telemetry</span>
           </div>
           <div style={menuStyles.controlRow}>
             <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -343,9 +355,21 @@ export function ControlsView({
           </div>
           <div style={menuStyles.controlRow}>
             <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={styles.xboxA}>A</span> / RB
+              <span style={styles.xboxA}>A</span> Button
             </strong>
-            <span style={{ color: '#94A3B8' }}>Handbrake / Drift</span>
+            <span style={{ color: '#38BDF8', fontWeight: 600 }}>Bieg wyższy (Shift UP)</span>
+          </div>
+          <div style={menuStyles.controlRow}>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.xboxB}>B</span> Button
+            </strong>
+            <span style={{ color: '#F59E0B', fontWeight: 600 }}>Bieg niższy (Shift DOWN)</span>
+          </div>
+          <div style={menuStyles.controlRow}>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={styles.xboxX}>X</span> / RB
+            </strong>
+            <span style={{ color: '#EF4444', fontWeight: 600 }}>Hamulec ręczny (Handbrake)</span>
           </div>
           <div style={menuStyles.controlRow}>
             <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -355,13 +379,13 @@ export function ControlsView({
           </div>
           <div style={menuStyles.controlRow}>
             <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={styles.xboxB}>B</span> / RS Click
+              <span style={styles.badge}>RS Click</span> Right Stick
             </strong>
             <span style={{ color: '#94A3B8' }}>Look Back (Instant)</span>
           </div>
           <div style={menuStyles.controlRow}>
             <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={styles.xboxX}>X</span> / View
+              <span style={styles.badge}>VIEW</span> Back / View
             </strong>
             <span style={{ color: '#94A3B8' }}>Reset Vehicle</span>
           </div>
@@ -373,9 +397,9 @@ export function ControlsView({
           </div>
           <div style={menuStyles.controlRow}>
             <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={styles.badge}>VIEW / LS</span> Telemetry
+              <span style={styles.badge}>LS Click</span> Left Stick
             </strong>
-            <span style={{ color: '#94A3B8' }}>Toggle Inspector</span>
+            <span style={{ color: '#94A3B8' }}>Toggle Telemetry</span>
           </div>
           <div style={menuStyles.controlRow}>
             <strong style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -408,9 +432,21 @@ export function ControlsView({
           </div>
           <div style={menuStyles.controlRow}>
             <strong style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <kbd style={styles.kbd}>E</kbd>
+            </strong>
+            <span style={{ color: '#38BDF8', fontWeight: 600 }}>Bieg wyższy (Shift UP)</span>
+          </div>
+          <div style={menuStyles.controlRow}>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <kbd style={styles.kbd}>Q</kbd>
+            </strong>
+            <span style={{ color: '#F59E0B', fontWeight: 600 }}>Bieg niższy (Shift DOWN)</span>
+          </div>
+          <div style={menuStyles.controlRow}>
+            <strong style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <kbd style={styles.kbd}>SPACE</kbd>
             </strong>
-            <span style={{ color: '#94A3B8' }}>Handbrake / Drift</span>
+            <span style={{ color: '#EF4444', fontWeight: 600 }}>Hamulec ręczny (Handbrake / Drift)</span>
           </div>
           <div style={menuStyles.controlRow}>
             <strong style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

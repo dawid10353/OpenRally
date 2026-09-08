@@ -56,12 +56,16 @@ export interface BlendInputsOptions {
     throttle?: number;
     brake?: number;
     handbrake?: boolean;
+    gearUp?: boolean;
+    gearDown?: boolean;
     resetHeld?: boolean;
     resetToggle?: boolean;
     cameraToggle?: boolean;
     pauseToggle?: boolean;
   };
   touch?: Partial<TouchInputState>;
+  kbGearUp?: boolean;
+  kbGearDown?: boolean;
 }
 
 export interface MergedInputResult {
@@ -75,6 +79,7 @@ export interface MergedInputResult {
  * Steering: Left is +1.0, Right is -1.0 (OpenRally standard). Clamped to [-1.0, 1.0].
  * Throttle & Brake: Maximum of keyboard digital values, gamepad analog triggers, and touch.
  * Handbrake & Reset: Logical OR across all active input modalities.
+ * Gears: Edge-triggered shift up and down pulses.
  */
 export function blendInputs({
   dt,
@@ -82,6 +87,8 @@ export function blendInputs({
   keys = activeKeys,
   gp = {},
   touch = getTouchInputState(),
+  kbGearUp = false,
+  kbGearDown = false,
 }: BlendInputsOptions): MergedInputResult {
   const gpSteering = gp.steering ?? 0;
   const gpThrottle = gp.throttle ?? 0;
@@ -89,6 +96,8 @@ export function blendInputs({
   const gpHandbrake = Boolean(gp.handbrake);
   const gpReset = Boolean(gp.resetHeld || gp.resetToggle);
   const gpCameraToggle = Boolean(gp.cameraToggle);
+  const gpGearUp = Boolean(gp.gearUp);
+  const gpGearDown = Boolean(gp.gearDown);
 
   const touchSteering = touch.steering ?? 0;
   const touchThrottle = touch.throttle ?? 0;
@@ -96,6 +105,8 @@ export function blendInputs({
   const touchHandbrake = Boolean(touch.handbrake);
   const touchReset = Boolean(touch.reset);
   const touchCameraToggle = Boolean(touch.cameraToggle);
+  const touchGearUp = Boolean(touch.gearUp);
+  const touchGearDown = Boolean(touch.gearDown);
 
   const kbThrottle = keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0;
   const kbBrake = keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0;
@@ -108,6 +119,8 @@ export function blendInputs({
   const handbrake = keys.has('Space') || gpHandbrake || touchHandbrake;
   const reset = keys.has('KeyR') || gpReset || touchReset;
   const cameraToggle = Boolean(gpCameraToggle || touchCameraToggle);
+  const gearUp = gpGearUp || touchGearUp || kbGearUp;
+  const gearDown = gpGearDown || touchGearDown || kbGearDown;
 
   // Determine steering speed:
   // Analog inputs (gamepad stick or touch steering) use responsive GAMEPAD_STEER_SPEED.
@@ -134,6 +147,8 @@ export function blendInputs({
       handbrake,
       cameraToggle,
       reset,
+      gearUp,
+      gearDown,
     },
     targetSteering,
     steerSpeed,
@@ -158,6 +173,8 @@ export function useInputUpdater(): (dt: number) => InputState {
   const cameraToggledRef = useRef(false);
   const escapeToggledRef = useRef(false);
   const telemetryToggledRef = useRef(false);
+  const keyGearUpHeldRef = useRef(false);
+  const keyGearDownHeldRef = useRef(false);
 
   const cycleCameraMode = useGameStore((s) => s.cycleCameraMode);
   const setGameState = useGameStore((s) => s.setGameState);
@@ -253,7 +270,9 @@ export function useInputUpdater(): (dt: number) => InputState {
       stateRef.current.throttle = 0;
       stateRef.current.brake = 0;
       stateRef.current.steering = 0;
-      stateRef.current.handbrake = true;
+      stateRef.current.handbrake = false;
+      stateRef.current.gearUp = false;
+      stateRef.current.gearDown = false;
       stateRef.current.reset = false;
       return stateRef.current;
     }
@@ -276,6 +295,26 @@ export function useInputUpdater(): (dt: number) => InputState {
       return stateRef.current;
     }
 
+    // If Gymkhana Blitz has completed or results modal is displayed, halt vehicle and yield
+    // exclusive gamepad access to GymkhanaCompleteModal (prevents car motion and button edge stealing)
+    const showGymkhanaModal = useGymkhanaStore.getState().showResultsModal;
+    const isGymkhanaFinished =
+      showGymkhanaModal ||
+      (gameMode === 'gymkhana_blitz' && gymkhanaStatus === 'completed');
+
+    if (isGymkhanaFinished) {
+      _cameraLookX = 0;
+      _cameraLookY = 0;
+      stateRef.current.throttle = 0;
+      stateRef.current.brake = 1;
+      stateRef.current.steering = 0;
+      stateRef.current.handbrake = true;
+      stateRef.current.gearUp = false;
+      stateRef.current.gearDown = false;
+      stateRef.current.reset = false;
+      return stateRef.current;
+    }
+
     const sensitivity = useSettingsStore.getState().sensitivity;
 
     // Poll Gamepad for active gameplay
@@ -294,6 +333,8 @@ export function useInputUpdater(): (dt: number) => InputState {
       gp.brake > 0.05 ||
       Math.abs(gp.steering) > 0.05 ||
       gp.handbrake ||
+      gp.gearUp ||
+      gp.gearDown ||
       gp.resetHeld ||
       gp.resetToggle ||
       gp.cameraToggle ||
@@ -328,14 +369,29 @@ export function useInputUpdater(): (dt: number) => InputState {
     _cameraLookX = gp.cameraLookX;
     _cameraLookY = gp.cameraLookY;
 
+    const isE = activeKeys.has('KeyE');
+    const isQ = activeKeys.has('KeyQ');
+    const kbGearUp = isE && !keyGearUpHeldRef.current;
+    const kbGearDown = isQ && !keyGearDownHeldRef.current;
+    keyGearUpHeldRef.current = isE;
+    keyGearDownHeldRef.current = isQ;
+
     const merged = blendInputs({
       dt,
       prevSteering: stateRef.current.steering,
       keys: activeKeys,
       gp,
       touch,
+      kbGearUp,
+      kbGearDown,
     });
 
+    if (touch.gearUp) {
+      setTouchInput({ gearUp: false });
+    }
+    if (touch.gearDown) {
+      setTouchInput({ gearDown: false });
+    }
     if (touch.reset) {
       setTouchInput({ reset: false });
     }

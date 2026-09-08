@@ -1,5 +1,4 @@
 import sharp from 'sharp';
-import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -7,7 +6,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
-const fullLogoPath = path.join(rootDir, 'public/openrally_logo_darkmode.png');
 const fullLogoDark = path.join(rootDir, 'public/openrally_logo_dark.png');
 
 // Test composite with full logo (transparent background) inside 432x432
