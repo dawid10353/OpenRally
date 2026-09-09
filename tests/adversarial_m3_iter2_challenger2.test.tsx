@@ -231,7 +231,7 @@ describe('Adversarial Challenge M3 Iteration 2 (Challenger 2): Desktop Initial M
       });
     });
 
-    it('centers AnalogGauges at bottom-center on fresh touch-device load in auto mode', async () => {
+    it('positions AnalogGauges at top-left on fresh touch-device load in auto mode', async () => {
       await vi.isolateModules(async () => {
         Object.defineProperty(globalThis, 'navigator', {
           value: {
@@ -252,9 +252,9 @@ describe('Adversarial Challenge M3 Iteration 2 (Challenger 2): Desktop Initial M
         expect(touchModule.getLastInputType()).toBe('touch');
 
         const html = renderToString(React.createElement(gaugesModule.AnalogGauges));
-        expect(html).toContain('left:50%');
-        expect(html).toContain('transform:translateX(-50%)');
-        expect(html).toContain('top:calc(14px + var(--sat, 0px))');
+        expect(html).toContain('left:calc(16px + var(--sal, 0px))');
+        expect(html).toContain('transform:scale(0.44)');
+        expect(html).toContain('top:calc(68px + var(--sat, 0px))');
         expect(html).toContain('right:auto');
       });
     });
@@ -344,31 +344,31 @@ describe('Adversarial Challenge M3 Iteration 2 (Challenger 2): Desktop Initial M
   // 4. HUD Gauge Repositioning & Live Modality Reactivity
   // ==========================================================================
   describe('4. HUD Gauge Repositioning & Live Modality Reactivity', () => {
-    it('shifts AnalogGauges dynamically from bottom-right to bottom-center when touch is triggered', () => {
+    it('shifts AnalogGauges dynamically from bottom-right to top-left when touch is triggered', () => {
       // Start in keyboard mode
       setLastInputType('keyboard');
       const htmlDesktop = renderToString(<AnalogGauges />);
       expect(htmlDesktop).toContain('right:calc(20px + var(--sar))');
       expect(htmlDesktop).toContain('left:auto');
-      expect(htmlDesktop).not.toContain('translateX(-50%)');
+      expect(htmlDesktop).not.toContain('scale(0.44)');
 
       // Touch input arrives
       setTouchInput({ throttle: 1.0 });
       expect(getLastInputType()).toBe('touch');
 
       const htmlTouch = renderToString(<AnalogGauges />);
-      expect(htmlTouch).toContain('left:50%');
-      expect(htmlTouch).toContain('transform:translateX(-50%)');
-      expect(htmlTouch).toContain('top:calc(14px + var(--sat, 0px))');
+      expect(htmlTouch).toContain('left:calc(16px + var(--sal, 0px))');
+      expect(htmlTouch).toContain('transform:scale(0.44)');
+      expect(htmlTouch).toContain('top:calc(68px + var(--sat, 0px))');
       expect(htmlTouch).toContain('right:auto');
     });
 
-    it('shifts AnalogGauges from bottom-center back to bottom-right when gamepad input is detected', () => {
+    it('shifts AnalogGauges from top-left back to bottom-right when gamepad input is detected', () => {
       // Start in touch mode
       setTouchInput({ throttle: 0.5 });
       expect(getLastInputType()).toBe('touch');
       const htmlTouch = renderToString(<AnalogGauges />);
-      expect(htmlTouch).toContain('left:50%');
+      expect(htmlTouch).toContain('left:calc(16px + var(--sal, 0px))');
 
       // Polled Gamepad input detected in useInput calls setLastInputType('gamepad')
       setLastInputType('gamepad');
@@ -377,13 +377,13 @@ describe('Adversarial Challenge M3 Iteration 2 (Challenger 2): Desktop Initial M
       const htmlGamepad = renderToString(<AnalogGauges />);
       expect(htmlGamepad).toContain('right:calc(20px + var(--sar))');
       expect(htmlGamepad).toContain('left:auto');
-      expect(htmlGamepad).not.toContain('translateX(-50%)');
+      expect(htmlGamepad).not.toContain('scale(0.44)');
     });
 
-    it('shifts AnalogGauges from bottom-center back to bottom-right when keyboard key is pressed', () => {
+    it('shifts AnalogGauges from top-left back to bottom-right when keyboard key is pressed', () => {
       setTouchInput({ steering: 0.5 });
       expect(getLastInputType()).toBe('touch');
-      expect(renderToString(<AnalogGauges />)).toContain('left:50%');
+      expect(renderToString(<AnalogGauges />)).toContain('left:calc(16px + var(--sal, 0px))');
 
       // Keyboard input
       setLastInputType('keyboard');
@@ -391,7 +391,7 @@ describe('Adversarial Challenge M3 Iteration 2 (Challenger 2): Desktop Initial M
 
       const htmlKeyboard = renderToString(<AnalogGauges />);
       expect(htmlKeyboard).toContain('right:calc(20px + var(--sar))');
-      expect(htmlKeyboard).not.toContain('translateX(-50%)');
+      expect(htmlKeyboard).not.toContain('scale(0.44)');
     });
 
     it('respects touchControlMode: "always" override regardless of gamepad or keyboard modality', () => {
@@ -399,13 +399,13 @@ describe('Adversarial Challenge M3 Iteration 2 (Challenger 2): Desktop Initial M
 
       setLastInputType('keyboard');
       let html = renderToString(<AnalogGauges />);
-      expect(html).toContain('left:50%');
-      expect(html).toContain('transform:translateX(-50%)');
+      expect(html).toContain('left:calc(16px + var(--sal, 0px))');
+      expect(html).toContain('transform:scale(0.44)');
 
       setLastInputType('gamepad');
       html = renderToString(<AnalogGauges />);
-      expect(html).toContain('left:50%');
-      expect(html).toContain('transform:translateX(-50%)');
+      expect(html).toContain('left:calc(16px + var(--sal, 0px))');
+      expect(html).toContain('transform:scale(0.44)');
 
       // TouchControlsOverlay is also always visible
       expect(renderToString(<TouchControlsOverlay />)).toContain('data-testid="touch-controls-overlay"');
@@ -499,7 +499,7 @@ describe('Adversarial Challenge M3 Iteration 2 (Challenger 2): Desktop Initial M
         expect(renderToString(<TouchControlsOverlay touchControlMode="auto" />)).toContain(
           'data-testid="touch-controls-overlay"'
         );
-        expect(renderToString(<AnalogGauges />)).toContain('left:50%');
+        expect(renderToString(<AnalogGauges />)).toContain('left:calc(16px + var(--sal, 0px))');
       } else {
         expect(renderToString(<TouchControlsOverlay touchControlMode="auto" />)).toBe('');
         expect(renderToString(<AnalogGauges />)).toContain('right:calc(20px + var(--sar))');

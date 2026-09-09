@@ -252,13 +252,13 @@ describe('Adversarial Challenge M3 (Challenger 2): Touch Overlay, Persistence & 
       expect(htmlButtons).toContain('data-testid="touch-btn-steer-right"');
     });
 
-    it('AnalogGauges cluster shifts to bottom-center under touch modality and restores bottom-right under keyboard modality', () => {
+    it('AnalogGauges cluster shifts to top-left under touch modality and restores bottom-right under keyboard modality', () => {
       // Touch modality active
       setLastInputType('touch');
       const htmlTouch = renderToString(<AnalogGauges />);
-      expect(htmlTouch).toContain('left:50%');
-      expect(htmlTouch).toContain('translateX(-50%)');
-      expect(htmlTouch).toContain('top:calc(14px + var(--sat, 0px))');
+      expect(htmlTouch).toContain('left:calc(16px + var(--sal, 0px))');
+      expect(htmlTouch).toContain('scale(0.44)');
+      expect(htmlTouch).toContain('top:calc(68px + var(--sat, 0px))');
       expect(htmlTouch).not.toContain('right:calc(20px + var(--sar))');
 
       // Keyboard modality active
@@ -266,7 +266,7 @@ describe('Adversarial Challenge M3 (Challenger 2): Touch Overlay, Persistence & 
       const htmlKeyboard = renderToString(<AnalogGauges />);
       expect(htmlKeyboard).toContain('right:calc(20px + var(--sar))');
       expect(htmlKeyboard).toContain('bottom:calc(20px + var(--sab))');
-      expect(htmlKeyboard).not.toContain('translateX(-50%)');
+      expect(htmlKeyboard).not.toContain('scale(0.44)');
     });
 
     it('pedal multi-touch independence: simultaneous throttle and brake are preserved without cancelation', () => {

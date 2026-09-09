@@ -99,12 +99,12 @@ export const AnalogGauges = memo(function AnalogGauges() {
     ...styles.rallyCluster,
     ...(isTouchActive
       ? {
-          left: '50%',
-          top: 'calc(14px + var(--sat, 0px))',
+          left: 'calc(16px + var(--sal, 0px))',
+          top: 'calc(68px + var(--sat, 0px))',
           bottom: 'auto',
           right: 'auto',
-          transform: 'translateX(-50%) scale(0.42)',
-          transformOrigin: 'top center',
+          transform: 'scale(0.44)',
+          transformOrigin: 'top left',
         }
       : {
           bottom: 'calc(20px + var(--sab))',

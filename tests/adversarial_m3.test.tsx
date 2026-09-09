@@ -471,18 +471,18 @@ describe('Adversarial Stress Test Suite: Milestone 3 (Touch Controls Overlay & S
       expect(html).toContain('var(--sat');
     });
 
-    it('C4-4: HUD cluster in AnalogGauges repositions to center-bottom when touch controls are active', () => {
+    it('C4-4: HUD cluster in AnalogGauges repositions to top-left when touch controls are active', () => {
       useSettingsStore.setState({ touchControlMode: 'auto' });
       setLastInputType('touch');
       const htmlTouch = renderToString(<AnalogGauges />);
-      expect(htmlTouch).toContain('left:50%');
-      expect(htmlTouch).toContain('translateX(-50%)');
-      expect(htmlTouch).toContain('top:calc(14px + var(--sat, 0px))');
+      expect(htmlTouch).toContain('left:calc(16px + var(--sal, 0px))');
+      expect(htmlTouch).toContain('scale(0.44)');
+      expect(htmlTouch).toContain('top:calc(68px + var(--sat, 0px))');
       expect(htmlTouch).toContain('right:auto');
 
       setLastInputType('keyboard');
       const htmlDesktop = renderToString(<AnalogGauges />);
-      expect(htmlDesktop).not.toContain('translateX(-50%)');
+      expect(htmlDesktop).not.toContain('scale(0.44)');
       expect(htmlDesktop).toContain('bottom:calc(20px + var(--sab))');
       expect(htmlDesktop).toContain('right:calc(20px + var(--sar))');
     });
