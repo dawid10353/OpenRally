@@ -1,0 +1,20 @@
+{
+  "name": "openrally-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/server.ts",
+    "build": "tsc",
+    "serve": "node dist/server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.2",
+    "@types/ws": "^8.5.14",
+    "tsx": "^4.19.3",
+    "typescript": "~6.0.2"
+  }
+}

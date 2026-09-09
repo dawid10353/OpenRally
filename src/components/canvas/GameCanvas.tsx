@@ -13,6 +13,7 @@ import { Ocean } from '@/components/environment/Ocean';
 import { Checkpoints } from '@/components/environment/Checkpoints';
 import { GymkhanaController } from '@/components/environment/GymkhanaController';
 import { Vehicle } from '@/components/vehicle/Vehicle';
+import { RemoteVehicleManager } from '@/components/vehicle/RemoteVehicleManager';
 import { Lights } from '@/components/canvas/Lights';
 import { PostProcessingErrorBoundary } from '@/components/canvas/PostProcessingErrorBoundary';
 import { Environment, Sky, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei';
@@ -368,6 +369,9 @@ export function GameCanvas() {
 
             {/* Player vehicle */}
             <Vehicle />
+
+            {/* Remote networked peers */}
+            <RemoteVehicleManager />
           </Physics>
 
           {/* Instanced grass field — outside Physics (no collision needed) */}

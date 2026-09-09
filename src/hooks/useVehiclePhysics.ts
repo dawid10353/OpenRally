@@ -9,6 +9,8 @@ import { useGameStore } from '@/store/gameStore';
 import { useRacingStore } from '@/store/racingStore';
 import { useGymkhanaStore } from '@/store/gymkhanaStore';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useMultiplayerStore } from '@/store/multiplayerStore';
+import { networkClient } from '@/network/networkClient';
 import { DEFAULT_VEHICLE_CONFIG, MS_TO_KMH, MAX_DELTA } from '@/config/vehicle';
 import { updateGearbox, handleManualGearShift, calculateRPM } from '@/utils/physics/powertrain';
 import { applyDrivetrain, applyAwdDriftPropulsion } from '@/utils/physics/drivetrain';
@@ -570,6 +572,29 @@ export function useVehiclePhysics(
     _telemetryState.surface = surface;
 
     useGameStore.setState(_telemetryState);
+
+    // --- 7.5. MULTIPLAYER TELEMETRY BROADCAST ---
+    if (useMultiplayerStore.getState().status !== 'disconnected') {
+      const curAngvel = body.angvel();
+      const wheels = wheelRefs.current;
+      const w0 = wheels?.[0]?.children[0]?.rotation.x ?? 0;
+      const w1 = wheels?.[1]?.children[0]?.rotation.x ?? 0;
+      const w2 = wheels?.[2]?.children[0]?.rotation.x ?? 0;
+      const w3 = wheels?.[3]?.children[0]?.rotation.x ?? 0;
+
+      networkClient.sendTelemetry({
+        pos: [_posTuple[0], _posTuple[1], _posTuple[2]],
+        rot: [bodyQuat.x, bodyQuat.y, bodyQuat.z, bodyQuat.w],
+        linVel: [linvel.x, linvel.y, linvel.z],
+        angVel: [curAngvel.x, curAngvel.y, curAngvel.z],
+        steer: wheels?.[0]?.rotation.y ?? 0,
+        wheelRots: [w0, w1, w2, w3],
+        rpm: _telemetryState.rpm,
+        gear: _telemetryState.gear,
+        isDrifting: Math.abs(slipAngle) > 0.35 && speedKmh > 15,
+        surface,
+      });
+    }
 
     // --- 8. CHECK MANUAL RESET (KEYBOARD 'R' OR GAMEPAD BUTTON) ---
     if (input.reset) {

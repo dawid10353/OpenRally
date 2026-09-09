@@ -1,0 +1,306 @@
+import type {
+  ClientMessage,
+  ServerMessage,
+  VehicleTelemetryPayload,
+} from '@/types/network';
+import { parseServerMessage } from './packetValidator';
+import { SnapshotRingBuffer } from './snapshotRingBuffer';
+import { useMultiplayerStore } from '@/store/multiplayerStore';
+
+export const TELEMETRY_SEND_INTERVAL_MS = 33; // ~30Hz
+const PING_INTERVAL_MS = 2000;
+const MAX_RECONNECT_ATTEMPTS = 5;
+
+/**
+ * Resolves the WebSocket URL depending on deployment environment and protocols.
+ */
+export function getWebSocketEndpoint(): string {
+  if (typeof window === 'undefined') return 'ws://127.0.0.1:3001';
+
+  // Explicit override via query param ?ws=... for testing
+  const urlParams = new URLSearchParams(window.location.search);
+  const explicitWs = urlParams.get('ws');
+  if (explicitWs) return explicitWs;
+
+  // If running on the remote VPS or behind HTTPS Nginx reverse proxy
+  if (window.location.protocol === 'https:') {
+    return `wss://${window.location.host}/ws`;
+  }
+
+  // Local development fallback
+  return `ws://${window.location.hostname}:3001`;
+}
+
+/**
+ * Enterprise-grade WebSocket Network Client managing session lifecycle,
+ * heartbeat telemetry, exponential backoff reconnection, and entity ring buffers.
+ */
+export class NetworkClient {
+  private ws: WebSocket | null = null;
+  private endpoint: string = '';
+  private reconnectAttempts: number = 0;
+  private reconnectTimeoutId: number | null = null;
+  private pingIntervalId: number | null = null;
+  private lastTelemetrySendTime: number = 0;
+  private sequence: number = 0;
+  private intentionalDisconnect: boolean = false;
+
+  /**
+   * Dedicated zero-GC ring buffer per remote peer ID.
+   */
+  public readonly entityBuffers: Map<string, SnapshotRingBuffer> = new Map();
+
+  /**
+   * Retrieves or initializes the SnapshotRingBuffer for a given remote entity.
+   */
+  public getEntityBuffer(playerId: string): SnapshotRingBuffer {
+    let buf = this.entityBuffers.get(playerId);
+    if (!buf) {
+      buf = new SnapshotRingBuffer();
+      this.entityBuffers.set(playerId, buf);
+    }
+    return buf;
+  }
+
+  /**
+   * Connects to the multiplayer relay server.
+   */
+  public connect(endpoint?: string): void {
+    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+
+    this.intentionalDisconnect = false;
+    this.endpoint = endpoint || getWebSocketEndpoint();
+
+    const store = useMultiplayerStore.getState();
+    store.setStatus('connecting');
+    store.setError(null);
+
+    try {
+      this.ws = new WebSocket(this.endpoint);
+      this.ws.onopen = this.handleOpen;
+      this.ws.onmessage = this.handleMessage;
+      this.ws.onerror = this.handleError;
+      this.ws.onclose = this.handleClose;
+    } catch (err) {
+      console.warn('[NetworkClient] Connection creation error:', err);
+      store.setStatus('error');
+      store.setError('Failed to establish connection');
+      this.scheduleReconnect();
+    }
+  }
+
+  /**
+   * Disconnects cleanly and clears intervals and buffers.
+   */
+  public disconnect(): void {
+    this.intentionalDisconnect = true;
+    this.clearTimers();
+
+    if (this.ws) {
+      try {
+        if (this.ws.readyState === WebSocket.OPEN) {
+          const leaveMsg: ClientMessage = { type: 'leave_lobby' };
+          this.ws.send(JSON.stringify(leaveMsg));
+          this.ws.close(1000, 'User left');
+        } else {
+          this.ws.close();
+        }
+      } catch {
+        // Suppress
+      }
+      this.ws = null;
+    }
+
+    this.entityBuffers.clear();
+    useMultiplayerStore.getState().reset();
+  }
+
+  /**
+   * Sends join_lobby request once socket is open.
+   */
+  public joinLobby(nickname: string, vehicleId: string, levelId: string = 'level5_gymkhana'): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      this.connect();
+    }
+
+    const msg: ClientMessage = {
+      type: 'join_lobby',
+      nickname,
+      vehicleId,
+      levelId,
+    };
+    this.send(msg);
+  }
+
+  /**
+   * Throttled telemetry transmission called from useVehiclePhysics / useFrame (~30Hz).
+   */
+  public sendTelemetry(payload: Omit<VehicleTelemetryPayload, 'seq' | 'time'>): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+    const now = performance.now();
+    if (now - this.lastTelemetrySendTime < TELEMETRY_SEND_INTERVAL_MS) {
+      return;
+    }
+    this.lastTelemetrySendTime = now;
+
+    const fullPayload: VehicleTelemetryPayload = {
+      ...payload,
+      seq: ++this.sequence,
+      time: Date.now(),
+    };
+
+    const msg: ClientMessage = {
+      type: 'telemetry',
+      payload: fullPayload,
+    };
+    this.send(msg);
+  }
+
+  private send(msg: ClientMessage): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try {
+        this.ws.send(JSON.stringify(msg));
+      } catch (err) {
+        console.warn('[NetworkClient] Send failed:', err);
+      }
+    }
+  }
+
+  private handleOpen = (): void => {
+    this.reconnectAttempts = 0;
+    const store = useMultiplayerStore.getState();
+
+    // Immediately send join_lobby with saved settings
+    this.joinLobby(store.nickname, 'rally_hatchback', 'level5_gymkhana');
+
+    // Start heartbeat ping
+    this.startPingHeartbeat();
+  };
+
+  private handleMessage = (event: MessageEvent): void => {
+    try {
+      const raw = JSON.parse(event.data);
+      const msg: ServerMessage | null = parseServerMessage(raw);
+      if (!msg) return;
+
+      const store = useMultiplayerStore.getState();
+
+      switch (msg.type) {
+        case 'lobby_joined': {
+          store.setSelfId(msg.selfId, msg.room);
+          store.setPlayers(msg.players);
+          break;
+        }
+
+        case 'player_joined': {
+          store.addPlayer(msg.player);
+          break;
+        }
+
+        case 'player_left': {
+          store.removePlayer(msg.playerId);
+          this.entityBuffers.delete(msg.playerId);
+          break;
+        }
+
+        case 'world_snapshot': {
+          const entities = msg.entities;
+          for (const entityId in entities) {
+            if (entityId === store.selfId) continue;
+            const snap = entities[entityId];
+            const buffer = this.getEntityBuffer(entityId);
+            buffer.push(snap);
+          }
+          break;
+        }
+
+        case 'pong': {
+          const rtt = performance.now() - msg.clientTime;
+          store.updatePing(Math.max(1, Math.round(rtt)));
+          break;
+        }
+
+        case 'error': {
+          store.setError(`${msg.code}: ${msg.message}`);
+          break;
+        }
+      }
+    } catch (err) {
+      console.warn('[NetworkClient] Message decode error:', err);
+    }
+  };
+
+  private handleError = (event: Event): void => {
+    console.warn('[NetworkClient] WebSocket error event:', event);
+  };
+
+  private handleClose = (event: CloseEvent): void => {
+    this.clearTimers();
+    this.ws = null;
+
+    if (this.intentionalDisconnect) {
+      return;
+    }
+
+    const store = useMultiplayerStore.getState();
+    store.setStatus('reconnecting');
+    this.scheduleReconnect();
+  };
+
+  private scheduleReconnect(): void {
+    if (this.intentionalDisconnect) return;
+    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      const store = useMultiplayerStore.getState();
+      store.setStatus('disconnected');
+      store.setError('Connection lost. Please rejoin lobby.');
+      return;
+    }
+
+    this.reconnectAttempts++;
+    const delay = Math.min(10000, 1000 * Math.pow(2, this.reconnectAttempts - 1));
+
+    if (this.reconnectTimeoutId !== null) {
+      window.clearTimeout(this.reconnectTimeoutId);
+    }
+
+    this.reconnectTimeoutId = window.setTimeout(() => {
+      this.reconnectTimeoutId = null;
+      this.connect(this.endpoint);
+    }, delay);
+  }
+
+  private startPingHeartbeat(): void {
+    if (this.pingIntervalId !== null) {
+      window.clearInterval(this.pingIntervalId);
+    }
+
+    this.pingIntervalId = window.setInterval(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        const pingMsg: ClientMessage = {
+          type: 'ping',
+          clientTime: performance.now(),
+        };
+        this.send(pingMsg);
+      }
+    }, PING_INTERVAL_MS);
+  }
+
+  private clearTimers(): void {
+    if (this.pingIntervalId !== null) {
+      window.clearInterval(this.pingIntervalId);
+      this.pingIntervalId = null;
+    }
+    if (this.reconnectTimeoutId !== null) {
+      window.clearTimeout(this.reconnectTimeoutId);
+      this.reconnectTimeoutId = null;
+    }
+  }
+}
+
+/**
+ * Global singleton network client instance.
+ */
+export const networkClient = new NetworkClient();

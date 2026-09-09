@@ -5,6 +5,7 @@ import { TelemetryHUD } from './TelemetryHUD';
 import { Minimap } from './Minimap';
 import { AnalogGauges, TimingBoard, GymkhanaBoard } from './gauges';
 import { GymkhanaCompleteModal } from './GymkhanaCompleteModal';
+import { MultiplayerHUD } from './MultiplayerHUD';
 
 /**
  * Rally HUD overlay — authentic twin-gauge rally cluster (analog Speedometer & Tachometer),
@@ -69,6 +70,9 @@ export function HUD() {
 
       {/* Gymkhana Blitz Stage Complete Results Modal */}
       <GymkhanaCompleteModal />
+
+      {/* Online Multiplayer Gymkhana Arena Status & Roster */}
+      <MultiplayerHUD />
     </div>
   );
 }
