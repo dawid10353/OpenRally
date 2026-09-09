@@ -195,6 +195,7 @@ export function MultiplayerView({
             maxLength={16}
             value={inputNick}
             onChange={(e) => handleNickChange(e.target.value)}
+            onKeyDown={(e) => e.stopPropagation()}
             placeholder="Enter callsig..."
             style={{
               width: '100%',
@@ -355,6 +356,7 @@ export function MultiplayerView({
                 maxLength={24}
                 value={newRoomName}
                 onChange={(e) => setNewRoomName(e.target.value)}
+                onKeyDown={(e) => e.stopPropagation()}
                 placeholder="Enter room name (e.g. Tandem Practice)..."
                 autoFocus
                 style={{

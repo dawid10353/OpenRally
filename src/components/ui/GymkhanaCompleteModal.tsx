@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useGymkhanaStore } from '@/store/gymkhanaStore';
 import { useGameStore } from '@/store/gameStore';
 import { sampleGamepad, resetGamepadEdgeState } from '@/utils/input/gamepad';
+import { isTextEditingActive } from '@/utils/input/textInput';
 
 function formatScore(score: number): string {
   return score.toLocaleString('en-US');
@@ -75,6 +76,7 @@ function GymkhanaCompleteModalContent() {
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isTextEditingActive(e)) return;
       if (e.code === 'ArrowUp' || e.code === 'KeyW') {
         e.preventDefault();
         setFocusedIndex((prev) => (prev - 1 + 3) % 3);

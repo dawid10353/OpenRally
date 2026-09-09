@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { useRacingStore } from '@/store/racingStore';
 import { getLevelPreset } from '@/config/levelRegistry';
+import { isTextEditingActive } from '@/utils/input/textInput';
 
 /**
  * High-performance Telemetry HUD & In-Game Debug Inspector overlay.
@@ -29,6 +30,7 @@ export function TelemetryHUD() {
   // Toggle with 'T' key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isTextEditingActive(e)) return;
       if (e.key.toLowerCase() === 't') {
         useGameStore.getState().setTelemetryEnabled(!useGameStore.getState().telemetryEnabled);
       }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { sampleGamepad } from '@/utils/input/gamepad';
+import { isTextEditingActive } from '@/utils/input/textInput';
 import { getAvailableLevels, getLevelPreset } from '@/config/levelRegistry';
 import { getAvailableVehicles } from '@/config/vehicleRegistry';
 import { unlockSharedAudioContext } from '@/utils/audio/audioContext';
@@ -510,6 +511,15 @@ export function useMenuGamepadNavigation({
     if (gameState === 'playing') return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isTextEditingActive(e)) {
+        if (e.code === 'Escape') {
+          if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+          }
+        }
+        return;
+      }
+
       if (e.code === 'ArrowUp' || e.code === 'KeyW') {
         e.preventDefault();
         actionsRef.current.handleNavUp();

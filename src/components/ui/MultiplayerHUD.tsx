@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useMultiplayerStore } from '@/store/multiplayerStore';
 import { useGameStore } from '@/store/gameStore';
 import { networkClient } from '@/network/networkClient';
+import { isTextEditingActive } from '@/utils/input/textInput';
 
 export function MultiplayerHUD() {
   const [expanded, setExpanded] = useState(false);
@@ -18,6 +19,7 @@ export function MultiplayerHUD() {
   // Toggle expanded roster with Tab key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isTextEditingActive(e)) return;
       if (e.code === 'Tab') {
         e.preventDefault();
         setExpanded((prev) => !prev);

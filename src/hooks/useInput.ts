@@ -11,6 +11,7 @@ import {
   GAMEPAD_STEER_SPEED,
 } from '@/config/input';
 import { sampleGamepad, resetGamepadEdgeState, detectGamepadType } from '@/utils/input/gamepad';
+import { isTextEditingActive } from '@/utils/input/textInput';
 import {
   getTouchInputState,
   setTouchInput,
@@ -183,6 +184,10 @@ export function useInputUpdater(): (dt: number) => InputState {
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      if (isTextEditingActive(e)) {
+        return;
+      }
+
       setLastInputType('keyboard');
       activeKeys.add(e.code);
 
