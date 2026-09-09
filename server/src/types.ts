@@ -23,12 +23,15 @@ export interface RemotePlayerSummary {
   ping: number;
 }
 
+export type GameMode = 'freeroam' | 'timeattack' | 'gymkhana_blitz';
+
 export interface RoomSummary {
   id: string;
   name: string;
   hostId: string;
   hostNickname: string;
   levelId: string;
+  gameMode: GameMode;
   playerCount: number;
   maxPlayers: number;
   createdAt: number;
@@ -59,6 +62,7 @@ export type ClientMessage =
       nickname: string;
       vehicleId: string;
       levelId: string;
+      gameMode?: GameMode;
     }
   | {
       type: 'join_room';

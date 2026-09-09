@@ -1,4 +1,5 @@
 import type { SurfaceType } from './vehicle';
+import type { GameMode } from './game';
 
 /**
  * State of the network client connection.
@@ -102,6 +103,8 @@ export interface RoomSummary {
   hostNickname: string;
   /** Map/Track ID */
   levelId: string;
+  /** Game mode for the room */
+  gameMode: GameMode;
   /** Current number of active players */
   playerCount: number;
   /** Maximum capacity of the room (e.g. 12) */
@@ -142,6 +145,7 @@ export type ClientMessage =
       nickname: string;
       vehicleId: string;
       levelId: string;
+      gameMode?: GameMode;
     }
   | {
       type: 'join_room';

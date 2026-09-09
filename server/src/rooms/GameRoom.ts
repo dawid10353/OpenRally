@@ -1,6 +1,7 @@
 import type { WebSocket } from 'ws';
 import type {
   EntitySnapshot,
+  GameMode,
   RemotePlayerSummary,
   RoomSummary,
   ServerMessage,
@@ -28,6 +29,7 @@ export interface GameRoomOptions {
   hostId: string;
   hostNickname: string;
   levelId?: string;
+  gameMode?: GameMode;
   isPersistent?: boolean;
   maxPlayers?: number;
 }
@@ -38,6 +40,7 @@ export class GameRoom {
   public readonly hostId: string;
   public readonly hostNickname: string;
   public readonly levelId: string;
+  public readonly gameMode: GameMode;
   public readonly isPersistent: boolean;
   public readonly maxPlayers: number;
   public readonly createdAt: number;
@@ -54,6 +57,7 @@ export class GameRoom {
     this.hostId = options.hostId;
     this.hostNickname = options.hostNickname;
     this.levelId = options.levelId ?? 'level5_gymkhana';
+    this.gameMode = options.gameMode ?? 'freeroam';
     this.isPersistent = !!options.isPersistent;
     this.maxPlayers = options.maxPlayers ?? DEFAULT_MAX_PLAYERS;
     this.createdAt = Date.now();
@@ -89,6 +93,7 @@ export class GameRoom {
       hostId: this.hostId,
       hostNickname: this.hostNickname,
       levelId: this.levelId,
+      gameMode: this.gameMode,
       playerCount: this.players.size,
       maxPlayers: this.maxPlayers,
       createdAt: this.createdAt,

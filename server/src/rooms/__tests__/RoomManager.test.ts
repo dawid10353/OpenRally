@@ -26,6 +26,8 @@ describe('RoomManager', () => {
     expect(rooms.length).toBe(1);
     expect(rooms[0].id).toBe('gymkhana_freeroam');
     expect(rooms[0].name).toBe('Apex Arena (Official)');
+    expect(rooms[0].levelId).toBe('level5_gymkhana');
+    expect(rooms[0].gameMode).toBe('freeroam');
     expect(rooms[0].isPersistent).toBe(true);
     expect(rooms[0].playerCount).toBe(0);
   });
@@ -39,17 +41,29 @@ describe('RoomManager', () => {
     );
   });
 
-  it('creates a custom room and assigns the creating driver as host', () => {
+  it('creates a custom room with specified track and game mode', () => {
     const hostWs = createMockWebSocket();
-    const room = manager.createRoom(hostWs, 'Drift Paradise', 'SpeedyHost', 'vortex_b');
+    const room = manager.createRoom(
+      hostWs,
+      'Desert Sprint',
+      'SpeedyHost',
+      'vortex_b',
+      'level2_desert',
+      'timeattack'
+    );
 
     expect(room).not.toBeNull();
-    expect(room?.name).toBe('Drift Paradise');
+    expect(room?.name).toBe('Desert Sprint');
     expect(room?.hostNickname).toBe('SpeedyHost');
+    expect(room?.levelId).toBe('level2_desert');
+    expect(room?.gameMode).toBe('timeattack');
     expect(room?.getPlayerCount()).toBe(1);
 
     const rooms = manager.getRoomsList();
     expect(rooms.length).toBe(2);
+    const createdSummary = rooms.find((r) => r.id === room?.id);
+    expect(createdSummary?.levelId).toBe('level2_desert');
+    expect(createdSummary?.gameMode).toBe('timeattack');
 
     expect(hostWs.send).toHaveBeenCalledWith(
       expect.stringContaining('"type":"room_created"')

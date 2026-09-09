@@ -56,7 +56,7 @@ wss.on('connection', (ws: WebSocket, req) => {
         }
 
         case 'create_room': {
-          roomManager.createRoom(ws, msg.name, msg.nickname, msg.vehicleId, msg.levelId);
+          roomManager.createRoom(ws, msg.name, msg.nickname, msg.vehicleId, msg.levelId, msg.gameMode);
           break;
         }
 

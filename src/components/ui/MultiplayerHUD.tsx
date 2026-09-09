@@ -3,6 +3,7 @@ import { useMultiplayerStore } from '@/store/multiplayerStore';
 import { useGameStore } from '@/store/gameStore';
 import { networkClient } from '@/network/networkClient';
 import { isTextEditingActive } from '@/utils/input/textInput';
+import { getLevelPreset } from '@/config/levelRegistry';
 
 export function MultiplayerHUD() {
   const [expanded, setExpanded] = useState(false);
@@ -56,7 +57,21 @@ export function MultiplayerHUD() {
     }
   };
 
-  const roomDisplayName = currentRoom ? currentRoom.name.toUpperCase() : 'GYMKHANA ARENA';
+  const roomDisplayName = currentRoom ? currentRoom.name.toUpperCase() : 'MULTIPLAYER ARENA';
+  const levelPreset = getLevelPreset(currentRoom?.levelId ?? useGameStore.getState().selectedLevelId);
+  const currentGameMode = currentRoom?.gameMode ?? useGameStore.getState().gameMode;
+  const modeBadgeText =
+    currentGameMode === 'timeattack'
+      ? 'TIME ATTACK'
+      : currentGameMode === 'gymkhana_blitz'
+        ? 'GYMKHANA BLITZ'
+        : 'FREE ROAM';
+  const modeBadgeColor =
+    currentGameMode === 'timeattack'
+      ? '#F87171'
+      : currentGameMode === 'gymkhana_blitz'
+        ? '#FBBF24'
+        : '#34D399';
 
   return (
     <div
@@ -102,6 +117,32 @@ export function MultiplayerHUD() {
           }}
         />
         <span>{roomDisplayName}</span>
+        <span
+          style={{
+            padding: '1px 5px',
+            borderRadius: '4px',
+            background: 'rgba(255, 255, 255, 0.08)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            color: '#CBD5E1',
+            fontSize: '9px',
+            fontWeight: 800,
+          }}
+        >
+          {levelPreset.name.toUpperCase()}
+        </span>
+        <span
+          style={{
+            padding: '1px 5px',
+            borderRadius: '4px',
+            background: 'rgba(0, 0, 0, 0.4)',
+            border: `1px solid ${modeBadgeColor}`,
+            color: modeBadgeColor,
+            fontSize: '9px',
+            fontWeight: 800,
+          }}
+        >
+          {modeBadgeText}
+        </span>
         {isHost && (
           <span
             style={{
@@ -164,7 +205,7 @@ export function MultiplayerHUD() {
               justifyContent: 'space-between',
             }}
           >
-            <span>ACTIVE DRIVERS</span>
+            <span>{levelPreset.name.toUpperCase()} • {modeBadgeText}</span>
             <span>{totalCount}/12</span>
           </div>
 

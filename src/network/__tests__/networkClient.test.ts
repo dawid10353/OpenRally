@@ -42,9 +42,11 @@ describe('NetworkClient', () => {
     client.requestRooms();
     expect(sendSpy).toHaveBeenCalledWith(expect.stringContaining('"type":"request_rooms"'));
 
-    client.createRoom('Apex Track', 'Racer1', 'vortex_b');
+    client.createRoom('Apex Track', 'Racer1', 'vortex_b', 'level2_desert', 'timeattack');
     expect(sendSpy).toHaveBeenCalledWith(expect.stringContaining('"type":"create_room"'));
     expect(sendSpy).toHaveBeenCalledWith(expect.stringContaining('"name":"Apex Track"'));
+    expect(sendSpy).toHaveBeenCalledWith(expect.stringContaining('"levelId":"level2_desert"'));
+    expect(sendSpy).toHaveBeenCalledWith(expect.stringContaining('"gameMode":"timeattack"'));
 
     client.joinRoom('room_123', 'Racer1', 'vortex_b');
     expect(sendSpy).toHaveBeenCalledWith(expect.stringContaining('"type":"join_room"'));

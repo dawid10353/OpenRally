@@ -1,6 +1,7 @@
 import type { WebSocket } from 'ws';
 import { GameRoom, type PlayerSession } from './GameRoom.js';
 import type {
+  GameMode,
   RoomSummary,
   ServerMessage,
   VehicleTelemetryPayload,
@@ -23,6 +24,7 @@ export class RoomManager {
       hostId: 'system',
       hostNickname: 'Official Server',
       levelId: 'level5_gymkhana',
+      gameMode: 'freeroam',
       isPersistent: true,
       maxPlayers: 12,
     });
@@ -74,7 +76,8 @@ export class RoomManager {
     name: string,
     nickname: string,
     vehicleId: string,
-    levelId: string = 'level5_gymkhana'
+    levelId: string = 'level1_island',
+    gameMode: GameMode = 'freeroam'
   ): GameRoom | null {
     // Check if player is already in a room and leave it
     const existingPlayerId = this.wsToPlayer.get(ws);
@@ -91,6 +94,7 @@ export class RoomManager {
       hostId: hostPlayerId,
       hostNickname: nickname,
       levelId,
+      gameMode,
       isPersistent: false,
       maxPlayers: 12,
     });

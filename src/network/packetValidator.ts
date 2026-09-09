@@ -7,6 +7,21 @@ import type {
   EntitySnapshot,
 } from '@/types/network';
 import type { SurfaceType } from '@/types/vehicle';
+import type { GameMode } from '@/types/game';
+
+export const VALID_LEVEL_IDS: ReadonlySet<string> = new Set([
+  'level1_island',
+  'level2_desert',
+  'level3_sweden',
+  'level4_britain',
+  'level5_gymkhana',
+]);
+
+export const VALID_GAME_MODES: ReadonlySet<GameMode> = new Set([
+  'freeroam',
+  'timeattack',
+  'gymkhana_blitz',
+]);
 
 const VALID_SURFACES: ReadonlySet<SurfaceType> = new Set([
   'tarmac',
@@ -212,13 +227,31 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
     const nick = sanitizeNickname(msg.nickname);
     if (!nick) return null;
     const vehicleId = isValidVehicleId(msg.vehicleId) ? (msg.vehicleId as string) : 'zephyr_wr4';
-    const levelId = typeof msg.levelId === 'string' && msg.levelId.length > 0 ? msg.levelId : 'level5_gymkhana';
+    const rawLevelId = typeof msg.levelId === 'string' ? msg.levelId : 'level1_island';
+    const levelId = VALID_LEVEL_IDS.has(rawLevelId) ? rawLevelId : 'level1_island';
+
+    let gameMode: GameMode =
+      typeof msg.gameMode === 'string' && VALID_GAME_MODES.has(msg.gameMode as GameMode)
+        ? (msg.gameMode as GameMode)
+        : 'freeroam';
+
+    if (levelId === 'level5_gymkhana') {
+      if (gameMode !== 'freeroam' && gameMode !== 'gymkhana_blitz') {
+        gameMode = 'freeroam';
+      }
+    } else {
+      if (gameMode !== 'freeroam' && gameMode !== 'timeattack') {
+        gameMode = 'freeroam';
+      }
+    }
+
     return {
       type: 'create_room',
       name,
       nickname: nick,
       vehicleId,
       levelId,
+      gameMode,
     };
   }
 
@@ -286,6 +319,8 @@ export function isValidRoomSummary(val: unknown): val is RoomSummary {
     typeof r.hostId === 'string' &&
     typeof r.hostNickname === 'string' &&
     typeof r.levelId === 'string' &&
+    typeof r.gameMode === 'string' &&
+    VALID_GAME_MODES.has(r.gameMode as GameMode) &&
     isValidNumber(r.playerCount, 0, 100) &&
     isValidNumber(r.maxPlayers, 1, 100) &&
     isValidNumber(r.createdAt, 0, 1e15)

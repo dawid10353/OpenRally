@@ -3,10 +3,14 @@ import { menuStyles, getFocusStyle } from './menuStyles';
 import type { MenuView } from './types';
 import { useMultiplayerStore } from '@/store/multiplayerStore';
 import { useGameStore } from '@/store/gameStore';
+import { useRacingStore } from '@/store/racingStore';
+import { useGymkhanaStore } from '@/store/gymkhanaStore';
 import { networkClient } from '@/network/networkClient';
 import { getAvailableVehicles, getVehiclePreset } from '@/config/vehicleRegistry';
+import { getAvailableLevels, getLevelPreset } from '@/config/levelRegistry';
 import { unlockSharedAudioContext } from '@/utils/audio/audioContext';
 import type { RoomSummary } from '@/types/network';
+import type { GameMode } from '@/types/game';
 
 interface MultiplayerViewProps {
   focusedIndex: number;
@@ -38,10 +42,13 @@ export function MultiplayerView({
   const [inputNick, setInputNick] = useState(nickname);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newRoomName, setNewRoomName] = useState('');
+  const [createLevelId, setCreateLevelId] = useState('level1_island');
+  const [createGameMode, setCreateGameMode] = useState<GameMode>('timeattack');
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // Available roster of all 7 championship vehicles
+  // Available roster of vehicles and registered levels
   const vehicles = getAvailableVehicles();
+  const levels = getAvailableLevels();
 
   // Connect to relay server on view mount to fetch live rooms and subscribe
   useEffect(() => {
@@ -66,12 +73,33 @@ export function MultiplayerView({
     return inputNick.trim() || nickname || 'Apex_Driver';
   };
 
-  const handleJoinRoom = (roomId: string) => {
+  const handleSelectCreateTrack = (lvlId: string) => {
+    setCreateLevelId(lvlId);
+    const preset = getLevelPreset(lvlId);
+    const supported = preset.supportedModes ?? ['freeroam', 'timeattack'];
+    if (!supported.includes(createGameMode)) {
+      setCreateGameMode(supported[0]);
+    }
+  };
+
+  const handleJoinRoom = (roomId: string, levelId: string, roomGameMode: GameMode) => {
     const finalNick = getEffectiveNickname();
     setNickname(finalNick);
 
-    setSelectedLevelId('level5_gymkhana');
-    setGameMode('freeroam');
+    setSelectedLevelId(levelId);
+    setGameMode(roomGameMode);
+
+    useGameStore.getState().triggerReset(true);
+    useRacingStore.getState().resetRace();
+    useRacingStore.getState().syncBestLapForLevel(levelId);
+    useGymkhanaStore.getState().resetBlitz();
+    useGymkhanaStore.getState().syncBestScoreForLevel(levelId);
+
+    if (roomGameMode === 'timeattack') {
+      useRacingStore.getState().startCountdown();
+    } else if (roomGameMode === 'gymkhana_blitz') {
+      useGymkhanaStore.getState().startCountdown();
+    }
 
     networkClient.joinRoom(roomId, finalNick, selectedVehicleId);
 
@@ -91,10 +119,22 @@ export function MultiplayerView({
     const finalNick = getEffectiveNickname();
     setNickname(finalNick);
 
-    setSelectedLevelId('level5_gymkhana');
-    setGameMode('freeroam');
+    setSelectedLevelId(createLevelId);
+    setGameMode(createGameMode);
 
-    networkClient.createRoom(trimmed, finalNick, selectedVehicleId, 'level5_gymkhana');
+    useGameStore.getState().triggerReset(true);
+    useRacingStore.getState().resetRace();
+    useRacingStore.getState().syncBestLapForLevel(createLevelId);
+    useGymkhanaStore.getState().resetBlitz();
+    useGymkhanaStore.getState().syncBestScoreForLevel(createLevelId);
+
+    if (createGameMode === 'timeattack') {
+      useRacingStore.getState().startCountdown();
+    } else if (createGameMode === 'gymkhana_blitz') {
+      useGymkhanaStore.getState().startCountdown();
+    }
+
+    networkClient.createRoom(trimmed, finalNick, selectedVehicleId, createLevelId, createGameMode);
 
     unlockSharedAudioContext().catch(() => {});
     setGameState('playing');
@@ -108,6 +148,8 @@ export function MultiplayerView({
   };
 
   const currentPreset = getVehiclePreset(selectedVehicleId);
+  const createPreset = getLevelPreset(createLevelId);
+  const currentSupportedModes = createPreset.supportedModes ?? ['freeroam', 'timeattack'];
 
   return (
     <div
@@ -170,7 +212,7 @@ export function MultiplayerView({
       </div>
 
       <p style={{ ...menuStyles.subtitle, color: '#94A3B8', margin: '0 0 16px 0', fontSize: '13px' }}>
-        Create custom rooms or join active lobbies. Drive any vehicle from the championship fleet with zero input lag.
+        Create custom rooms on any track with Free Roam, Time Attack, or Gymkhana Blitz. Drive any championship vehicle with zero input lag.
       </p>
 
       {/* Driver Profile Bar */}
@@ -196,7 +238,7 @@ export function MultiplayerView({
             value={inputNick}
             onChange={(e) => handleNickChange(e.target.value)}
             onKeyDown={(e) => e.stopPropagation()}
-            placeholder="Enter callsig..."
+            placeholder="Enter callsign..."
             style={{
               width: '100%',
               boxSizing: 'border-box',
@@ -217,7 +259,7 @@ export function MultiplayerView({
       </div>
 
       {/* Grid: All 7 Vehicles Selector & Room Browser */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.15fr', gap: '16px', width: '100%', marginBottom: '16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.25fr', gap: '16px', width: '100%', marginBottom: '16px' }}>
         {/* Left Column: All 7 Vehicles Selector */}
         <div
           style={{
@@ -242,7 +284,7 @@ export function MultiplayerView({
               display: 'flex',
               flexDirection: 'column',
               gap: '6px',
-              maxHeight: '260px',
+              maxHeight: '340px',
               overflowY: 'auto',
               paddingRight: '4px',
             }}
@@ -316,7 +358,7 @@ export function MultiplayerView({
               type="button"
               onClick={() => {
                 setShowCreateModal(!showCreateModal);
-                setNewRoomName(`${getEffectiveNickname()} Club`);
+                setNewRoomName(`${getEffectiveNickname()} Rally`);
                 setCreateError(null);
               }}
               style={{
@@ -342,22 +384,24 @@ export function MultiplayerView({
                 background: 'rgba(0, 0, 0, 0.5)',
                 border: '1px solid rgba(56, 189, 248, 0.4)',
                 borderRadius: '8px',
-                padding: '10px',
+                padding: '12px',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '8px',
+                gap: '10px',
               }}
             >
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#38BDF8' }}>
-                New Custom Room Configuration:
+              <div style={{ fontSize: '11px', fontWeight: 800, color: '#38BDF8', letterSpacing: '0.5px' }}>
+                CUSTOM ROOM SETUP:
               </div>
+
+              {/* Room Name */}
               <input
                 type="text"
                 maxLength={24}
                 value={newRoomName}
                 onChange={(e) => setNewRoomName(e.target.value)}
                 onKeyDown={(e) => e.stopPropagation()}
-                placeholder="Enter room name (e.g. Tandem Practice)..."
+                placeholder="Room Name (e.g. Canyon Showdown)..."
                 autoFocus
                 style={{
                   width: '100%',
@@ -365,16 +409,110 @@ export function MultiplayerView({
                   background: 'rgba(15, 23, 42, 0.9)',
                   border: '1px solid rgba(56, 189, 248, 0.35)',
                   borderRadius: '6px',
-                  padding: '8px 10px',
+                  padding: '7px 10px',
                   color: '#F8FAFC',
                   fontSize: '12px',
                   outline: 'none',
                 }}
               />
+
+              {/* Track Selection */}
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: '#94A3B8', marginBottom: '4px' }}>
+                  SELECT TRACK:
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '6px' }}>
+                  {levels.map((lvl) => {
+                    const isSelected = createLevelId === lvl.id;
+                    return (
+                      <button
+                        key={lvl.id}
+                        type="button"
+                        onClick={() => handleSelectCreateTrack(lvl.id)}
+                        style={{
+                          padding: '6px 8px',
+                          borderRadius: '6px',
+                          background: isSelected ? 'rgba(56, 189, 248, 0.25)' : 'rgba(15, 23, 42, 0.8)',
+                          border: isSelected ? '1px solid #38BDF8' : '1px solid rgba(255, 255, 255, 0.08)',
+                          color: isSelected ? '#38BDF8' : '#CBD5E1',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '2px',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {lvl.name}
+                        </span>
+                        <span style={{ fontSize: '9px', color: isSelected ? '#BAE6FD' : '#64748B', fontWeight: 500 }}>
+                          {lvl.surfaceDescription}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Game Mode Selection */}
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: '#94A3B8', marginBottom: '4px' }}>
+                  SELECT GAME MODE ({createPreset.name}):
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {currentSupportedModes.map((mode) => {
+                    const isSelected = createGameMode === mode;
+                    const label =
+                      mode === 'timeattack'
+                        ? '⏱️ TIME ATTACK'
+                        : mode === 'gymkhana_blitz'
+                          ? '⚡ GYMKHANA BLITZ'
+                          : '🌴 FREE ROAM';
+                    const activeColor =
+                      mode === 'timeattack' ? '#F87171' : mode === 'gymkhana_blitz' ? '#FBBF24' : '#34D399';
+                    const activeBg =
+                      mode === 'timeattack'
+                        ? 'rgba(239, 68, 68, 0.2)'
+                        : mode === 'gymkhana_blitz'
+                          ? 'rgba(245, 158, 11, 0.2)'
+                          : 'rgba(16, 185, 129, 0.2)';
+                    const activeBorder =
+                      mode === 'timeattack' ? '#EF4444' : mode === 'gymkhana_blitz' ? '#F59E0B' : '#10B981';
+
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setCreateGameMode(mode)}
+                        style={{
+                          flex: 1,
+                          padding: '7px 10px',
+                          borderRadius: '6px',
+                          background: isSelected ? activeBg : 'rgba(15, 23, 42, 0.8)',
+                          border: isSelected ? `1px solid ${activeBorder}` : '1px solid rgba(255, 255, 255, 0.08)',
+                          color: isSelected ? activeColor : '#94A3B8',
+                          fontSize: '11px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          textAlign: 'center',
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {createError && (
                 <div style={{ color: '#F87171', fontSize: '10px', fontWeight: 600 }}>{createError}</div>
               )}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '2px' }}>
                 <button
                   type="submit"
                   style={{
@@ -382,13 +520,13 @@ export function MultiplayerView({
                     border: '1px solid #34D399',
                     borderRadius: '6px',
                     color: '#FFFFFF',
-                    padding: '6px 12px',
+                    padding: '6px 14px',
                     fontSize: '11px',
                     fontWeight: 800,
                     cursor: 'pointer',
                   }}
                 >
-                  🚀 Create & Join as Host
+                  🚀 Create & Launch Room
                 </button>
               </div>
             </form>
@@ -400,7 +538,7 @@ export function MultiplayerView({
               display: 'flex',
               flexDirection: 'column',
               gap: '6px',
-              maxHeight: showCreateModal ? '150px' : '260px',
+              maxHeight: showCreateModal ? '140px' : '340px',
               overflowY: 'auto',
               paddingRight: '4px',
             }}
@@ -420,6 +558,32 @@ export function MultiplayerView({
             ) : (
               rooms.map((r) => {
                 const isUserHost = selfId && r.hostId === selfId;
+                const roomLevel = getLevelPreset(r.levelId);
+                const modeLabel =
+                  r.gameMode === 'timeattack'
+                    ? 'TIME ATTACK'
+                    : r.gameMode === 'gymkhana_blitz'
+                      ? 'GYMKHANA BLITZ'
+                      : 'FREE ROAM';
+                const modeColor =
+                  r.gameMode === 'timeattack'
+                    ? '#F87171'
+                    : r.gameMode === 'gymkhana_blitz'
+                      ? '#FBBF24'
+                      : '#34D399';
+                const modeBg =
+                  r.gameMode === 'timeattack'
+                    ? 'rgba(239, 68, 68, 0.15)'
+                    : r.gameMode === 'gymkhana_blitz'
+                      ? 'rgba(245, 158, 11, 0.15)'
+                      : 'rgba(16, 185, 129, 0.15)';
+                const modeBorder =
+                  r.gameMode === 'timeattack'
+                    ? 'rgba(239, 68, 68, 0.4)'
+                    : r.gameMode === 'gymkhana_blitz'
+                      ? 'rgba(245, 158, 11, 0.4)'
+                      : 'rgba(16, 185, 129, 0.4)';
+
                 return (
                   <div
                     key={r.id}
@@ -435,7 +599,7 @@ export function MultiplayerView({
                     }}
                   >
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '12px', fontWeight: 700, color: '#F8FAFC' }}>
                           {r.name}
                         </span>
@@ -468,9 +632,22 @@ export function MultiplayerView({
                             CUSTOM
                           </span>
                         )}
+                        <span
+                          style={{
+                            fontSize: '9px',
+                            fontWeight: 800,
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            background: modeBg,
+                            color: modeColor,
+                            border: `1px solid ${modeBorder}`,
+                          }}
+                        >
+                          {modeLabel}
+                        </span>
                       </div>
-                      <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '2px' }}>
-                        Host: <strong style={{ color: '#CBD5E1' }}>{r.hostNickname}</strong> • Drivers: {r.playerCount}/{r.maxPlayers}
+                      <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '3px' }}>
+                        Track: <strong style={{ color: '#E2E8F0' }}>{roomLevel.name}</strong> • Host: <strong style={{ color: '#CBD5E1' }}>{r.hostNickname}</strong> • Drivers: {r.playerCount}/{r.maxPlayers}
                       </div>
                     </div>
 
@@ -498,7 +675,7 @@ export function MultiplayerView({
 
                       <button
                         type="button"
-                        onClick={() => handleJoinRoom(r.id)}
+                        onClick={() => handleJoinRoom(r.id, r.levelId, r.gameMode)}
                         style={{
                           background: 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)',
                           border: '1px solid #38BDF8',
@@ -556,7 +733,7 @@ export function MultiplayerView({
           ...getFocusStyle(focusedIndex === 0),
         }}
         onPointerMove={(e) => onPointerMoveItem(0, e)}
-        onClick={() => handleJoinRoom('gymkhana_freeroam')}
+        onClick={() => handleJoinRoom('gymkhana_freeroam', 'level5_gymkhana', 'freeroam')}
       >
         🏎️ QUICK PLAY: ENTER APEX ARENA (OFFICIAL)
       </button>

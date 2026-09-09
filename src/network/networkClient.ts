@@ -3,9 +3,11 @@ import type {
   ServerMessage,
   VehicleTelemetryPayload,
 } from '@/types/network';
+import type { GameMode } from '@/types/game';
 import { parseServerMessage } from './packetValidator';
 import { SnapshotRingBuffer } from './snapshotRingBuffer';
 import { useMultiplayerStore } from '@/store/multiplayerStore';
+import { useGameStore } from '@/store/gameStore';
 
 export const TELEMETRY_SEND_INTERVAL_MS = 33; // ~30Hz
 const PING_INTERVAL_MS = 2000;
@@ -130,7 +132,13 @@ export class NetworkClient {
   /**
    * Creates a new multiplayer room and joins as host.
    */
-  public createRoom(name: string, nickname: string, vehicleId: string, levelId: string = 'level5_gymkhana'): void {
+  public createRoom(
+    name: string,
+    nickname: string,
+    vehicleId: string,
+    levelId: string = 'level1_island',
+    gameMode: GameMode = 'freeroam'
+  ): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       this.connect();
     }
@@ -140,6 +148,7 @@ export class NetworkClient {
       nickname,
       vehicleId,
       levelId,
+      gameMode,
     };
     this.send(msg);
   }
@@ -254,7 +263,7 @@ export class NetworkClient {
     this.startPingHeartbeat();
   };
 
-  private handleMessage = (event: MessageEvent): void => {
+  public handleMessage = (event: MessageEvent): void => {
     try {
       const raw = JSON.parse(event.data);
       const msg: ServerMessage | null = parseServerMessage(raw);
@@ -270,12 +279,24 @@ export class NetworkClient {
 
         case 'room_created': {
           store.setCurrentRoom(msg.room);
+          if (msg.room.levelId) {
+            useGameStore.getState().setSelectedLevelId(msg.room.levelId);
+          }
+          if (msg.room.gameMode) {
+            useGameStore.getState().setGameMode(msg.room.gameMode);
+          }
           break;
         }
 
         case 'room_joined': {
           store.setSelfId(msg.selfId, msg.room.name, 0, msg.room);
           store.setPlayers(msg.players);
+          if (msg.room.levelId) {
+            useGameStore.getState().setSelectedLevelId(msg.room.levelId);
+          }
+          if (msg.room.gameMode) {
+            useGameStore.getState().setGameMode(msg.room.gameMode);
+          }
           break;
         }
 

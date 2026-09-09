@@ -160,19 +160,22 @@ export function Vehicle() {
   const spawnPos = levelPreset.spawnPosition;
   const spawnRotY = levelPreset.spawnRotationY;
 
-  const slotIndex = useGameStore((s) => s.gameMode) === 'freeroam'
+  const isMultiplayer = useMultiplayerStore((s) => s.status) !== 'disconnected';
+  const slotIndex = isMultiplayer
     ? useMultiplayerStore.getState().slotIndex
     : 0;
-  const isMultiplayer = useMultiplayerStore((s) => s.status) !== 'disconnected';
   const gridColumn = slotIndex % 2;
   const gridRow = Math.floor(slotIndex / 2);
-  const lateralOffset = isMultiplayer ? (gridColumn === 0 ? -3.0 : 3.0) : 0;
+  const lateralOffset = isMultiplayer ? (gridColumn === 0 ? -2.8 : 2.8) : 0;
   const longitudinalOffset = isMultiplayer ? -gridRow * 6.0 : 0;
 
+  // Rotate offsets by track spawn heading so cars align perfectly on any starting grid
+  const cosY = Math.cos(spawnRotY);
+  const sinY = Math.sin(spawnRotY);
   const effectiveSpawnPos: [number, number, number] = [
-    spawnPos[0] + lateralOffset,
+    spawnPos[0] + cosY * lateralOffset + sinY * longitudinalOffset,
     spawnPos[1],
-    spawnPos[2] + longitudinalOffset,
+    spawnPos[2] - sinY * lateralOffset + cosY * longitudinalOffset,
   ];
 
   return (

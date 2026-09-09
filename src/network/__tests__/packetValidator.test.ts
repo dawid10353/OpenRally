@@ -116,6 +116,25 @@ describe('packetValidator', () => {
       });
     });
 
+    it('parses valid create_room message with levelId and gameMode', () => {
+      const msg = parseClientMessage({
+        type: 'create_room',
+        name: 'Highland Rally',
+        nickname: 'LochMaster',
+        vehicleId: 'zephyr_wr4',
+        levelId: 'level4_britain',
+        gameMode: 'timeattack',
+      });
+      expect(msg).toEqual({
+        type: 'create_room',
+        name: 'Highland Rally',
+        nickname: 'LochMaster',
+        vehicleId: 'zephyr_wr4',
+        levelId: 'level4_britain',
+        gameMode: 'timeattack',
+      });
+    });
+
     it('parses valid pong and player_left server messages', () => {
       const pong = parseServerMessage({
         type: 'pong',
