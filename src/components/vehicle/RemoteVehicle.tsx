@@ -6,6 +6,8 @@ import { getVehiclePreset } from '@/config/vehicleRegistry';
 import { networkClient } from '@/network/networkClient';
 import { Wheel } from '@/components/vehicle/Wheel';
 import { VehicleModelErrorBoundary } from '@/components/vehicle/Vehicle';
+import { useSettingsStore } from '@/store/settingsStore';
+import { isMobileDevice } from '@/utils/device';
 import type { RemotePlayerSummary } from '@/types/network';
 
 interface RemoteVehicleProps {
@@ -34,7 +36,7 @@ function RemoteVehicleVisualModel({
   const { scene } = useGLTF(modelPath);
 
   return (
-    <Detailed distances={[0, 45, 120]}>
+    <Detailed distances={[0, 250, 600]}>
       {/* LOD 0: GLB 3D Mesh */}
       <Clone
         object={scene}
@@ -72,6 +74,13 @@ export function RemoteVehicle({ player }: RemoteVehicleProps) {
   const preset = getVehiclePreset(player.vehicleId);
   const { chassisSize, wheels } = preset.config;
   const buffer = networkClient.getEntityBuffer(player.id);
+
+  const isMobile = isMobileDevice();
+  const graphicsQuality = useSettingsStore((s) => s.graphicsQuality);
+  const useOptimized = isMobile || graphicsQuality !== 'very_high';
+  const effectiveModelPath = useOptimized
+    ? (preset.optimizedModelPath ?? (preset.modelPath.endsWith('.glb') ? preset.modelPath.replace(/\.glb$/, '_opt.glb') : preset.modelPath))
+    : preset.modelPath;
 
   const modelScale = preset.modelScale ?? [4.5, 4.5, 4.5];
   const modelOffset = preset.modelPositionOffset ?? [0, 0.2, 0.1];
@@ -181,7 +190,7 @@ export function RemoteVehicle({ player }: RemoteVehicleProps) {
           }
         >
           <RemoteVehicleVisualModel
-            modelPath={preset.modelPath}
+            modelPath={effectiveModelPath}
             positionOffset={modelOffset}
             rotationOffset={modelRotationOffset}
             scale={modelScale}
