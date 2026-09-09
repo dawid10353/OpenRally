@@ -23,6 +23,18 @@ export interface RemotePlayerSummary {
   ping: number;
 }
 
+export interface RoomSummary {
+  id: string;
+  name: string;
+  hostId: string;
+  hostNickname: string;
+  levelId: string;
+  playerCount: number;
+  maxPlayers: number;
+  createdAt: number;
+  isPersistent?: boolean;
+}
+
 export interface EntitySnapshot {
   time: number;
   pos: [number, number, number];
@@ -38,6 +50,30 @@ export interface EntitySnapshot {
 }
 
 export type ClientMessage =
+  | {
+      type: 'request_rooms';
+    }
+  | {
+      type: 'create_room';
+      name: string;
+      nickname: string;
+      vehicleId: string;
+      levelId: string;
+    }
+  | {
+      type: 'join_room';
+      roomId: string;
+      nickname: string;
+      vehicleId: string;
+    }
+  | {
+      type: 'delete_room';
+      roomId: string;
+    }
+  | {
+      type: 'leave_room';
+      roomId: string;
+    }
   | {
       type: 'join_lobby';
       nickname: string;
@@ -57,6 +93,25 @@ export type ClientMessage =
     };
 
 export type ServerMessage =
+  | {
+      type: 'rooms_list';
+      rooms: RoomSummary[];
+    }
+  | {
+      type: 'room_created';
+      room: RoomSummary;
+    }
+  | {
+      type: 'room_joined';
+      selfId: string;
+      room: RoomSummary;
+      players: RemotePlayerSummary[];
+    }
+  | {
+      type: 'room_deleted';
+      roomId: string;
+      reason: string;
+    }
   | {
       type: 'lobby_joined';
       selfId: string;

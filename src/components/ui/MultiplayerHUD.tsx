@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useMultiplayerStore } from '@/store/multiplayerStore';
 import { useGameStore } from '@/store/gameStore';
+import { networkClient } from '@/network/networkClient';
 
 export function MultiplayerHUD() {
   const [expanded, setExpanded] = useState(false);
@@ -9,7 +10,10 @@ export function MultiplayerHUD() {
   const remotePlayers = useMultiplayerStore((s) => s.remotePlayers);
   const nickname = useMultiplayerStore((s) => s.nickname);
   const selfId = useMultiplayerStore((s) => s.selfId);
+  const currentRoom = useMultiplayerStore((s) => s.currentRoom);
+  const isHost = useMultiplayerStore((s) => s.isHost);
   const gameState = useGameStore((s) => s.gameState);
+  const setGameState = useGameStore((s) => s.setGameState);
 
   // Toggle expanded roster with Tab key
   useEffect(() => {
@@ -35,6 +39,22 @@ export function MultiplayerHUD() {
     if (p < 120) return '#FBBF24';
     return '#F87171';
   };
+
+  const handleLeaveSession = () => {
+    if (currentRoom) {
+      networkClient.leaveRoom(currentRoom.id);
+    }
+    setGameState('menu');
+  };
+
+  const handleDeleteSession = () => {
+    if (currentRoom && isHost) {
+      networkClient.deleteRoom(currentRoom.id);
+      setGameState('menu');
+    }
+  };
+
+  const roomDisplayName = currentRoom ? currentRoom.name.toUpperCase() : 'GYMKHANA ARENA';
 
   return (
     <div
@@ -79,7 +99,22 @@ export function MultiplayerHUD() {
             boxShadow: `0 0 8px ${status === 'in_game' || status === 'in_lobby' ? '#38BDF8' : '#F59E0B'}`,
           }}
         />
-        <span>GYMKHANA ARENA</span>
+        <span>{roomDisplayName}</span>
+        {isHost && (
+          <span
+            style={{
+              padding: '1px 5px',
+              borderRadius: '4px',
+              background: '#F59E0B',
+              color: '#000',
+              fontSize: '9px',
+              fontWeight: 900,
+              letterSpacing: '0.5px',
+            }}
+          >
+            HOST
+          </span>
+        )}
         <span style={{ color: '#94A3B8', fontSize: '11px' }}>
           {totalCount} {totalCount === 1 ? 'driver' : 'drivers'}
         </span>
@@ -99,7 +134,7 @@ export function MultiplayerHUD() {
         </span>
       </div>
 
-      {/* Expanded Driver Roster */}
+      {/* Expanded Driver Roster & Host Actions */}
       {expanded && (
         <div
           style={{
@@ -107,12 +142,12 @@ export function MultiplayerHUD() {
             border: '1px solid rgba(56, 189, 248, 0.25)',
             borderRadius: '8px',
             padding: '10px',
-            minWidth: '220px',
+            minWidth: '240px',
             boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
             backdropFilter: 'blur(12px)',
             display: 'flex',
             flexDirection: 'column',
-            gap: '6px',
+            gap: '8px',
           }}
         >
           <div
@@ -123,10 +158,12 @@ export function MultiplayerHUD() {
               letterSpacing: '1px',
               borderBottom: '1px solid rgba(255,255,255,0.08)',
               paddingBottom: '4px',
-              marginBottom: '2px',
+              display: 'flex',
+              justifyContent: 'space-between',
             }}
           >
-            ACTIVE DRIVERS IN ARENA
+            <span>ACTIVE DRIVERS</span>
+            <span>{totalCount}/12</span>
           </div>
 
           {/* Self */}
@@ -144,7 +181,9 @@ export function MultiplayerHUD() {
             }}
           >
             <span>{nickname} (You)</span>
-            <span style={{ fontSize: '10px', color: '#64748B' }}>Host</span>
+            <span style={{ fontSize: '10px', color: isHost ? '#F59E0B' : '#64748B', fontWeight: 700 }}>
+              {isHost ? '★ Host' : 'Driver'}
+            </span>
           </div>
 
           {/* Peers */}
@@ -168,6 +207,45 @@ export function MultiplayerHUD() {
                 <span style={{ fontSize: '10px', color: '#94A3B8' }}>{p.vehicleId}</span>
               </div>
             ))}
+
+          {/* Room Controls */}
+          <div style={{ display: 'flex', gap: '6px', marginTop: '6px', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            <button
+              type="button"
+              onClick={handleLeaveSession}
+              style={{
+                flex: 1,
+                padding: '6px 8px',
+                borderRadius: '6px',
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                color: '#CBD5E1',
+                fontSize: '11px',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              Leave Room
+            </button>
+            {isHost && !currentRoom?.isPersistent && (
+              <button
+                type="button"
+                onClick={handleDeleteSession}
+                style={{
+                  padding: '6px 8px',
+                  borderRadius: '6px',
+                  background: 'rgba(239, 68, 68, 0.2)',
+                  border: '1px solid rgba(239, 68, 68, 0.5)',
+                  color: '#F87171',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Delete Room
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

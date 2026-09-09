@@ -30,4 +30,31 @@ describe('NetworkClient', () => {
     client.disconnect();
     expect(client.entityBuffers.size).toBe(0);
   });
+
+  it('supports room management message payloads without throwing', () => {
+    const client = new NetworkClient();
+    const sendSpy = vi.fn();
+    (client as unknown as { ws: { readyState: number; send: typeof sendSpy } }).ws = {
+      readyState: 1, // OPEN
+      send: sendSpy,
+    };
+
+    client.requestRooms();
+    expect(sendSpy).toHaveBeenCalledWith(expect.stringContaining('"type":"request_rooms"'));
+
+    client.createRoom('Apex Track', 'Racer1', 'vortex_b');
+    expect(sendSpy).toHaveBeenCalledWith(expect.stringContaining('"type":"create_room"'));
+    expect(sendSpy).toHaveBeenCalledWith(expect.stringContaining('"name":"Apex Track"'));
+
+    client.joinRoom('room_123', 'Racer1', 'vortex_b');
+    expect(sendSpy).toHaveBeenCalledWith(expect.stringContaining('"type":"join_room"'));
+    expect(sendSpy).toHaveBeenCalledWith(expect.stringContaining('"roomId":"room_123"'));
+
+    client.deleteRoom('room_123');
+    expect(sendSpy).toHaveBeenCalledWith(expect.stringContaining('"type":"delete_room"'));
+
+    client.leaveRoom('room_123');
+    expect(sendSpy).toHaveBeenCalledWith(expect.stringContaining('"type":"leave_room"'));
+  });
 });
+

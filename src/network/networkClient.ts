@@ -118,20 +118,79 @@ export class NetworkClient {
   }
 
   /**
-   * Sends join_lobby request once socket is open.
+   * Requests latest rooms directory from server.
    */
-  public joinLobby(nickname: string, vehicleId: string, levelId: string = 'level5_gymkhana'): void {
+  public requestRooms(): void {
+    const msg: ClientMessage = {
+      type: 'request_rooms',
+    };
+    this.send(msg);
+  }
+
+  /**
+   * Creates a new multiplayer room and joins as host.
+   */
+  public createRoom(name: string, nickname: string, vehicleId: string, levelId: string = 'level5_gymkhana'): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       this.connect();
     }
-
     const msg: ClientMessage = {
-      type: 'join_lobby',
+      type: 'create_room',
+      name,
       nickname,
       vehicleId,
       levelId,
     };
     this.send(msg);
+  }
+
+  /**
+   * Joins an existing room by its unique ID.
+   */
+  public joinRoom(roomId: string, nickname: string, vehicleId: string): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      this.connect();
+    }
+    const msg: ClientMessage = {
+      type: 'join_room',
+      roomId,
+      nickname,
+      vehicleId,
+    };
+    this.send(msg);
+  }
+
+  /**
+   * Deletes a room (host only).
+   */
+  public deleteRoom(roomId: string): void {
+    const msg: ClientMessage = {
+      type: 'delete_room',
+      roomId,
+    };
+    this.send(msg);
+  }
+
+  /**
+   * Leaves the current room and returns to lobby.
+   */
+  public leaveRoom(roomId: string): void {
+    const msg: ClientMessage = {
+      type: 'leave_room',
+      roomId,
+    };
+    this.send(msg);
+    useMultiplayerStore.getState().setCurrentRoom(null);
+    useMultiplayerStore.getState().setPlayers([]);
+    this.entityBuffers.clear();
+    this.requestRooms();
+  }
+
+  /**
+   * Sends join_lobby request once socket is open (legacy wrapper).
+   */
+  public joinLobby(nickname: string, vehicleId: string, _levelId: string = 'level5_gymkhana'): void {
+    this.joinRoom('gymkhana_freeroam', nickname, vehicleId);
   }
 
   /**
@@ -171,10 +230,9 @@ export class NetworkClient {
 
   private handleOpen = (): void => {
     this.reconnectAttempts = 0;
-    const store = useMultiplayerStore.getState();
 
-    // Immediately send join_lobby with saved settings
-    this.joinLobby(store.nickname, 'rally_hatchback', 'level5_gymkhana');
+    // Immediately fetch active rooms list
+    this.requestRooms();
 
     // Start heartbeat ping
     this.startPingHeartbeat();
@@ -189,6 +247,31 @@ export class NetworkClient {
       const store = useMultiplayerStore.getState();
 
       switch (msg.type) {
+        case 'rooms_list': {
+          store.setRooms(msg.rooms);
+          break;
+        }
+
+        case 'room_created': {
+          store.setCurrentRoom(msg.room);
+          break;
+        }
+
+        case 'room_joined': {
+          store.setSelfId(msg.selfId, msg.room.name, 0, msg.room);
+          store.setPlayers(msg.players);
+          break;
+        }
+
+        case 'room_deleted': {
+          store.setCurrentRoom(null);
+          store.setError(`Room closed: ${msg.reason}`);
+          store.setPlayers([]);
+          this.entityBuffers.clear();
+          this.requestRooms();
+          break;
+        }
+
         case 'lobby_joined': {
           store.setSelfId(msg.selfId, msg.room);
           store.setPlayers(msg.players);

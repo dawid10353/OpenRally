@@ -89,6 +89,30 @@ export interface RemotePlayerSummary {
 }
 
 /**
+ * Public summary of an active multiplayer room.
+ */
+export interface RoomSummary {
+  /** Unique room identifier */
+  id: string;
+  /** User-friendly room name */
+  name: string;
+  /** Session ID of the room creator / host */
+  hostId: string;
+  /** Nickname of the host */
+  hostNickname: string;
+  /** Map/Track ID */
+  levelId: string;
+  /** Current number of active players */
+  playerCount: number;
+  /** Maximum capacity of the room (e.g. 12) */
+  maxPlayers: number;
+  /** Timestamp when the room was created */
+  createdAt: number;
+  /** Whether this is a permanent official room that cannot be deleted */
+  isPersistent?: boolean;
+}
+
+/**
  * Snapshot of a single remote entity received from server.
  */
 export interface EntitySnapshot {
@@ -110,6 +134,31 @@ export interface EntitySnapshot {
  */
 export type ClientMessage =
   | {
+      type: 'request_rooms';
+    }
+  | {
+      type: 'create_room';
+      name: string;
+      nickname: string;
+      vehicleId: string;
+      levelId: string;
+    }
+  | {
+      type: 'join_room';
+      roomId: string;
+      nickname: string;
+      vehicleId: string;
+    }
+  | {
+      type: 'delete_room';
+      roomId: string;
+    }
+  | {
+      type: 'leave_room';
+      roomId: string;
+    }
+  | {
+      // Legacy backward-compatibility join
       type: 'join_lobby';
       nickname: string;
       vehicleId: string;
@@ -132,6 +181,26 @@ export type ClientMessage =
  */
 export type ServerMessage =
   | {
+      type: 'rooms_list';
+      rooms: RoomSummary[];
+    }
+  | {
+      type: 'room_created';
+      room: RoomSummary;
+    }
+  | {
+      type: 'room_joined';
+      selfId: string;
+      room: RoomSummary;
+      players: RemotePlayerSummary[];
+    }
+  | {
+      type: 'room_deleted';
+      roomId: string;
+      reason: string;
+    }
+  | {
+      // Legacy compatibility
       type: 'lobby_joined';
       selfId: string;
       room: string;

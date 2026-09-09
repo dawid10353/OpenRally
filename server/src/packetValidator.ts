@@ -10,8 +10,21 @@ const VALID_SURFACES: ReadonlySet<SurfaceType> = new Set([
 ]);
 
 const VALID_VEHICLE_IDS: ReadonlySet<string> = new Set([
+  // Primary Championship Roster
+  'zephyr_wr4',
+  'apex_phantom_b',
+  'bantam_turbo',
+  'vortex_b',
+  'vanguard_gt',
+  'shadowfire_rs',
+  'kodiak_raid',
+  // Backward-compatibility aliases
   'rally_hatchback',
   'rally_wrc',
+  'rally_cyclone_b',
+  'cyclone_rs',
+  'ignis_sprint',
+  'rally_titan_b',
 ]);
 
 export function sanitizeNickname(raw: unknown): string | null {
@@ -21,6 +34,19 @@ export function sanitizeNickname(raw: unknown): string | null {
   const validPattern = /^[a-zA-Z0-9_\- ]+$/;
   if (!validPattern.test(trimmed)) return null;
   return trimmed;
+}
+
+export function sanitizeRoomName(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (trimmed.length < 2 || trimmed.length > 24) return null;
+  const validPattern = /^[a-zA-Z0-9_\- !?#()]+$/;
+  if (!validPattern.test(trimmed)) return null;
+  return trimmed;
+}
+
+export function isValidVehicleId(vehicleId: unknown): boolean {
+  return typeof vehicleId === 'string' && VALID_VEHICLE_IDS.has(vehicleId);
 }
 
 export function isValidNumber(val: unknown, min: number, max: number): val is number {
@@ -97,16 +123,54 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
   const msg = raw as Record<string, unknown>;
   const type = msg.type;
 
+  if (type === 'request_rooms') {
+    return { type: 'request_rooms' };
+  }
+
+  if (type === 'create_room') {
+    const name = sanitizeRoomName(msg.name);
+    if (!name) return null;
+    const nick = sanitizeNickname(msg.nickname);
+    if (!nick) return null;
+    const vehicleId = isValidVehicleId(msg.vehicleId) ? (msg.vehicleId as string) : 'zephyr_wr4';
+    const levelId = typeof msg.levelId === 'string' && msg.levelId.length > 0 ? msg.levelId : 'level5_gymkhana';
+    return {
+      type: 'create_room',
+      name,
+      nickname: nick,
+      vehicleId,
+      levelId,
+    };
+  }
+
+  if (type === 'join_room') {
+    if (typeof msg.roomId !== 'string' || msg.roomId.length === 0) return null;
+    const nick = sanitizeNickname(msg.nickname);
+    if (!nick) return null;
+    const vehicleId = isValidVehicleId(msg.vehicleId) ? (msg.vehicleId as string) : 'zephyr_wr4';
+    return {
+      type: 'join_room',
+      roomId: msg.roomId as string,
+      nickname: nick,
+      vehicleId,
+    };
+  }
+
+  if (type === 'delete_room') {
+    if (typeof msg.roomId !== 'string' || msg.roomId.length === 0) return null;
+    return { type: 'delete_room', roomId: msg.roomId as string };
+  }
+
+  if (type === 'leave_room') {
+    if (typeof msg.roomId !== 'string' || msg.roomId.length === 0) return null;
+    return { type: 'leave_room', roomId: msg.roomId as string };
+  }
+
   if (type === 'join_lobby') {
     const nick = sanitizeNickname(msg.nickname);
     if (!nick) return null;
-    const vehicleId = typeof msg.vehicleId === 'string' && VALID_VEHICLE_IDS.has(msg.vehicleId)
-      ? msg.vehicleId
-      : 'rally_hatchback';
-    const levelId = typeof msg.levelId === 'string' && msg.levelId.length > 0
-      ? msg.levelId
-      : 'level5_gymkhana';
-
+    const vehicleId = isValidVehicleId(msg.vehicleId) ? (msg.vehicleId as string) : 'zephyr_wr4';
+    const levelId = typeof msg.levelId === 'string' && msg.levelId.length > 0 ? msg.levelId : 'level5_gymkhana';
     return {
       type: 'join_lobby',
       nickname: nick,

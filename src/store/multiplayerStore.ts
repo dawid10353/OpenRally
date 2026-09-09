@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ConnectionStatus, RemotePlayerSummary } from '@/types/network';
+import type { ConnectionStatus, RemotePlayerSummary, RoomSummary } from '@/types/network';
 
 const NICKNAME_STORAGE_KEY = 'openrally_mp_nickname';
 
@@ -21,6 +21,9 @@ export interface MultiplayerState {
   selfId: string | null;
   roomName: string;
   slotIndex: number;
+  rooms: RoomSummary[];
+  currentRoom: RoomSummary | null;
+  isHost: boolean;
   remotePlayers: Record<string, RemotePlayerSummary>;
   ping: number;
   error: string | null;
@@ -28,7 +31,9 @@ export interface MultiplayerState {
   // Actions
   setNickname: (name: string) => void;
   setStatus: (status: ConnectionStatus) => void;
-  setSelfId: (id: string, room: string, slotIndex?: number) => void;
+  setSelfId: (id: string, room: string, slotIndex?: number, roomSummary?: RoomSummary) => void;
+  setRooms: (rooms: RoomSummary[]) => void;
+  setCurrentRoom: (room: RoomSummary | null) => void;
   setPlayers: (players: RemotePlayerSummary[]) => void;
   addPlayer: (player: RemotePlayerSummary) => void;
   removePlayer: (playerId: string) => void;
@@ -43,6 +48,9 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => ({
   selfId: null,
   roomName: 'gymkhana_freeroam',
   slotIndex: 0,
+  rooms: [],
+  currentRoom: null,
+  isHost: false,
   remotePlayers: {},
   ping: 0,
   error: null,
@@ -59,8 +67,27 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => ({
 
   setStatus: (status: ConnectionStatus) => set({ status }),
 
-  setSelfId: (selfId: string, roomName: string, slotIndex: number = 0) =>
-    set({ selfId, roomName, slotIndex, status: 'in_lobby', error: null }),
+  setSelfId: (selfId: string, roomName: string, slotIndex: number = 0, roomSummary?: RoomSummary) =>
+    set((state) => {
+      const isHost = roomSummary ? roomSummary.hostId === selfId : state.isHost;
+      return {
+        selfId,
+        roomName,
+        slotIndex,
+        currentRoom: roomSummary ?? state.currentRoom,
+        isHost,
+        status: 'in_lobby',
+        error: null,
+      };
+    }),
+
+  setRooms: (rooms: RoomSummary[]) => set({ rooms }),
+
+  setCurrentRoom: (currentRoom: RoomSummary | null) =>
+    set((state) => ({
+      currentRoom,
+      isHost: currentRoom && state.selfId ? currentRoom.hostId === state.selfId : false,
+    })),
 
   setPlayers: (players: RemotePlayerSummary[]) => {
     const map: Record<string, RemotePlayerSummary> = {};
@@ -93,6 +120,8 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => ({
     set({
       status: 'disconnected',
       selfId: null,
+      currentRoom: null,
+      isHost: false,
       remotePlayers: {},
       ping: 0,
       error: null,

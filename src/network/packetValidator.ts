@@ -1,4 +1,11 @@
-import type { ClientMessage, ServerMessage, VehicleTelemetryPayload } from '@/types/network';
+import type {
+  ClientMessage,
+  ServerMessage,
+  VehicleTelemetryPayload,
+  RoomSummary,
+  RemotePlayerSummary,
+  EntitySnapshot,
+} from '@/types/network';
 import type { SurfaceType } from '@/types/vehicle';
 
 const VALID_SURFACES: ReadonlySet<SurfaceType> = new Set([
@@ -11,8 +18,21 @@ const VALID_SURFACES: ReadonlySet<SurfaceType> = new Set([
 ]);
 
 const VALID_VEHICLE_IDS: ReadonlySet<string> = new Set([
+  // Primary Championship Roster
+  'zephyr_wr4',
+  'apex_phantom_b',
+  'bantam_turbo',
+  'vortex_b',
+  'vanguard_gt',
+  'shadowfire_rs',
+  'kodiak_raid',
+  // Backward-compatibility aliases
   'rally_hatchback',
   'rally_wrc',
+  'rally_cyclone_b',
+  'cyclone_rs',
+  'ignis_sprint',
+  'rally_titan_b',
 ]);
 
 /**
@@ -23,14 +43,26 @@ export function sanitizeNickname(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
   const trimmed = raw.trim();
   if (trimmed.length < 2 || trimmed.length > 16) return null;
-  // Allow alphanumeric, underscores, hyphens, and single spaces between words
+  // Allow alphanumeric, underscores, hyphens, and spaces
   const validPattern = /^[a-zA-Z0-9_\- ]+$/;
   if (!validPattern.test(trimmed)) return null;
   return trimmed;
 }
 
 /**
- * Validates a vehicle ID against the registered vehicle roster.
+ * Validates and sanitizes a user-created room name.
+ */
+export function sanitizeRoomName(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (trimmed.length < 2 || trimmed.length > 24) return null;
+  const validPattern = /^[a-zA-Z0-9_\- !?#()]+$/;
+  if (!validPattern.test(trimmed)) return null;
+  return trimmed;
+}
+
+/**
+ * Validates a vehicle ID against the registered championship roster.
  */
 export function isValidVehicleId(vehicleId: unknown): boolean {
   return typeof vehicleId === 'string' && VALID_VEHICLE_IDS.has(vehicleId);
@@ -57,7 +89,6 @@ export function isValidVector3(val: unknown, maxCoord: number = 2000): val is [n
 
 /**
  * Validates a 4D quaternion [x, y, z, w].
- * Ensures components are finite and unit length norm is within plausible numerical limits.
  */
 export function isValidQuaternion(val: unknown): val is [number, number, number, number] {
   if (!Array.isArray(val) || val.length !== 4) return false;
@@ -76,7 +107,6 @@ export function isValidQuaternion(val: unknown): val is [number, number, number,
 
 /**
  * Validates an incoming vehicle telemetry payload.
- * Prevents NaN, out-of-bounds coords, or maliciously crafted packets.
  */
 export function validateTelemetryPayload(raw: unknown): VehicleTelemetryPayload | null {
   if (!raw || typeof raw !== 'object') return null;
@@ -127,10 +157,54 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
   const msg = raw as Record<string, unknown>;
   const type = msg.type;
 
+  if (type === 'request_rooms') {
+    return { type: 'request_rooms' };
+  }
+
+  if (type === 'create_room') {
+    const name = sanitizeRoomName(msg.name);
+    if (!name) return null;
+    const nick = sanitizeNickname(msg.nickname);
+    if (!nick) return null;
+    const vehicleId = isValidVehicleId(msg.vehicleId) ? (msg.vehicleId as string) : 'zephyr_wr4';
+    const levelId = typeof msg.levelId === 'string' && msg.levelId.length > 0 ? msg.levelId : 'level5_gymkhana';
+    return {
+      type: 'create_room',
+      name,
+      nickname: nick,
+      vehicleId,
+      levelId,
+    };
+  }
+
+  if (type === 'join_room') {
+    if (typeof msg.roomId !== 'string' || msg.roomId.length === 0) return null;
+    const nick = sanitizeNickname(msg.nickname);
+    if (!nick) return null;
+    const vehicleId = isValidVehicleId(msg.vehicleId) ? (msg.vehicleId as string) : 'zephyr_wr4';
+    return {
+      type: 'join_room',
+      roomId: msg.roomId as string,
+      nickname: nick,
+      vehicleId,
+    };
+  }
+
+  if (type === 'delete_room') {
+    if (typeof msg.roomId !== 'string' || msg.roomId.length === 0) return null;
+    return { type: 'delete_room', roomId: msg.roomId as string };
+  }
+
+  if (type === 'leave_room') {
+    if (typeof msg.roomId !== 'string' || msg.roomId.length === 0) return null;
+    return { type: 'leave_room', roomId: msg.roomId as string };
+  }
+
+  // Legacy fallback
   if (type === 'join_lobby') {
     const nick = sanitizeNickname(msg.nickname);
     if (!nick) return null;
-    const vehicleId = isValidVehicleId(msg.vehicleId) ? (msg.vehicleId as string) : 'rally_hatchback';
+    const vehicleId = isValidVehicleId(msg.vehicleId) ? (msg.vehicleId as string) : 'zephyr_wr4';
     const levelId = typeof msg.levelId === 'string' && msg.levelId.length > 0 ? msg.levelId : 'level5_gymkhana';
     return {
       type: 'join_lobby',
@@ -158,6 +232,33 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
   return null;
 }
 
+export function isValidRoomSummary(val: unknown): val is RoomSummary {
+  if (!val || typeof val !== 'object') return false;
+  const r = val as Record<string, unknown>;
+  return (
+    typeof r.id === 'string' &&
+    typeof r.name === 'string' &&
+    typeof r.hostId === 'string' &&
+    typeof r.hostNickname === 'string' &&
+    typeof r.levelId === 'string' &&
+    isValidNumber(r.playerCount, 0, 100) &&
+    isValidNumber(r.maxPlayers, 1, 100) &&
+    isValidNumber(r.createdAt, 0, 1e15)
+  );
+}
+
+export function isValidRemotePlayer(val: unknown): val is RemotePlayerSummary {
+  if (!val || typeof val !== 'object') return false;
+  const p = val as Record<string, unknown>;
+  return (
+    typeof p.id === 'string' &&
+    typeof p.nickname === 'string' &&
+    typeof p.vehicleId === 'string' &&
+    isValidNumber(p.slotIndex, 0, 100) &&
+    isValidNumber(p.ping, 0, 1e6)
+  );
+}
+
 /**
  * Validates a server-originated network message received by client.
  */
@@ -166,23 +267,86 @@ export function parseServerMessage(raw: unknown): ServerMessage | null {
   const msg = raw as Record<string, unknown>;
   const type = msg.type;
 
+  if (type === 'rooms_list') {
+    if (!Array.isArray(msg.rooms)) return null;
+    const rooms: RoomSummary[] = [];
+    for (const r of msg.rooms) {
+      if (isValidRoomSummary(r)) {
+        rooms.push(r);
+      }
+    }
+    return {
+      type: 'rooms_list',
+      rooms,
+    };
+  }
+
+  if (type === 'room_created') {
+    if (!isValidRoomSummary(msg.room)) return null;
+    return {
+      type: 'room_created',
+      room: msg.room,
+    };
+  }
+
+  if (type === 'room_joined') {
+    if (typeof msg.selfId !== 'string' || !isValidRoomSummary(msg.room) || !Array.isArray(msg.players)) {
+      return null;
+    }
+    const players: RemotePlayerSummary[] = [];
+    for (const p of msg.players) {
+      if (isValidRemotePlayer(p)) {
+        players.push(p);
+      }
+    }
+    return {
+      type: 'room_joined',
+      selfId: msg.selfId,
+      room: msg.room,
+      players,
+    };
+  }
+
+  if (type === 'room_deleted') {
+    if (typeof msg.roomId !== 'string') return null;
+    return {
+      type: 'room_deleted',
+      roomId: msg.roomId,
+      reason: typeof msg.reason === 'string' ? msg.reason : 'closed',
+    };
+  }
+
   if (type === 'lobby_joined') {
     if (typeof msg.selfId !== 'string' || typeof msg.room !== 'string' || !Array.isArray(msg.players)) {
       return null;
     }
-    return msg as unknown as ServerMessage;
+    const players: RemotePlayerSummary[] = [];
+    for (const p of msg.players) {
+      if (isValidRemotePlayer(p)) {
+        players.push(p);
+      }
+    }
+    return {
+      type: 'lobby_joined',
+      selfId: msg.selfId,
+      room: msg.room,
+      players,
+    };
   }
 
   if (type === 'player_joined') {
-    if (!msg.player || typeof msg.player !== 'object') return null;
-    return msg as unknown as ServerMessage;
+    if (!isValidRemotePlayer(msg.player)) return null;
+    return {
+      type: 'player_joined',
+      player: msg.player,
+    };
   }
 
   if (type === 'player_left') {
     if (typeof msg.playerId !== 'string') return null;
     return {
       type: 'player_left',
-      playerId: msg.playerId as string,
+      playerId: msg.playerId,
       reason: typeof msg.reason === 'string' ? msg.reason : 'disconnected',
     };
   }
@@ -191,7 +355,19 @@ export function parseServerMessage(raw: unknown): ServerMessage | null {
     if (!isValidNumber(msg.serverTime, 0, 1e15) || !msg.entities || typeof msg.entities !== 'object') {
       return null;
     }
-    return msg as unknown as ServerMessage;
+    const rawEntities = msg.entities as Record<string, unknown>;
+    const entities: Record<string, EntitySnapshot> = {};
+    for (const key in rawEntities) {
+      const snap = validateTelemetryPayload(rawEntities[key]);
+      if (snap) {
+        entities[key] = snap;
+      }
+    }
+    return {
+      type: 'world_snapshot',
+      serverTime: msg.serverTime,
+      entities,
+    };
   }
 
   if (type === 'pong') {
@@ -200,8 +376,8 @@ export function parseServerMessage(raw: unknown): ServerMessage | null {
     }
     return {
       type: 'pong',
-      clientTime: msg.clientTime as number,
-      serverTime: msg.serverTime as number,
+      clientTime: msg.clientTime,
+      serverTime: msg.serverTime,
     };
   }
 
