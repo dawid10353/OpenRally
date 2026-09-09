@@ -238,6 +238,7 @@ export class NetworkClient {
   };
 
   private handleClose = (event: CloseEvent): void => {
+    console.log('[NetworkClient] WebSocket closed:', event.code, event.reason);
     this.clearTimers();
     this.ws = null;
 

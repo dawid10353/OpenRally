@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { GymkhanaRoom, MAX_PLAYERS } from '../GymkhanaRoom';
+import { GymkhanaRoom, MAX_PLAYERS } from '../GymkhanaRoom.js';
 import type { WebSocket } from 'ws';
 
 function createMockWebSocket(): WebSocket {
