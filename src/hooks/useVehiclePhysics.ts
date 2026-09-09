@@ -412,6 +412,13 @@ export function useVehiclePhysics(
       body.setAngvel({ x: 0, y: 0, z: 0 }, true);
     }
 
+    const isSpectating = useMultiplayerStore.getState().isSpectating;
+    if (isSpectating) {
+      body.setLinvel(_zeroVel, true);
+      body.setAngvel(_zeroVel, true);
+      return;
+    }
+
     const transmissionMode = useSettingsStore.getState().transmissionMode;
     let currentGear: number;
 
@@ -574,13 +581,18 @@ export function useVehiclePhysics(
     useGameStore.setState(_telemetryState);
 
     // --- 7.5. MULTIPLAYER TELEMETRY BROADCAST ---
-    if (useMultiplayerStore.getState().status !== 'disconnected') {
+    if (useMultiplayerStore.getState().status !== 'disconnected' && !isSpectating) {
       const curAngvel = body.angvel();
       const wheels = wheelRefs.current;
       const w0 = wheels?.[0]?.children[0]?.rotation.x ?? 0;
       const w1 = wheels?.[1]?.children[0]?.rotation.x ?? 0;
       const w2 = wheels?.[2]?.children[0]?.rotation.x ?? 0;
       const w3 = wheels?.[3]?.children[0]?.rotation.x ?? 0;
+
+      const liveGymkhanaScore =
+        resetState.gameMode === 'gymkhana_blitz'
+          ? useGymkhanaStore.getState().totalScore + useGymkhanaStore.getState().currentDriftScore
+          : undefined;
 
       networkClient.sendTelemetry({
         pos: [_posTuple[0], _posTuple[1], _posTuple[2]],
@@ -593,6 +605,7 @@ export function useVehiclePhysics(
         gear: _telemetryState.gear,
         isDrifting: Math.abs(slipAngle) > 0.35 && speedKmh > 15,
         surface,
+        score: liveGymkhanaScore,
       });
     }
 

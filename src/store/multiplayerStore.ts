@@ -15,6 +15,13 @@ function loadSavedNickname(): string {
   return `Apex_${Math.floor(100 + Math.random() * 900)}`;
 }
 
+export interface GymkhanaLeaderboardEntry {
+  id: string;
+  nickname: string;
+  vehicleId: string;
+  score: number;
+}
+
 export interface MultiplayerState {
   status: ConnectionStatus;
   nickname: string;
@@ -28,6 +35,14 @@ export interface MultiplayerState {
   ping: number;
   error: string | null;
 
+  // Gymkhana Blitz Matchmaking & Spectator State
+  isSpectating: boolean;
+  spectateTargetId: string | null;
+  spectateTargetNickname: string | null;
+  spectateRoundRemaining: number;
+  gymkhanaIntermissionRemaining: number | null;
+  gymkhanaLeaderboard: GymkhanaLeaderboardEntry[];
+
   // Actions
   setNickname: (name: string) => void;
   setStatus: (status: ConnectionStatus) => void;
@@ -39,6 +54,15 @@ export interface MultiplayerState {
   removePlayer: (playerId: string) => void;
   updatePing: (ping: number) => void;
   setError: (error: string | null) => void;
+  setSpectating: (
+    isSpectating: boolean,
+    targetId?: string | null,
+    targetNickname?: string | null,
+    remaining?: number
+  ) => void;
+  setGymkhanaRoundEnded: (intermissionRemaining: number, leaderboard: GymkhanaLeaderboardEntry[]) => void;
+  setGymkhanaRoundStart: () => void;
+  cycleSpectateTarget: (direction: 1 | -1) => void;
   reset: () => void;
 }
 
@@ -54,6 +78,13 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => ({
   remotePlayers: {},
   ping: 0,
   error: null,
+
+  isSpectating: false,
+  spectateTargetId: null,
+  spectateTargetNickname: null,
+  spectateRoundRemaining: 60,
+  gymkhanaIntermissionRemaining: null,
+  gymkhanaLeaderboard: [],
 
   setNickname: (nickname: string) => {
     const sanitized = nickname.trim().slice(0, 16);
@@ -116,6 +147,48 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => ({
 
   setError: (error: string | null) => set({ error }),
 
+  setSpectating: (
+    isSpectating: boolean,
+    targetId: string | null = null,
+    targetNickname: string | null = null,
+    remaining: number = 60
+  ) =>
+    set({
+      isSpectating,
+      spectateTargetId: targetId,
+      spectateTargetNickname: targetNickname,
+      spectateRoundRemaining: remaining,
+    }),
+
+  setGymkhanaRoundEnded: (intermissionRemaining: number, leaderboard: GymkhanaLeaderboardEntry[]) =>
+    set({
+      gymkhanaIntermissionRemaining: intermissionRemaining,
+      gymkhanaLeaderboard: leaderboard,
+    }),
+
+  setGymkhanaRoundStart: () =>
+    set({
+      isSpectating: false,
+      spectateTargetId: null,
+      spectateTargetNickname: null,
+      gymkhanaIntermissionRemaining: null,
+    }),
+
+  cycleSpectateTarget: (direction: 1 | -1) =>
+    set((state) => {
+      if (!state.isSpectating) return state;
+      const playerIds = Object.keys(state.remotePlayers);
+      if (playerIds.length === 0) return state;
+      const currentIndex = state.spectateTargetId ? playerIds.indexOf(state.spectateTargetId) : -1;
+      const nextIndex = (currentIndex + direction + playerIds.length) % playerIds.length;
+      const nextId = playerIds[nextIndex];
+      const nextPlayer = state.remotePlayers[nextId];
+      return {
+        spectateTargetId: nextId,
+        spectateTargetNickname: nextPlayer ? nextPlayer.nickname : nextId,
+      };
+    }),
+
   reset: () =>
     set({
       status: 'disconnected',
@@ -125,5 +198,11 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => ({
       remotePlayers: {},
       ping: 0,
       error: null,
+      isSpectating: false,
+      spectateTargetId: null,
+      spectateTargetNickname: null,
+      spectateRoundRemaining: 60,
+      gymkhanaIntermissionRemaining: null,
+      gymkhanaLeaderboard: [],
     }),
 }));

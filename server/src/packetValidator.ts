@@ -116,6 +116,8 @@ export function validateTelemetryPayload(raw: unknown): VehicleTelemetryPayload 
     ? (p.surface as SurfaceType)
     : 'tarmac';
 
+  const score = isValidNumber(p.score, 0, 1e8) ? p.score : undefined;
+
   return {
     seq: p.seq as number,
     time: p.time as number,
@@ -129,6 +131,7 @@ export function validateTelemetryPayload(raw: unknown): VehicleTelemetryPayload 
     gear: p.gear as number,
     isDrifting: p.isDrifting,
     surface,
+    score,
   };
 }
 

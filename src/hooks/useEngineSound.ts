@@ -12,6 +12,7 @@ import {
 } from '@/config/sound';
 
 import { getSharedAudioContext } from '@/utils/audio/audioContext';
+import { useMultiplayerStore } from '@/store/multiplayerStore';
 
 /**
  * Procedural engine sound generator using Web Audio API.
@@ -119,8 +120,9 @@ export function useEngineSound() {
 
   // Update pitch based on RPM and filter based on speed
   useFrame(() => {
-    if (!isInitialized || !sourceRef.current || !ctxRef.current || !gainRef.current || gameState !== 'playing') {
-      if (gainRef.current && gameState !== 'playing') {
+    const isSpectating = useMultiplayerStore.getState().isSpectating;
+    if (!isInitialized || !sourceRef.current || !ctxRef.current || !gainRef.current || gameState !== 'playing' || isSpectating) {
+      if (gainRef.current && (gameState !== 'playing' || isSpectating)) {
         try {
           gainRef.current.gain.cancelScheduledValues(0);
           gainRef.current.gain.value = 0;

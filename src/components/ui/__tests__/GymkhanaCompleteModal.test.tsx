@@ -3,9 +3,15 @@ import { renderToString } from 'react-dom/server';
 import { GymkhanaCompleteModal } from '../GymkhanaCompleteModal';
 import { useGymkhanaStore } from '@/store/gymkhanaStore';
 import { useGameStore } from '@/store/gameStore';
+import { useMultiplayerStore } from '@/store/multiplayerStore';
 
 describe('GymkhanaCompleteModal - Gamepad & Keyboard Navigation', () => {
   beforeEach(() => {
+    useMultiplayerStore.setState({
+      status: 'disconnected',
+      gymkhanaIntermissionRemaining: 0,
+      gymkhanaLeaderboard: [],
+    });
     useGameStore.setState({
       gameState: 'playing',
       gameMode: 'gymkhana_blitz',
@@ -32,7 +38,7 @@ describe('GymkhanaCompleteModal - Gamepad & Keyboard Navigation', () => {
     expect(html).toBe('');
   });
 
-  it('renders stage complete title, formatted total score, and all three action buttons', () => {
+  it('renders stage complete title, formatted total score, and all three action buttons in singleplayer', () => {
     const html = renderToString(<GymkhanaCompleteModal />);
 
     expect(html).toContain('STAGE COMPLETE');
@@ -42,6 +48,34 @@ describe('GymkhanaCompleteModal - Gamepad & Keyboard Navigation', () => {
     expect(html).toContain('PLAY AGAIN');
     expect(html).toContain('CONTINUE IN FREE ROAM');
     expect(html).toContain('RETURN TO MENU');
+  });
+
+  it('omits CONTINUE IN FREE ROAM in multiplayer Gymkhana Blitz mode, but shows intermission countdown and leaderboard', () => {
+    useMultiplayerStore.setState({
+      status: 'in_lobby',
+      gymkhanaIntermissionRemaining: 18,
+      gymkhanaLeaderboard: [
+        { id: 'p1', nickname: 'TopDrifter', vehicleId: 'apex_phantom_b', score: 125000 },
+        { id: 'p2', nickname: 'Challenger', vehicleId: 'zephyr_wr4', score: 98000 },
+      ],
+    });
+
+    const html = renderToString(<GymkhanaCompleteModal />);
+
+    // MUST NOT contain Free Roam in multiplayer Gymkhana Blitz
+    expect(html).not.toContain('CONTINUE IN FREE ROAM');
+    // Primary button shows ready status and exit button shows leave room
+    expect(html).toContain('READY FOR NEXT ROUND');
+    expect(html).toContain('LEAVE ROOM');
+
+    // Intermission countdown and leaderboard table
+    expect(html).toContain('NEXT ROUND STARTS IN');
+    expect(html).toContain('18s');
+    expect(html).toContain('OFFICIAL STAGE CLASSIFICATION');
+    expect(html).toContain('TopDrifter');
+    expect(html).toContain('125,000');
+    expect(html).toContain('Challenger');
+    expect(html).toContain('98,000');
   });
 
   it('renders PlayStation controller helper prompts when DualSense gamepad is connected', () => {

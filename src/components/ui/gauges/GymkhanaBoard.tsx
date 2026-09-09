@@ -3,6 +3,7 @@ import { getLastInputType, isTouchDevice, type InputType } from '@/utils/input/t
 import { useSettingsStore } from '@/store/settingsStore';
 import { useGameStore } from '@/store/gameStore';
 import { useGymkhanaStore, DRIFT_GRACE_PERIOD_SECONDS } from '@/store/gymkhanaStore';
+import { useMultiplayerStore } from '@/store/multiplayerStore';
 import { CARBON_FIBER_BG, RALLY_HAZARD_STRIPES_YELLOW, rallyHudTheme } from './rallyHudStyles';
 
 function formatTime(seconds: number): string {
@@ -73,6 +74,35 @@ export const GymkhanaBoard = memo(function GymkhanaBoard() {
   const gameState = useGameStore((s) => s.gameState);
   const gameMode = useGameStore((s) => s.gameMode);
   const countdown = useGymkhanaStore((s) => s.countdown);
+
+  const isSpectating = useMultiplayerStore((s) => s.isSpectating);
+  const spectateTargetNickname = useMultiplayerStore((s) => s.spectateTargetNickname);
+  const spectateRoundRemaining = useMultiplayerStore((s) => s.spectateRoundRemaining);
+  const cycleSpectateTarget = useMultiplayerStore((s) => s.cycleSpectateTarget);
+
+  useEffect(() => {
+    if (!isSpectating) return;
+    const handleSpectateKey = (e: KeyboardEvent) => {
+      if (e.code === 'KeyQ' || e.code === 'ArrowLeft') {
+        cycleSpectateTarget(-1);
+      } else if (e.code === 'KeyE' || e.code === 'ArrowRight') {
+        cycleSpectateTarget(1);
+      }
+    };
+    window.addEventListener('keydown', handleSpectateKey);
+    return () => window.removeEventListener('keydown', handleSpectateKey);
+  }, [isSpectating, cycleSpectateTarget]);
+
+  useEffect(() => {
+    if (!isSpectating) return;
+    const interval = setInterval(() => {
+      const cur = useMultiplayerStore.getState().spectateRoundRemaining;
+      if (cur > 0) {
+        useMultiplayerStore.setState({ spectateRoundRemaining: Math.max(0, cur - 1) });
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isSpectating]);
 
   // Transient DOM references
   const timerTextRef = useRef<HTMLDivElement>(null);
@@ -170,6 +200,55 @@ export const GymkhanaBoard = memo(function GymkhanaBoard() {
 
   if (gameMode !== 'gymkhana_blitz') {
     return null;
+  }
+
+  if (isSpectating) {
+    return (
+      <div style={styles.spectatorContainer}>
+        <div style={styles.spectatorCard}>
+          <div style={styles.spectatorHeader}>
+            <span style={styles.spectatorLiveDot} />
+            <span style={styles.spectatorLiveText}>LIVE BROADCAST</span>
+            <span style={styles.spectatorBadge}>SPECTATOR MODE</span>
+          </div>
+
+          <div style={styles.spectatorTargetRow}>
+            <button
+              type="button"
+              style={styles.spectatorNavBtn}
+              onClick={() => cycleSpectateTarget(-1)}
+              title="Previous Driver [Q / Left Arrow]"
+            >
+              ◀
+            </button>
+            <div style={styles.spectatorDriverInfo}>
+              <span style={styles.spectatorDriverLabel}>SPECTATING DRIVER</span>
+              <span style={styles.spectatorDriverName}>
+                {spectateTargetNickname ?? 'Active Driver'}
+              </span>
+            </div>
+            <button
+              type="button"
+              style={styles.spectatorNavBtn}
+              onClick={() => cycleSpectateTarget(1)}
+              title="Next Driver [E / Right Arrow]"
+            >
+              ▶
+            </button>
+          </div>
+
+          <div style={styles.spectatorTimerRow}>
+            <span style={styles.spectatorTimerLabel}>ROUND ENDS IN:</span>
+            <span style={styles.spectatorTimerValue}>{Math.ceil(spectateRoundRemaining)}s</span>
+          </div>
+
+          <div style={styles.spectatorFooter}>
+            <span>You will join automatically when the new round begins</span>
+            <span style={styles.spectatorHotkeyTip}>[Q / E or ◀ / ▶ to switch drivers]</span>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -639,4 +718,128 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1,
     filter: 'drop-shadow(0 8px 16px rgba(0, 0, 0, 0.9))',
   },
+
+  // Spectator Overlay Styles
+  spectatorContainer: {
+    position: 'absolute',
+    top: '16px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    zIndex: 40,
+    pointerEvents: 'auto',
+    width: '92%',
+    maxWidth: '480px',
+  },
+  spectatorCard: {
+    background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.94) 0%, rgba(8, 12, 22, 0.98) 100%)',
+    border: '2px solid rgba(245, 158, 11, 0.55)',
+    borderRadius: '16px',
+    padding: '12px 18px',
+    boxShadow: '0 12px 36px rgba(0, 0, 0, 0.8), 0 0 25px rgba(245, 158, 11, 0.25)',
+    textAlign: 'center',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  spectatorHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  spectatorLiveDot: {
+    width: '10px',
+    height: '10px',
+    borderRadius: '50%',
+    background: '#EF4444',
+    boxShadow: '0 0 10px #EF4444',
+  },
+  spectatorLiveText: {
+    fontSize: '12px',
+    fontWeight: 900,
+    letterSpacing: '2px',
+    color: '#F8FAFC',
+    textTransform: 'uppercase',
+  },
+  spectatorBadge: {
+    fontSize: '10px',
+    fontWeight: 800,
+    letterSpacing: '1px',
+    padding: '2px 8px',
+    borderRadius: '8px',
+    background: 'rgba(245, 158, 11, 0.2)',
+    border: '1px solid rgba(245, 158, 11, 0.4)',
+    color: '#FACC15',
+    textTransform: 'uppercase',
+  },
+  spectatorTargetRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    padding: '4px 0',
+  },
+  spectatorNavBtn: {
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: '8px',
+    color: '#F8FAFC',
+    fontSize: '14px',
+    padding: '6px 12px',
+    cursor: 'pointer',
+    transition: 'all 0.15s ease',
+  },
+  spectatorDriverInfo: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  spectatorDriverLabel: {
+    fontSize: '9px',
+    fontWeight: 800,
+    letterSpacing: '1.2px',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+  },
+  spectatorDriverName: {
+    fontSize: '18px',
+    fontWeight: 900,
+    letterSpacing: '1px',
+    color: '#38BDF8',
+    textShadow: '0 0 12px rgba(56, 189, 248, 0.4)',
+  },
+  spectatorTimerRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    background: 'rgba(0, 0, 0, 0.4)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    borderRadius: '8px',
+    padding: '4px 14px',
+  },
+  spectatorTimerLabel: {
+    fontSize: '10px',
+    fontWeight: 800,
+    letterSpacing: '1.2px',
+    color: '#CBD5E1',
+  },
+  spectatorTimerValue: {
+    fontFamily: "'SF Mono', Consolas, monospace",
+    fontSize: '18px',
+    fontWeight: 900,
+    color: '#FACC15',
+  },
+  spectatorFooter: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px',
+    fontSize: '10px',
+    fontWeight: 700,
+    color: '#94A3B8',
+  },
+  spectatorHotkeyTip: {
+    fontSize: '9px',
+    color: '#64748B',
+  },
 };
+

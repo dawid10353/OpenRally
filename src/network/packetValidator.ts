@@ -162,6 +162,7 @@ export function validateTelemetryPayload(raw: unknown): VehicleTelemetryPayload 
     gear: p.gear as number,
     isDrifting: p.isDrifting,
     surface,
+    score: isValidNumber(p.score, 0, 1e8) ? p.score : undefined,
   };
 }
 
@@ -206,6 +207,7 @@ export function validateEntitySnapshot(raw: unknown): EntitySnapshot | null {
     gear: p.gear,
     isDrifting: p.isDrifting,
     surface,
+    score: isValidNumber(p.score, 0, 1e8) ? p.score : undefined,
   };
 }
 
@@ -458,6 +460,60 @@ export function parseServerMessage(raw: unknown): ServerMessage | null {
       type: 'pong',
       clientTime: msg.clientTime,
       serverTime: msg.serverTime,
+    };
+  }
+
+  if (type === 'gymkhana_spectate') {
+    if (typeof msg.isSpectator !== 'boolean') return null;
+    const targetId = typeof msg.targetId === 'string' ? msg.targetId : null;
+    const targetNickname = typeof msg.targetNickname === 'string' ? msg.targetNickname : null;
+    const roundTimeRemaining = isValidNumber(msg.roundTimeRemaining, 0, 3600) ? msg.roundTimeRemaining : 60;
+    return {
+      type: 'gymkhana_spectate',
+      isSpectator: msg.isSpectator,
+      targetId,
+      targetNickname,
+      roundTimeRemaining,
+    };
+  }
+
+  if (type === 'gymkhana_round_ended') {
+    const intermissionRemaining = isValidNumber(msg.intermissionRemaining, 0, 3600)
+      ? msg.intermissionRemaining
+      : 20;
+    if (!Array.isArray(msg.leaderboard)) return null;
+    const leaderboard: Array<{ id: string; nickname: string; vehicleId: string; score: number }> = [];
+    for (const entry of msg.leaderboard as Array<Record<string, unknown>>) {
+      if (
+        entry &&
+        typeof entry === 'object' &&
+        typeof entry.id === 'string' &&
+        typeof entry.nickname === 'string' &&
+        typeof entry.vehicleId === 'string' &&
+        isValidNumber(entry.score, 0, 1e9)
+      ) {
+        leaderboard.push({
+          id: entry.id,
+          nickname: entry.nickname,
+          vehicleId: entry.vehicleId,
+          score: entry.score,
+        });
+      }
+    }
+    return {
+      type: 'gymkhana_round_ended',
+      intermissionRemaining,
+      leaderboard,
+    };
+  }
+
+  if (type === 'gymkhana_round_start') {
+    const duration = isValidNumber(msg.duration, 1, 3600) ? msg.duration : 60;
+    const countdown = isValidNumber(msg.countdown, 0, 10) ? msg.countdown : 3;
+    return {
+      type: 'gymkhana_round_start',
+      duration,
+      countdown,
     };
   }
 

@@ -21,6 +21,9 @@ export interface PlayerSession {
   lastPing: number;
   lastSeen: number;
   latestSnapshot: EntitySnapshot | null;
+  score: number;
+  isSpectator: boolean;
+  spectateTargetId: string | null;
 }
 
 export interface GameRoomOptions {
@@ -45,10 +48,14 @@ export class GameRoom {
   public readonly maxPlayers: number;
   public readonly createdAt: number;
 
+  public roundPhase: 'active' | 'intermission' = 'active';
+  public roundTimer: number = 60.0;
+
   public readonly players: Map<string, PlayerSession> = new Map();
   private readonly usedSlots: Set<number> = new Set();
   private broadcastInterval: NodeJS.Timeout | null = null;
   private heartbeatInterval: NodeJS.Timeout | null = null;
+  private matchLoopInterval: NodeJS.Timeout | null = null;
   private onPlayerLeftCallback: ((roomId: string, playerId: string, isHost: boolean) => void) | null = null;
 
   constructor(options: GameRoomOptions) {
@@ -64,6 +71,7 @@ export class GameRoom {
 
     this.startBroadcastLoop();
     this.startHeartbeatMonitor();
+    this.startGymkhanaMatchLoop();
   }
 
   public setOnPlayerLeftCallback(cb: (roomId: string, playerId: string, isHost: boolean) => void): void {
@@ -136,6 +144,9 @@ export class GameRoom {
       lastPing: 0,
       lastSeen: now,
       latestSnapshot: null,
+      score: 0,
+      isSpectator: false,
+      spectateTargetId: null,
     };
 
     this.players.set(playerId, session);
@@ -170,6 +181,49 @@ export class GameRoom {
       players: playerSummaries,
     });
 
+    // 3. Gymkhana Blitz Mid-Match Spectator Logic
+    if (this.gameMode === 'gymkhana_blitz') {
+      if (this.roundPhase === 'active' && this.roundTimer < 57) {
+        // Round is already underway! New player waits until the current 1-minute round ends
+        const activeCandidates = Array.from(this.players.values()).filter(
+          (p) => !p.isSpectator && p.id !== playerId
+        );
+
+        if (activeCandidates.length > 0) {
+          session.isSpectator = true;
+          const randomTarget = activeCandidates[Math.floor(Math.random() * activeCandidates.length)];
+          session.spectateTargetId = randomTarget.id;
+
+          this.sendToWs(ws, {
+            type: 'gymkhana_spectate',
+            isSpectator: true,
+            targetId: randomTarget.id,
+            targetNickname: randomTarget.nickname,
+            roundTimeRemaining: Math.max(1, Math.round(this.roundTimer)),
+          });
+          console.log(`[GameRoom:${this.id}] Late joiner ${nickname} (${playerId}) spectating ${randomTarget.nickname} (${randomTarget.id}). ${Math.round(this.roundTimer)}s remaining.`);
+        }
+      } else if (this.roundPhase === 'intermission') {
+        // Intermission is in progress: player waits for the new round to begin
+        session.isSpectator = true;
+        const leaderboard = Array.from(this.players.values())
+          .filter((p) => p.id !== playerId)
+          .map((p) => ({
+            id: p.id,
+            nickname: p.nickname,
+            vehicleId: p.vehicleId,
+            score: p.score,
+          }))
+          .sort((a, b) => b.score - a.score);
+
+        this.sendToWs(ws, {
+          type: 'gymkhana_round_ended',
+          intermissionRemaining: Math.max(1, Math.round(this.roundTimer)),
+          leaderboard,
+        });
+      }
+    }
+
     // Broadcast player_joined to existing drivers
     const newPlayerSummary: RemotePlayerSummary = {
       id: playerId,
@@ -199,6 +253,10 @@ export class GameRoom {
     if (!session) return;
 
     session.lastSeen = Date.now();
+    if (typeof payload.score === 'number' && !session.isSpectator) {
+      session.score = payload.score;
+    }
+
     session.latestSnapshot = {
       time: payload.time,
       pos: payload.pos,
@@ -211,6 +269,7 @@ export class GameRoom {
       gear: payload.gear,
       isDrifting: payload.isDrifting,
       surface: payload.surface,
+      score: payload.score,
     };
   }
 
@@ -240,6 +299,31 @@ export class GameRoom {
     this.usedSlots.delete(session.slotIndex);
     this.players.delete(playerId);
 
+    // Reassign any spectators watching this leaving driver to another active player
+    if (this.gameMode === 'gymkhana_blitz' && this.roundPhase === 'active') {
+      const activeCandidates = Array.from(this.players.values()).filter(
+        (p) => !p.isSpectator && p.id !== playerId
+      );
+
+      for (const p of this.players.values()) {
+        if (p.isSpectator && p.spectateTargetId === playerId) {
+          if (activeCandidates.length > 0) {
+            const nextTarget = activeCandidates[Math.floor(Math.random() * activeCandidates.length)];
+            p.spectateTargetId = nextTarget.id;
+            this.sendToWs(p.ws, {
+              type: 'gymkhana_spectate',
+              isSpectator: true,
+              targetId: nextTarget.id,
+              targetNickname: nextTarget.nickname,
+              roundTimeRemaining: Math.max(1, Math.round(this.roundTimer)),
+            });
+          } else {
+            p.spectateTargetId = null;
+          }
+        }
+      }
+    }
+
     this.broadcast({
       type: 'player_left',
       playerId,
@@ -265,6 +349,10 @@ export class GameRoom {
       clearInterval(this.heartbeatInterval);
       this.heartbeatInterval = null;
     }
+    if (this.matchLoopInterval) {
+      clearInterval(this.matchLoopInterval);
+      this.matchLoopInterval = null;
+    }
 
     // Broadcast room_deleted to all currently connected players
     const deleteMsg: ServerMessage = {
@@ -279,13 +367,81 @@ export class GameRoom {
     this.onPlayerLeftCallback = null;
   }
 
+  private startGymkhanaMatchLoop(): void {
+    if (this.gameMode !== 'gymkhana_blitz') return;
+
+    this.roundPhase = 'active';
+    this.roundTimer = 60.0;
+
+    this.matchLoopInterval = setInterval(() => {
+      // If room is empty, keep timer primed at 60s
+      if (this.players.size === 0) {
+        this.roundPhase = 'active';
+        this.roundTimer = 60.0;
+        return;
+      }
+
+      this.roundTimer -= 1.0;
+
+      if (this.roundPhase === 'active') {
+        if (this.roundTimer <= 0) {
+          // 60-second round finished! Transition to 20-second intermission
+          this.roundPhase = 'intermission';
+          this.roundTimer = 20.0;
+
+          const leaderboard = Array.from(this.players.values())
+            .filter((p) => !p.isSpectator)
+            .map((p) => ({
+              id: p.id,
+              nickname: p.nickname,
+              vehicleId: p.vehicleId,
+              score: p.score,
+            }))
+            .sort((a, b) => b.score - a.score);
+
+          this.broadcast({
+            type: 'gymkhana_round_ended',
+            intermissionRemaining: 20,
+            leaderboard,
+          });
+
+          console.log(
+            `[GameRoom:${this.id}] Gymkhana Blitz round finished. Intermission started (20s). Leaderboard: ${leaderboard.length} drivers.`
+          );
+        }
+      } else if (this.roundPhase === 'intermission') {
+        if (this.roundTimer <= 0) {
+          // 20-second intermission finished! Reset and start new Gymkhana Blitz round
+          this.roundPhase = 'active';
+          this.roundTimer = 60.0;
+
+          for (const session of this.players.values()) {
+            session.score = 0;
+            session.isSpectator = false;
+            session.spectateTargetId = null;
+          }
+
+          this.broadcast({
+            type: 'gymkhana_round_start',
+            duration: 60,
+            countdown: 3,
+          });
+
+          console.log(
+            `[GameRoom:${this.id}] Gymkhana Blitz new round started for ${this.players.size} drivers.`
+          );
+        }
+      }
+    }, 1000);
+  }
+
   private startBroadcastLoop(): void {
     this.broadcastInterval = setInterval(() => {
       if (this.players.size === 0) return;
 
       const entities: Record<string, EntitySnapshot> = {};
       for (const [id, session] of this.players.entries()) {
-        if (session.latestSnapshot) {
+        if (session.latestSnapshot && !session.isSpectator) {
           entities[id] = session.latestSnapshot;
         }
       }

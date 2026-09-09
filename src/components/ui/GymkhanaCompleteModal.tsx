@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useGymkhanaStore } from '@/store/gymkhanaStore';
 import { useGameStore } from '@/store/gameStore';
+import { useMultiplayerStore } from '@/store/multiplayerStore';
+import { networkClient } from '@/network/networkClient';
 import { sampleGamepad, resetGamepadEdgeState } from '@/utils/input/gamepad';
 import { isTextEditingActive } from '@/utils/input/textInput';
+import { getVehiclePreset } from '@/config/vehicleRegistry';
 
 function formatScore(score: number): string {
   return score.toLocaleString('en-US');
@@ -11,6 +14,7 @@ function formatScore(score: number): string {
 /**
  * Stage Complete modal displayed when the 60-second Gymkhana Blitz timer expires.
  * Displays total drift score, personal best, new record badges, performance breakdown,
+ * official multiplayer room classification, 20s intermission countdown,
  * and full controller / gamepad (DualSense, Xbox) and keyboard navigation support.
  */
 function GymkhanaCompleteModalContent() {
@@ -20,6 +24,30 @@ function GymkhanaCompleteModalContent() {
   const storeStats = useGymkhanaStore((s) => s.stats);
   const storeGamepadConnected = useGameStore((s) => s.gamepadConnected);
   const storeGamepadType = useGameStore((s) => s.gamepadType);
+
+  const storeStatus = useMultiplayerStore((s) => s.status);
+  const storeGameMode = useGameStore((s) => s.gameMode);
+  const status = useMultiplayerStore.getState().status ?? storeStatus;
+  const gameMode = useGameStore.getState().gameMode ?? storeGameMode;
+  const isMultiplayer = status !== 'disconnected';
+  const isMultiplayerGymkhana = isMultiplayer && gameMode === 'gymkhana_blitz';
+  const storeLeaderboard = useMultiplayerStore((s) => s.gymkhanaLeaderboard);
+  const leaderboard = useMultiplayerStore.getState().gymkhanaLeaderboard ?? storeLeaderboard;
+  const storeIntermissionRemaining = useMultiplayerStore((s) => s.gymkhanaIntermissionRemaining);
+  const intermissionRemaining = useMultiplayerStore.getState().gymkhanaIntermissionRemaining ?? storeIntermissionRemaining;
+  const currentRoom = useMultiplayerStore((s) => s.currentRoom);
+  const selfId = useMultiplayerStore((s) => s.selfId);
+
+  const [intermissionTimer, setIntermissionTimer] = useState(() => intermissionRemaining ?? 20);
+
+  useEffect(() => {
+    if (!isMultiplayerGymkhana) return;
+    setIntermissionTimer(intermissionRemaining ?? 20);
+    const interval = setInterval(() => {
+      setIntermissionTimer((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isMultiplayerGymkhana, intermissionRemaining]);
 
   const totalScore = useGymkhanaStore.getState().totalScore ?? storeTotalScore;
   const bestScore = useGymkhanaStore.getState().bestScore ?? storeBestScore;
@@ -41,25 +69,31 @@ function GymkhanaCompleteModalContent() {
 
   const handlePlayAgain = useCallback(() => {
     resetGamepadEdgeState();
-    dismissResultsModal();
-    useGymkhanaStore.getState().resetBlitz();
-    triggerReset(true);
-    startCountdown();
-  }, [dismissResultsModal, startCountdown, triggerReset]);
+    if (!isMultiplayerGymkhana) {
+      dismissResultsModal();
+      useGymkhanaStore.getState().resetBlitz();
+      triggerReset(true);
+      startCountdown();
+    }
+  }, [dismissResultsModal, startCountdown, triggerReset, isMultiplayerGymkhana]);
 
   const handleSwitchToFreeRoam = useCallback(() => {
+    if (isMultiplayerGymkhana) return; // Strict block in multiplayer Gymkhana Blitz
     resetGamepadEdgeState();
     dismissResultsModal();
     useGymkhanaStore.getState().resetBlitz();
     setGameMode('freeroam');
-  }, [dismissResultsModal, setGameMode]);
+  }, [dismissResultsModal, setGameMode, isMultiplayerGymkhana]);
 
   const handleReturnToMenu = useCallback(() => {
     resetGamepadEdgeState();
     dismissResultsModal();
     useGymkhanaStore.getState().resetBlitz();
+    if (isMultiplayer && currentRoom) {
+      networkClient.leaveRoom(currentRoom.id);
+    }
     setGameState('menu');
-  }, [dismissResultsModal, setGameState]);
+  }, [dismissResultsModal, setGameState, isMultiplayer, currentRoom]);
 
   const playAgainRef = useRef(handlePlayAgain);
   playAgainRef.current = handlePlayAgain;
@@ -67,6 +101,8 @@ function GymkhanaCompleteModalContent() {
   freeRoamRef.current = handleSwitchToFreeRoam;
   const returnMenuRef = useRef(handleReturnToMenu);
   returnMenuRef.current = handleReturnToMenu;
+
+  const maxButtons = isMultiplayerGymkhana ? 2 : 3;
 
   // Clear edges on open
   useEffect(() => {
@@ -79,16 +115,21 @@ function GymkhanaCompleteModalContent() {
       if (isTextEditingActive(e)) return;
       if (e.code === 'ArrowUp' || e.code === 'KeyW') {
         e.preventDefault();
-        setFocusedIndex((prev) => (prev - 1 + 3) % 3);
+        setFocusedIndex((prev) => (prev - 1 + maxButtons) % maxButtons);
       } else if (e.code === 'ArrowDown' || e.code === 'KeyS') {
         e.preventDefault();
-        setFocusedIndex((prev) => (prev + 1) % 3);
+        setFocusedIndex((prev) => (prev + 1) % maxButtons);
       } else if (e.code === 'Enter' || e.code === 'Space') {
         e.preventDefault();
         const cur = focusedIndexRef.current;
-        if (cur === 0) playAgainRef.current();
-        else if (cur === 1) freeRoamRef.current();
-        else if (cur === 2) returnMenuRef.current();
+        if (isMultiplayerGymkhana) {
+          if (cur === 0) playAgainRef.current();
+          else if (cur === 1) returnMenuRef.current();
+        } else {
+          if (cur === 0) playAgainRef.current();
+          else if (cur === 1) freeRoamRef.current();
+          else if (cur === 2) returnMenuRef.current();
+        }
       } else if (e.code === 'Escape' || e.code === 'Backspace') {
         e.preventDefault();
         returnMenuRef.current();
@@ -97,7 +138,7 @@ function GymkhanaCompleteModalContent() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [maxButtons, isMultiplayerGymkhana]);
 
   // Gamepad loop
   useEffect(() => {
@@ -106,16 +147,21 @@ function GymkhanaCompleteModalContent() {
       const gp = sampleGamepad();
       if (gp.connected) {
         if (gp.menuUp) {
-          setFocusedIndex((prev) => (prev - 1 + 3) % 3);
+          setFocusedIndex((prev) => (prev - 1 + maxButtons) % maxButtons);
         } else if (gp.menuDown) {
-          setFocusedIndex((prev) => (prev + 1) % 3);
+          setFocusedIndex((prev) => (prev + 1) % maxButtons);
         }
 
         if (gp.menuConfirm) {
           const cur = focusedIndexRef.current;
-          if (cur === 0) playAgainRef.current();
-          else if (cur === 1) freeRoamRef.current();
-          else if (cur === 2) returnMenuRef.current();
+          if (isMultiplayerGymkhana) {
+            if (cur === 0) playAgainRef.current();
+            else if (cur === 1) returnMenuRef.current();
+          } else {
+            if (cur === 0) playAgainRef.current();
+            else if (cur === 1) freeRoamRef.current();
+            else if (cur === 2) returnMenuRef.current();
+          }
         } else if (gp.menuBack) {
           returnMenuRef.current();
         }
@@ -125,7 +171,7 @@ function GymkhanaCompleteModalContent() {
 
     animId = requestAnimationFrame(pollGamepad);
     return () => cancelAnimationFrame(animId);
-  }, []);
+  }, [maxButtons, isMultiplayerGymkhana]);
 
   return (
     <div style={styles.backdrop}>
@@ -198,6 +244,52 @@ function GymkhanaCompleteModalContent() {
           </div>
         </div>
 
+        {/* Multiplayer 20-Second Intermission & Leaderboard */}
+        {isMultiplayerGymkhana && (
+          <>
+            <div style={styles.intermissionBanner}>
+              <span style={styles.intermissionPulseDot} />
+              <span style={styles.intermissionLabel}>NEXT ROUND STARTS IN:</span>
+              <strong style={styles.intermissionTimerText}>{intermissionTimer}s</strong>
+            </div>
+
+            {leaderboard.length > 0 && (
+              <div style={styles.leaderboardContainer}>
+                <div style={styles.leaderboardHeaderRow}>
+                  <span style={styles.leaderboardTitle}>OFFICIAL STAGE CLASSIFICATION</span>
+                  <span style={styles.leaderboardRoomTag}>{currentRoom?.name ?? 'MULTIPLAYER'}</span>
+                </div>
+                <div style={styles.leaderboardList}>
+                  {leaderboard.map((driver, index) => {
+                    const isSelf = driver.id === selfId;
+                    const preset = getVehiclePreset(driver.vehicleId);
+                    return (
+                      <div
+                        key={driver.id}
+                        style={{
+                          ...styles.leaderboardRow,
+                          ...(isSelf ? styles.leaderboardRowSelf : {}),
+                        }}
+                      >
+                        <span style={styles.rankBadge}>
+                          {index === 0 ? '🥇 #1' : index === 1 ? '🥈 #2' : index === 2 ? '🥉 #3' : `#${index + 1}`}
+                        </span>
+                        <div style={styles.driverInfoCol}>
+                          <span style={styles.driverNick}>
+                            {driver.nickname} {isSelf && <span style={styles.youBadge}>(YOU)</span>}
+                          </span>
+                          <span style={styles.driverCar}>{preset.name}</span>
+                        </div>
+                        <span style={styles.driverScore}>{formatScore(driver.score)} PTS</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
         {/* Action Buttons with Dynamic Gamepad / Keyboard Focus Styles */}
         <div style={styles.buttonGroup}>
           <button
@@ -209,32 +301,36 @@ function GymkhanaCompleteModalContent() {
             onPointerMove={() => setFocusedIndex(0)}
             onClick={handlePlayAgain}
           >
-            <span>PLAY AGAIN</span>
+            <span>{isMultiplayerGymkhana ? `READY FOR NEXT ROUND (${intermissionTimer}s)` : 'PLAY AGAIN'}</span>
             <span style={styles.buttonArrow}>➜</span>
           </button>
 
-          <button
-            type="button"
-            style={{
-              ...styles.secondaryButton,
-              ...(focusedIndex === 1 ? styles.focusedSecondaryButton : {}),
-            }}
-            onPointerMove={() => setFocusedIndex(1)}
-            onClick={handleSwitchToFreeRoam}
-          >
-            CONTINUE IN FREE ROAM
-          </button>
+          {!isMultiplayerGymkhana && (
+            <button
+              type="button"
+              style={{
+                ...styles.secondaryButton,
+                ...(focusedIndex === 1 ? styles.focusedSecondaryButton : {}),
+              }}
+              onPointerMove={() => setFocusedIndex(1)}
+              onClick={handleSwitchToFreeRoam}
+            >
+              CONTINUE IN FREE ROAM
+            </button>
+          )}
 
           <button
             type="button"
             style={{
               ...styles.tertiaryButton,
-              ...(focusedIndex === 2 ? styles.focusedTertiaryButton : {}),
+              ...((isMultiplayerGymkhana ? focusedIndex === 1 : focusedIndex === 2)
+                ? styles.focusedTertiaryButton
+                : {}),
             }}
-            onPointerMove={() => setFocusedIndex(2)}
+            onPointerMove={() => setFocusedIndex(isMultiplayerGymkhana ? 1 : 2)}
             onClick={handleReturnToMenu}
           >
-            RETURN TO MENU
+            {isMultiplayer ? 'LEAVE ROOM & EXIT' : 'RETURN TO MENU'}
           </button>
         </div>
 
@@ -586,4 +682,116 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#CBD5E1',
     letterSpacing: '0.5px',
   },
+  intermissionBanner: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    background: 'rgba(245, 158, 11, 0.14)',
+    border: '1px solid rgba(245, 158, 11, 0.5)',
+    borderRadius: '12px',
+    padding: '8px 16px',
+    marginBottom: '14px',
+  },
+  intermissionPulseDot: {
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%',
+    background: '#F59E0B',
+    boxShadow: '0 0 10px #F59E0B',
+  },
+  intermissionLabel: {
+    fontSize: '11px',
+    fontWeight: 800,
+    letterSpacing: '1.2px',
+    color: '#FACC15',
+    textTransform: 'uppercase',
+  },
+  intermissionTimerText: {
+    fontFamily: "'SF Mono', Consolas, monospace",
+    fontSize: '16px',
+    fontWeight: 900,
+    color: '#FFFFFF',
+  },
+  leaderboardContainer: {
+    background: 'rgba(15, 23, 42, 0.75)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    borderRadius: '14px',
+    padding: '10px 14px',
+    marginBottom: '16px',
+    maxHeight: '180px',
+    overflowY: 'auto',
+  },
+  leaderboardHeaderRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '8px',
+    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+    paddingBottom: '4px',
+  },
+  leaderboardTitle: {
+    fontSize: '10px',
+    fontWeight: 900,
+    letterSpacing: '1.5px',
+    color: '#F59E0B',
+    textTransform: 'uppercase',
+  },
+  leaderboardRoomTag: {
+    fontSize: '9px',
+    fontWeight: 800,
+    color: '#94A3B8',
+  },
+  leaderboardList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+  },
+  leaderboardRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '4px 8px',
+    borderRadius: '8px',
+    background: 'rgba(255, 255, 255, 0.04)',
+  },
+  leaderboardRowSelf: {
+    background: 'rgba(56, 189, 248, 0.15)',
+    border: '1px solid rgba(56, 189, 248, 0.4)',
+  },
+  rankBadge: {
+    fontSize: '11px',
+    fontWeight: 900,
+    width: '40px',
+    textAlign: 'left',
+    color: '#FACC15',
+  },
+  driverInfoCol: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    flex: 1,
+    marginLeft: '6px',
+  },
+  driverNick: {
+    fontSize: '12px',
+    fontWeight: 800,
+    color: '#F8FAFC',
+  },
+  youBadge: {
+    fontSize: '9px',
+    color: '#38BDF8',
+    marginLeft: '4px',
+  },
+  driverCar: {
+    fontSize: '9px',
+    color: '#94A3B8',
+  },
+  driverScore: {
+    fontFamily: "'SF Mono', Consolas, monospace",
+    fontSize: '13px',
+    fontWeight: 900,
+    color: '#FACC15',
+  },
 };
+

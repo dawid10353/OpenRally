@@ -1,4 +1,4 @@
-import { useRef, useState, Suspense } from 'react';
+import { useRef, useState, useEffect, Suspense } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useGLTF, Clone, Detailed, Html } from '@react-three/drei';
@@ -8,6 +8,11 @@ import { Wheel } from '@/components/vehicle/Wheel';
 import { VehicleModelErrorBoundary } from '@/components/vehicle/Vehicle';
 import { useSettingsStore } from '@/store/settingsStore';
 import { isMobileDevice } from '@/utils/device';
+import {
+  registerRemoteVehicleMesh,
+  unregisterRemoteVehicleMesh,
+  getRemoteVehicleMesh,
+} from './remoteVehicleRegistry';
 import type { RemotePlayerSummary } from '@/types/network';
 
 interface RemoteVehicleProps {
@@ -86,8 +91,21 @@ export function RemoteVehicle({ player }: RemoteVehicleProps) {
   const modelOffset = preset.modelPositionOffset ?? [0, 0.2, 0.1];
   const modelRotationOffset = preset.modelRotationOffset ?? [0, 0, 0];
 
+  useEffect(() => {
+    if (groupRef.current) {
+      registerRemoteVehicleMesh(player.id, groupRef.current);
+    }
+    return () => {
+      unregisterRemoteVehicleMesh(player.id);
+    };
+  }, [player.id]);
+
   useFrame(() => {
     if (!groupRef.current) return;
+
+    if (!getRemoteVehicleMesh(player.id)) {
+      registerRemoteVehicleMesh(player.id, groupRef.current);
+    }
 
     const renderTime = Date.now() - INTERPOLATION_DELAY_MS;
     const sample = buffer.sample(renderTime, scratchTargetPos, scratchTargetRot);

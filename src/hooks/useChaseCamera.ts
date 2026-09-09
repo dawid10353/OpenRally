@@ -3,6 +3,8 @@ import { useFrame, useThree } from '@react-three/fiber';
 import type { PerspectiveCamera } from 'three';
 import { Vector3, Quaternion, MathUtils, Object3D, Euler } from 'three';
 import { useGameStore } from '@/store/gameStore';
+import { useMultiplayerStore } from '@/store/multiplayerStore';
+import { getRemoteVehicleMesh } from '@/components/vehicle/remoteVehicleRegistry';
 import { isLookBackActive, getCameraLook } from '@/hooks/useInput';
 import { lerp } from '@/utils/math';
 import {
@@ -50,7 +52,11 @@ export function useChaseCamera(
   const cameraMode = useGameStore((s) => s.cameraMode);
 
   useFrame((state, delta) => {
-    if (!targetRef.current) return;
+    const isSpectating = useMultiplayerStore.getState().isSpectating;
+    const spectateTargetId = useMultiplayerStore.getState().spectateTargetId;
+    const spectateTarget = isSpectating && spectateTargetId ? getRemoteVehicleMesh(spectateTargetId) : null;
+    const target = spectateTarget ?? targetRef.current;
+    if (!target) return;
 
     const gameState = useGameStore.getState().gameState;
     if (gameState === 'paused') return;
@@ -126,12 +132,10 @@ export function useChaseCamera(
       return;
     }
 
-    if (cameraMode !== 'chase' && cameraMode !== 'chase_close') return;
+    if (!isSpectating && cameraMode !== 'chase' && cameraMode !== 'chase_close') return;
 
     // Read speed dynamically without causing React re-renders
-    const speed = useGameStore.getState().speed;
-
-    const target = targetRef.current;
+    const speed = isSpectating ? 55 : useGameStore.getState().speed;
 
     // Get interpolated world position and rotation of the visual mesh
     target.getWorldPosition(_bodyPos);

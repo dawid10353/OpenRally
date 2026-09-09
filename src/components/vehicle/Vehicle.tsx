@@ -161,6 +161,7 @@ export function Vehicle() {
   const spawnRotY = levelPreset.spawnRotationY;
 
   const isMultiplayer = useMultiplayerStore((s) => s.status) !== 'disconnected';
+  const isSpectating = useMultiplayerStore((s) => s.isSpectating);
   const slotIndex = isMultiplayer
     ? useMultiplayerStore.getState().slotIndex
     : 0;
@@ -179,7 +180,7 @@ export function Vehicle() {
   ];
 
   return (
-    <group>
+    <group visible={!isSpectating}>
       <RigidBody
         ref={chassisRef}
         type="dynamic"

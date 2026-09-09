@@ -71,6 +71,8 @@ export interface VehicleTelemetryPayload {
   isDrifting: boolean;
   /** Surface currently driven upon */
   surface: SurfaceType;
+  /** Live drift score in gymkhana mode */
+  score?: number;
 }
 
 /**
@@ -130,6 +132,7 @@ export interface EntitySnapshot {
   gear: number;
   isDrifting: boolean;
   surface: SurfaceType;
+  score?: number;
 }
 
 /**
@@ -228,6 +231,28 @@ export type ServerMessage =
       type: 'pong';
       clientTime: number;
       serverTime: number;
+    }
+  | {
+      type: 'gymkhana_spectate';
+      isSpectator: boolean;
+      targetId: string | null;
+      targetNickname: string | null;
+      roundTimeRemaining: number;
+    }
+  | {
+      type: 'gymkhana_round_ended';
+      intermissionRemaining: number;
+      leaderboard: Array<{
+        id: string;
+        nickname: string;
+        vehicleId: string;
+        score: number;
+      }>;
+    }
+  | {
+      type: 'gymkhana_round_start';
+      duration: number;
+      countdown: number;
     }
   | {
       type: 'error';

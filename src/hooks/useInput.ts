@@ -4,6 +4,7 @@ import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useRacingStore } from '@/store/racingStore';
 import { useGymkhanaStore } from '@/store/gymkhanaStore';
+import { useMultiplayerStore } from '@/store/multiplayerStore';
 import { lerp } from '@/utils/math';
 import {
   STEER_SPEED,
@@ -308,6 +309,20 @@ export function useInputUpdater(): (dt: number) => InputState {
       (gameMode === 'gymkhana_blitz' && gymkhanaStatus === 'completed');
 
     if (isGymkhanaFinished) {
+      _cameraLookX = 0;
+      _cameraLookY = 0;
+      stateRef.current.throttle = 0;
+      stateRef.current.brake = 1;
+      stateRef.current.steering = 0;
+      stateRef.current.handbrake = true;
+      stateRef.current.gearUp = false;
+      stateRef.current.gearDown = false;
+      stateRef.current.reset = false;
+      return stateRef.current;
+    }
+
+    const isSpectating = useMultiplayerStore.getState().isSpectating;
+    if (isSpectating) {
       _cameraLookX = 0;
       _cameraLookY = 0;
       stateRef.current.throttle = 0;
