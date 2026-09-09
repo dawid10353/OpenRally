@@ -218,6 +218,8 @@ export class NetworkClient {
     this.send(msg);
   }
 
+  private sendQueue: ClientMessage[] = [];
+
   private send(msg: ClientMessage): void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       try {
@@ -225,11 +227,25 @@ export class NetworkClient {
       } catch (err) {
         console.warn('[NetworkClient] Send failed:', err);
       }
+    } else {
+      this.sendQueue.push(msg);
     }
   }
 
   private handleOpen = (): void => {
     this.reconnectAttempts = 0;
+
+    // Flush any queued client messages upon connection
+    while (this.sendQueue.length > 0) {
+      const queuedMsg = this.sendQueue.shift();
+      if (queuedMsg && this.ws && this.ws.readyState === WebSocket.OPEN) {
+        try {
+          this.ws.send(JSON.stringify(queuedMsg));
+        } catch {
+          // Ignore
+        }
+      }
+    }
 
     // Immediately fetch active rooms list
     this.requestRooms();
@@ -291,9 +307,12 @@ export class NetworkClient {
 
         case 'world_snapshot': {
           const entities = msg.entities;
+          const receiveTime = Date.now();
           for (const entityId in entities) {
             if (entityId === store.selfId) continue;
             const snap = entities[entityId];
+            // Normalize snapshot time to local arrival timeline to prevent client clock skew
+            snap.time = receiveTime;
             const buffer = this.getEntityBuffer(entityId);
             buffer.push(snap);
           }

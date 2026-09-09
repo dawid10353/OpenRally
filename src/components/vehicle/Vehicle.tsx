@@ -17,6 +17,7 @@ import { useGLTF, Clone, Detailed } from '@react-three/drei';
 import { VEHICLE_MODEL_PATH, VEHICLE_WRC_MODEL_PATH } from '@/config/assets';
 import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useMultiplayerStore } from '@/store/multiplayerStore';
 import { getVehiclePreset } from '@/config/vehicleRegistry';
 import { useTerrainData } from '@/components/terrain/TerrainContext';
 import { isMobileDevice } from '@/utils/device';
@@ -159,6 +160,21 @@ export function Vehicle() {
   const spawnPos = levelPreset.spawnPosition;
   const spawnRotY = levelPreset.spawnRotationY;
 
+  const slotIndex = useGameStore((s) => s.gameMode) === 'freeroam'
+    ? useMultiplayerStore.getState().slotIndex
+    : 0;
+  const isMultiplayer = useMultiplayerStore((s) => s.status) !== 'disconnected';
+  const gridColumn = slotIndex % 2;
+  const gridRow = Math.floor(slotIndex / 2);
+  const lateralOffset = isMultiplayer ? (gridColumn === 0 ? -3.0 : 3.0) : 0;
+  const longitudinalOffset = isMultiplayer ? -gridRow * 6.0 : 0;
+
+  const effectiveSpawnPos: [number, number, number] = [
+    spawnPos[0] + lateralOffset,
+    spawnPos[1],
+    spawnPos[2] + longitudinalOffset,
+  ];
+
   return (
     <group>
       <RigidBody
@@ -166,7 +182,7 @@ export function Vehicle() {
         type="dynamic"
         colliders={false}
         mass={config.chassisMass}
-        position={spawnPos}
+        position={effectiveSpawnPos}
         rotation={[0, spawnRotY, 0]}
         linearDamping={0.15}
         angularDamping={2.2}

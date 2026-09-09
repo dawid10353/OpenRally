@@ -43,10 +43,17 @@ export function MultiplayerView({
   // Available roster of all 7 championship vehicles
   const vehicles = getAvailableVehicles();
 
-  // Connect to relay server on view mount to fetch live rooms
+  // Connect to relay server on view mount to fetch live rooms and subscribe
   useEffect(() => {
     networkClient.connect();
     networkClient.requestRooms();
+
+    // Periodically refresh active rooms every 2.5s while browsing multiplayer menu
+    const pollInterval = setInterval(() => {
+      networkClient.requestRooms();
+    }, 2500);
+
+    return () => clearInterval(pollInterval);
   }, []);
 
   const handleNickChange = (val: string) => {
@@ -308,7 +315,7 @@ export function MultiplayerView({
               type="button"
               onClick={() => {
                 setShowCreateModal(!showCreateModal);
-                setNewRoomName(`${getEffectiveNickname()}'s Club`);
+                setNewRoomName(`${getEffectiveNickname()} Club`);
                 setCreateError(null);
               }}
               style={{

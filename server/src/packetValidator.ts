@@ -31,7 +31,7 @@ export function sanitizeNickname(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
   const trimmed = raw.trim();
   if (trimmed.length < 2 || trimmed.length > 16) return null;
-  const validPattern = /^[a-zA-Z0-9_\- ]+$/;
+  const validPattern = /^[\p{L}\p{N}_\- ]+$/u;
   if (!validPattern.test(trimmed)) return null;
   return trimmed;
 }
@@ -40,7 +40,7 @@ export function sanitizeRoomName(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
   const trimmed = raw.trim();
   if (trimmed.length < 2 || trimmed.length > 24) return null;
-  const validPattern = /^[a-zA-Z0-9_\- !?#()]+$/;
+  const validPattern = /^[\p{L}\p{N}_\- !?#()'".]+$/u;
   if (!validPattern.test(trimmed)) return null;
   return trimmed;
 }

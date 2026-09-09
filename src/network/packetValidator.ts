@@ -43,8 +43,8 @@ export function sanitizeNickname(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
   const trimmed = raw.trim();
   if (trimmed.length < 2 || trimmed.length > 16) return null;
-  // Allow alphanumeric, underscores, hyphens, and spaces
-  const validPattern = /^[a-zA-Z0-9_\- ]+$/;
+  // Allow unicode letters, numbers, underscores, hyphens, and spaces
+  const validPattern = /^[\p{L}\p{N}_\- ]+$/u;
   if (!validPattern.test(trimmed)) return null;
   return trimmed;
 }
@@ -56,7 +56,8 @@ export function sanitizeRoomName(raw: unknown): string | null {
   if (typeof raw !== 'string') return null;
   const trimmed = raw.trim();
   if (trimmed.length < 2 || trimmed.length > 24) return null;
-  const validPattern = /^[a-zA-Z0-9_\- !?#()]+$/;
+  // Allow unicode letters, numbers, spaces, and safe punctuation including apostrophes
+  const validPattern = /^[\p{L}\p{N}_\- !?#()'".]+$/u;
   if (!validPattern.test(trimmed)) return null;
   return trimmed;
 }
@@ -144,6 +145,50 @@ export function validateTelemetryPayload(raw: unknown): VehicleTelemetryPayload 
     wheelRots: p.wheelRots as [number, number, number, number],
     rpm: p.rpm as number,
     gear: p.gear as number,
+    isDrifting: p.isDrifting,
+    surface,
+  };
+}
+
+/**
+ * Validates an entity snapshot received from server in world_snapshot.
+ * Note: EntitySnapshot does not contain seq, only physical state.
+ */
+export function validateEntitySnapshot(raw: unknown): EntitySnapshot | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const p = raw as Record<string, unknown>;
+
+  if (!isValidNumber(p.time, 0, 1e15)) return null;
+  if (!isValidVector3(p.pos, 2000)) return null;
+  if (!isValidQuaternion(p.rot)) return null;
+  if (!isValidVector3(p.linVel, 500)) return null;
+  if (!isValidVector3(p.angVel, 200)) return null;
+  if (!isValidNumber(p.steer, -2.5, 2.5)) return null;
+
+  if (!Array.isArray(p.wheelRots) || p.wheelRots.length !== 4) return null;
+  for (let i = 0; i < 4; i++) {
+    if (!isValidNumber(p.wheelRots[i], -1e8, 1e8)) return null;
+  }
+
+  if (!isValidNumber(p.rpm, 0, 20000)) return null;
+  if (!isValidNumber(p.gear, -2, 10)) return null;
+  if (typeof p.isDrifting !== 'boolean') return null;
+
+  const surface =
+    typeof p.surface === 'string' && VALID_SURFACES.has(p.surface as SurfaceType)
+      ? (p.surface as SurfaceType)
+      : 'tarmac';
+
+  return {
+    time: p.time,
+    pos: p.pos as [number, number, number],
+    rot: p.rot as [number, number, number, number],
+    linVel: p.linVel as [number, number, number],
+    angVel: p.angVel as [number, number, number],
+    steer: p.steer,
+    wheelRots: p.wheelRots as [number, number, number, number],
+    rpm: p.rpm,
+    gear: p.gear,
     isDrifting: p.isDrifting,
     surface,
   };
@@ -358,7 +403,7 @@ export function parseServerMessage(raw: unknown): ServerMessage | null {
     const rawEntities = msg.entities as Record<string, unknown>;
     const entities: Record<string, EntitySnapshot> = {};
     for (const key in rawEntities) {
-      const snap = validateTelemetryPayload(rawEntities[key]);
+      const snap = validateEntitySnapshot(rawEntities[key]);
       if (snap) {
         entities[key] = snap;
       }
