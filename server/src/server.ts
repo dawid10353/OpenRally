@@ -128,12 +128,26 @@ httpServer.listen(PORT, HOST, () => {
 function handleShutdown(): void {
   console.log('[OpenRally] Shutting down server...');
   roomManager.destroy();
-  wss.close(() => {
-    httpServer.close(() => {
-      console.log('[OpenRally] Server closed gracefully.');
-      process.exit(0);
-    });
+
+  // Terminate any remaining client sockets immediately
+  for (const client of wss.clients) {
+    try {
+      client.terminate();
+    } catch {
+      // Suppress
+    }
+  }
+
+  wss.close();
+  httpServer.close(() => {
+    console.log('[OpenRally] Server closed gracefully.');
+    process.exit(0);
   });
+
+  // Force exit after 1.5s if keep-alive sockets linger
+  setTimeout(() => {
+    process.exit(0);
+  }, 1500).unref();
 }
 
 process.on('SIGINT', handleShutdown);
