@@ -8,6 +8,7 @@ import { getAvailableLevels, getLevelPreset } from '@/config/levelRegistry';
 import { resetGamepadEdgeState } from '@/utils/input/gamepad';
 import { useGameEventListener } from '@/utils/events';
 import { unlockSharedAudioContext } from '@/utils/audio/audioContext';
+import { networkClient } from '@/network/networkClient';
 import type { GameMode } from '@/types';
 import {
   menuStyles,
@@ -236,6 +237,7 @@ export function MenuOverlay() {
   const handleReturnToMainMenu = useCallback(() => {
     resetGamepadEdgeState();
     setFocusedIndexInternal(0);
+    networkClient.disconnect();
     const spawnPos = currentLevelPreset.spawnPosition;
     useGameStore.setState({
       speed: 0,

@@ -1,4 +1,4 @@
-import { useRef, Suspense } from 'react';
+import { useRef, useState, Suspense } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useGLTF, Clone, Detailed, Html } from '@react-three/drei';
@@ -60,6 +60,8 @@ function RemoteVehicleVisualModel({
 
 export function RemoteVehicle({ player }: RemoteVehicleProps) {
   const groupRef = useRef<THREE.Group>(null);
+  const [hasFirstSample, setHasFirstSample] = useState(false);
+
   const wheelRefs = [
     useRef<THREE.Group>(null),
     useRef<THREE.Group>(null),
@@ -71,6 +73,10 @@ export function RemoteVehicle({ player }: RemoteVehicleProps) {
   const { chassisSize, wheels } = preset.config;
   const buffer = networkClient.getEntityBuffer(player.id);
 
+  const modelScale = preset.modelScale ?? [4.5, 4.5, 4.5];
+  const modelOffset = preset.modelPositionOffset ?? [0, 0.2, 0.1];
+  const modelRotationOffset = preset.modelRotationOffset ?? [0, 0, 0];
+
   useFrame(() => {
     if (!groupRef.current) return;
 
@@ -78,6 +84,10 @@ export function RemoteVehicle({ player }: RemoteVehicleProps) {
     const sample = buffer.sample(renderTime, scratchTargetPos, scratchTargetRot);
 
     if (sample) {
+      if (!hasFirstSample) {
+        setHasFirstSample(true);
+      }
+      groupRef.current.visible = true;
       groupRef.current.position.copy(scratchTargetPos);
       groupRef.current.quaternion.copy(scratchTargetRot);
 
@@ -104,49 +114,54 @@ export function RemoteVehicle({ player }: RemoteVehicleProps) {
         const inner = wheelRefs[3].current.children[0];
         if (inner) inner.rotation.x = sample.wheelRots[3];
       }
+    } else if (!hasFirstSample) {
+      // Hide until first telemetry snapshot is received to avoid rendering at [0,0,0]
+      groupRef.current.visible = false;
     }
   });
 
   return (
-    <group ref={groupRef}>
+    <group ref={groupRef} visible={hasFirstSample}>
       {/* Floating 3D Nameplate */}
-      <Html
-        position={[0, chassisSize[1] + 1.2, 0]}
-        center
-        distanceFactor={18}
-        zIndexRange={[100, 0]}
-      >
-        <div
-          style={{
-            background: 'rgba(15, 23, 42, 0.85)',
-            border: '1px solid rgba(56, 189, 248, 0.5)',
-            padding: '3px 8px',
-            borderRadius: '6px',
-            color: '#F8FAFC',
-            fontSize: '11px',
-            fontWeight: 700,
-            whiteSpace: 'nowrap',
-            pointerEvents: 'none',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-            backdropFilter: 'blur(4px)',
-          }}
+      {hasFirstSample && (
+        <Html
+          position={[0, chassisSize[1] + 1.2, 0]}
+          center
+          distanceFactor={18}
+          zIndexRange={[100, 0]}
         >
-          <span
+          <div
             style={{
-              width: '6px',
-              height: '6px',
-              borderRadius: '50%',
-              background: '#38BDF8',
-              boxShadow: '0 0 6px #38BDF8',
+              background: 'rgba(15, 23, 42, 0.85)',
+              border: '1px solid rgba(56, 189, 248, 0.5)',
+              padding: '3px 8px',
+              borderRadius: '6px',
+              color: '#F8FAFC',
+              fontSize: '11px',
+              fontWeight: 700,
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+              backdropFilter: 'blur(4px)',
             }}
-          />
-          <span>{player.nickname}</span>
-          <span style={{ fontSize: '9px', color: '#94A3B8' }}>{preset.name}</span>
-        </div>
-      </Html>
+          >
+            <span
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: '#38BDF8',
+                boxShadow: '0 0 6px #38BDF8',
+              }}
+            />
+            <span>{player.nickname}</span>
+            <span style={{ fontSize: '9px', color: '#94A3B8' }}>{preset.name}</span>
+          </div>
+        </Html>
+      )}
 
       {/* Visual Chassis Model */}
       <VehicleModelErrorBoundary
@@ -167,22 +182,26 @@ export function RemoteVehicle({ player }: RemoteVehicleProps) {
         >
           <RemoteVehicleVisualModel
             modelPath={preset.modelPath}
-            positionOffset={preset.modelPositionOffset ?? [0, 0, 0]}
-            rotationOffset={preset.modelRotationOffset}
-            scale={preset.modelScale ?? [1, 1, 1]}
+            positionOffset={modelOffset}
+            rotationOffset={modelRotationOffset}
+            scale={modelScale}
             chassisSize={chassisSize}
           />
         </Suspense>
       </VehicleModelErrorBoundary>
 
-      {/* Wheels */}
+      {/* Wheels with realistic suspension rest offset */}
       {wheels.map((w, index) => (
         <Wheel
           key={index}
           ref={wheelRefs[index]}
           radius={w.radius}
           isRightSide={index % 2 === 1}
-          position={w.position}
+          position={[
+            w.position[0],
+            w.position[1] - w.suspensionRestLength * 0.5,
+            w.position[2],
+          ]}
         />
       ))}
     </group>
