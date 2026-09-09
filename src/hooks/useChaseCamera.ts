@@ -71,7 +71,6 @@ export function useChaseCamera(
 
     // ─── Live 3D Cinematic Showcase Orbit in Main Menu / Title / Menu Loading ───
     if (isMenuOrbit) {
-      const target = targetRef.current;
       target.getWorldPosition(_bodyPos);
 
       const time = state.clock.elapsedTime;
