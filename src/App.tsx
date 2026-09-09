@@ -9,6 +9,8 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 import { useGameStore } from '@/store/gameStore';
 import { useGamepadManager } from '@/hooks/useGamepadManager';
+import { useAppLifecycle } from '@/hooks/useAppLifecycle';
+import { useAndroidBackNavigation } from '@/hooks/useAndroidBackNavigation';
 import { clearAudioBufferCache } from '@/utils/audioCache';
 
 /**
@@ -22,12 +24,16 @@ function App() {
   // Continuously monitor gamepad connections & state at root level
   useGamepadManager();
 
-  // Clear uncompressed linear PCM audio buffers when entering gameplay to reclaim up to 150MB RAM
+  // Monitor Android app lifecycle, tab backgrounding, auto-pause & touch input resets
+  useAppLifecycle();
+
+  // Monitor Android hardware back button and navigation edge swipe gesture
+  useAndroidBackNavigation();
+
+  // Reclaim audio buffers when switching tracks without penalizing in-level race restarts
   useEffect(() => {
-    if (gameState === 'playing') {
-      clearAudioBufferCache();
-    }
-  }, [gameState, selectedLevelId]);
+    clearAudioBufferCache();
+  }, [selectedLevelId]);
   
   // Persistent 3D GameCanvas stays mounted across all menu and gameplay transitions
   // to avoid creating and destroying WebGL contexts, eliminating context exhaustion crashes.

@@ -16,10 +16,27 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~:!*screenshots*:!*videos*'
         }
     }
+    signingConfigs {
+        release {
+            def keystorePath = System.getenv("OPENRALLY_RELEASE_KEYSTORE") ?: project.findProperty("OPENRALLY_RELEASE_KEYSTORE")
+            if (keystorePath && file(keystorePath).exists()) {
+                storeFile file(keystorePath)
+                storePassword System.getenv("OPENRALLY_KEYSTORE_PASSWORD") ?: project.findProperty("OPENRALLY_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("OPENRALLY_KEY_ALIAS") ?: project.findProperty("OPENRALLY_KEY_ALIAS")
+                keyPassword System.getenv("OPENRALLY_KEY_PASSWORD") ?: project.findProperty("OPENRALLY_KEY_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            def keystorePath = System.getenv("OPENRALLY_RELEASE_KEYSTORE") ?: project.findProperty("OPENRALLY_RELEASE_KEYSTORE")
+            if (keystorePath && file(keystorePath).exists()) {
+                signingConfig signingConfigs.release
+            } else {
+                signingConfig signingConfigs.debug
+            }
         }
     }
 }

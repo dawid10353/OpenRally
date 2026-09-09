@@ -41,8 +41,14 @@ export function FreeCamera({ targetRef }: FreeCameraProps) {
     // Get the vehicle's current world position
     targetRef.current.getWorldPosition(_bodyPos);
 
-    // Update the center of the orbit to be the vehicle's position
-    controlsRef.current.target.copy(_bodyPos);
+    if (
+      Number.isFinite(_bodyPos.x) &&
+      Number.isFinite(_bodyPos.y) &&
+      Number.isFinite(_bodyPos.z)
+    ) {
+      // Update the center of the orbit to be the vehicle's position
+      controlsRef.current.target.copy(_bodyPos);
+    }
   });
 
   // Only render and enable OrbitControls when in 'free' mode

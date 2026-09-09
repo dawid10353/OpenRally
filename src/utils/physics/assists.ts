@@ -120,7 +120,13 @@ export function applyAssists(
   if (localTorqueX !== 0 || localTorqueY !== 0 || localTorqueZ !== 0) {
     _localTorque.set(localTorqueX, localTorqueY, localTorqueZ);
     _worldTorque.copy(_localTorque).applyQuaternion(_bodyQuat);
-    body.applyTorqueImpulse(_worldTorque, true);
+    if (
+      Number.isFinite(_worldTorque.x) &&
+      Number.isFinite(_worldTorque.y) &&
+      Number.isFinite(_worldTorque.z)
+    ) {
+      body.applyTorqueImpulse(_worldTorque, true);
+    }
   }
 }
 

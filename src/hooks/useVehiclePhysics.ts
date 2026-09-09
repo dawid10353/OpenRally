@@ -185,8 +185,22 @@ export function useVehiclePhysics(
     const spawnRotY = levelPreset.spawnRotationY;
     const fallResetY = levelPreset.fallResetY;
     const currentBodyPos = body.translation();
+    const curLinvel = body.linvel();
+    const curAngvel = body.angvel();
 
-    if (currentBodyPos.y < fallResetY || resetState.pendingReset) {
+    // Numerical sanity guard: detect NaN or infinite values produced by extreme collisions or solver instability
+    const isCorrupted =
+      !Number.isFinite(currentBodyPos.x) ||
+      !Number.isFinite(currentBodyPos.y) ||
+      !Number.isFinite(currentBodyPos.z) ||
+      !Number.isFinite(curLinvel.x) ||
+      !Number.isFinite(curLinvel.y) ||
+      !Number.isFinite(curLinvel.z) ||
+      !Number.isFinite(curAngvel.x) ||
+      !Number.isFinite(curAngvel.y) ||
+      !Number.isFinite(curAngvel.z);
+
+    if (isCorrupted || currentBodyPos.y < fallResetY || resetState.pendingReset) {
       body.setTranslation({ x: spawnPos[0], y: spawnPos[1], z: spawnPos[2] }, true);
 
       _spawnEuler.set(0, spawnRotY, 0);
@@ -204,7 +218,7 @@ export function useVehiclePhysics(
       isPausedRef.current = false;
 
       emitGameEvent('vehicle_reset', {
-        reason: currentBodyPos.y < fallResetY ? 'out_of_bounds' : 'manual',
+        reason: isCorrupted ? 'stability_guard' : currentBodyPos.y < fallResetY ? 'out_of_bounds' : 'manual',
       });
 
       if (resetState.pendingReset) {
@@ -217,6 +231,7 @@ export function useVehiclePhysics(
         useGymkhanaStore.getState().resetBlitz();
         useGymkhanaStore.getState().startCountdown();
       }
+      return;
     }
 
     // ─── 0. PAUSE STATE HANDLING (FREEZE & RESTORE IDENTICAL PRE-PAUSE MOMENTUM) ───
@@ -347,7 +362,8 @@ export function useVehiclePhysics(
       isSettledRef.current = false;
     }
 
-    const dt = Math.min(delta, MAX_DELTA);
+    const safeDelta = Number.isFinite(delta) && delta > 0 ? delta : 1 / 60;
+    const dt = Math.max(0.001, Math.min(safeDelta, MAX_DELTA));
     const input = getInput(dt);
 
     // Calculate current speed (m/s → km/h)
@@ -446,7 +462,16 @@ export function useVehiclePhysics(
     applyAntiRollBars(body, controller, config, dt);
 
     // --- 4. UPDATE RAPIER VEHICLE ---
-    controller.updateVehicle(dt);
+    try {
+      controller.updateVehicle(dt);
+    } catch (simErr) {
+      console.warn('[useVehiclePhysics] Suppressed Rapier vehicle solver exception:', simErr);
+      body.setTranslation({ x: spawnPos[0], y: spawnPos[1], z: spawnPos[2] }, true);
+      body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+      emitGameEvent('vehicle_reset', { reason: 'stability_guard' });
+      return;
+    }
 
     // --- 4.1. GROUND CONTACT & AIRBORNE TELEMETRY ---
     let groundedCount = 0;
@@ -488,7 +513,13 @@ export function useVehiclePhysics(
       const dragImpulseMagnitude = rollingResistance * body.mass() * 9.81 * groundedRatio * dt;
       const clampedDrag = Math.min(dragImpulseMagnitude, Math.abs(forwardSpeed) * body.mass());
       _dragImpulse.copy(_forward).multiplyScalar(-Math.sign(forwardSpeed) * clampedDrag);
-      body.applyImpulse(_dragImpulse, true);
+      if (
+        Number.isFinite(_dragImpulse.x) &&
+        Number.isFinite(_dragImpulse.y) &&
+        Number.isFinite(_dragImpulse.z)
+      ) {
+        body.applyImpulse(_dragImpulse, true);
+      }
     }
 
     // --- 5.1. APPLY AWD POWER-SLIDE PROPULSION ---
@@ -522,18 +553,18 @@ export function useVehiclePhysics(
     // --- 7. UPDATE TELEMETRY & HUD ---
     _euler.setFromQuaternion(_quat, 'YXZ');
 
-    // Batch all state updates into one call
-    _posTuple[0] = pos.x;
-    _posTuple[1] = pos.y;
-    _posTuple[2] = pos.z;
+    // Batch all state updates into one call (strictly sanitizing values against NaN)
+    _posTuple[0] = Number.isFinite(pos.x) ? pos.x : spawnPos[0];
+    _posTuple[1] = Number.isFinite(pos.y) ? pos.y : spawnPos[1];
+    _posTuple[2] = Number.isFinite(pos.z) ? pos.z : spawnPos[2];
 
     // Update pre-allocated telemetry object to eliminate per-frame GC allocations
-    _telemetryState.speed = Math.round(speedKmh);
-    _telemetryState.lateralSpeed = lateralSpeed;
-    _telemetryState.slipAngle = slipAngle;
-    _telemetryState.rpm = Math.round(targetRpm);
+    _telemetryState.speed = Number.isFinite(speedKmh) ? Math.round(speedKmh) : 0;
+    _telemetryState.lateralSpeed = Number.isFinite(lateralSpeed) ? lateralSpeed : 0;
+    _telemetryState.slipAngle = Number.isFinite(slipAngle) ? slipAngle : 0;
+    _telemetryState.rpm = Number.isFinite(targetRpm) ? Math.round(targetRpm) : 1000;
     _telemetryState.gear = currentGear;
-    _telemetryState.heading = _euler.y;
+    _telemetryState.heading = Number.isFinite(_euler.y) ? _euler.y : 0;
     _telemetryState.position = _posTuple;
     _telemetryState.tireGrips = tireGrips;
     _telemetryState.surface = surface;

@@ -196,7 +196,7 @@ export function isButtonPressed(button: GamepadButton | undefined): boolean {
 }
 
 // Previous frame button states for rising-edge detection
-const prevButtonStates: Record<string, boolean> = {
+export const prevButtonStates: Record<string, boolean> = {
   camera: false,
   pause: false,
   telemetry: false,

@@ -52,6 +52,8 @@ interface GameStore {
   loadingTarget: 'menu' | 'gameplay';
   /** Whether 3D assets, physics, shaders, and terrain are fully ready and settled */
   isSceneReady: boolean;
+  /** Whether 3D Garage view modal is currently open */
+  isGarageOpen: boolean;
 
   // Actions
   setGameState: (state: GameState) => void;
@@ -60,6 +62,7 @@ interface GameStore {
   setSelectedVehicleId: (id: string) => void;
   setSelectedLevelId: (id: string) => void;
   setSceneReady: (ready: boolean) => void;
+  setGarageOpen: (open: boolean) => void;
   setSpeed: (speed: number) => void;
   setLateralSpeed: (lateralSpeed: number) => void;
   setSlipAngle: (slipAngle: number) => void;
@@ -100,6 +103,7 @@ export const useGameStore = create<GameStore>((set) => ({
   gamepadType: null,
   loadingTarget: 'menu',
   isSceneReady: false,
+  isGarageOpen: false,
 
   setGameState: (gameState) => {
     resetGamepadEdgeState();
@@ -116,6 +120,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setSelectedVehicleId: (selectedVehicleId) => set({ selectedVehicleId, isSceneReady: false }),
   setSelectedLevelId: (selectedLevelId) => set({ selectedLevelId, isSceneReady: false }),
   setSceneReady: (isSceneReady) => set({ isSceneReady }),
+  setGarageOpen: (isGarageOpen) => set({ isGarageOpen }),
   setSpeed: (speed) => set({ speed }),
   setLateralSpeed: (lateralSpeed) => set({ lateralSpeed }),
   setSlipAngle: (slipAngle) => set({ slipAngle }),

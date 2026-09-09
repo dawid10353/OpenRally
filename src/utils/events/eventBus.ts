@@ -19,7 +19,7 @@ export interface GameEventMap {
     to: SurfaceType;
   };
   vehicle_reset: {
-    reason: 'manual' | 'out_of_bounds';
+    reason: 'manual' | 'out_of_bounds' | 'stability_guard';
   };
   gear_shifted: {
     fromGear: number;
@@ -43,6 +43,7 @@ export interface GameEventMap {
   track_records_reset: {
     timestamp: number;
   };
+  android_back_pressed: Record<string, never>;
 }
 
 export type GameEventName = keyof GameEventMap;

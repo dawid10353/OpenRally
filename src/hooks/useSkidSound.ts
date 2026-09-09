@@ -3,10 +3,7 @@ import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useFrame } from '@react-three/fiber';
 
-/** Augment Window for Safari's prefixed AudioContext */
-interface WebkitWindow extends Window {
-  webkitAudioContext?: typeof AudioContext;
-}
+import { getSharedAudioContext } from '@/utils/audio/audioContext';
 
 /**
  * Procedural tire skid & screech sound generator using Web Audio API white noise + bandpass filtering.
@@ -17,6 +14,7 @@ export function useSkidSound() {
   const isInitializingRef = useRef(false);
 
   const ctxRef = useRef<AudioContext | null>(null);
+  const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const gainRef = useRef<GainNode | null>(null);
   const filterRef = useRef<BiquadFilterNode | null>(null);
 
@@ -29,9 +27,8 @@ export function useSkidSound() {
 
       const initSkidAudio = () => {
         try {
-          const AudioCtx = window.AudioContext || (window as unknown as WebkitWindow).webkitAudioContext;
-          if (!AudioCtx) return;
-          const ctx = new AudioCtx();
+          const ctx = getSharedAudioContext();
+          if (!ctx) return;
 
           const currentPlaying = useGameStore.getState().gameState === 'playing';
 
@@ -63,11 +60,8 @@ export function useSkidSound() {
           }
           whiteNoise.start();
 
-          if (!currentPlaying && ctx.state === 'running') {
-            ctx.suspend();
-          }
-
           ctxRef.current = ctx;
+          sourceRef.current = whiteNoise;
           gainRef.current = gain;
           filterRef.current = filter;
           setIsInitialized(true);
@@ -87,7 +81,7 @@ export function useSkidSound() {
       if (gameState === 'playing') {
         try {
           if (ctxRef.current.state === 'suspended') {
-            ctxRef.current.resume();
+            ctxRef.current.resume().catch(() => {});
           }
           gainRef.current.disconnect();
           gainRef.current.connect(ctxRef.current.destination);
@@ -105,7 +99,7 @@ export function useSkidSound() {
           // ignore
         }
         if (ctxRef.current.state === 'running') {
-          ctxRef.current.suspend();
+          ctxRef.current.suspend().catch(() => {});
         }
       }
     }
@@ -114,10 +108,23 @@ export function useSkidSound() {
   useFrame(() => {
     if (!isInitialized || !ctxRef.current || !gainRef.current || !filterRef.current || gameState !== 'playing') {
       if (gainRef.current && gameState !== 'playing') {
-        gainRef.current.gain.cancelScheduledValues(0);
-        gainRef.current.gain.setValueAtTime(0, 0);
-        gainRef.current.gain.value = 0;
+        try {
+          gainRef.current.gain.cancelScheduledValues(0);
+          gainRef.current.gain.value = 0;
+        } catch {
+          // Ignore
+        }
       }
+      return;
+    }
+
+    if (ctxRef.current.state === 'closed') {
+      ctxRef.current = null;
+      sourceRef.current = null;
+      gainRef.current = null;
+      filterRef.current = null;
+      isInitializingRef.current = false;
+      setIsInitialized(false);
       return;
     }
 
@@ -126,30 +133,53 @@ export function useSkidSound() {
     const absLatSpeed = Math.abs(lateralSpeed);
     const absSlip = Math.abs(slipAngle);
 
+    const safeSpeed = Number.isFinite(absSpeed) ? absSpeed : 0;
+    const safeLatSpeed = Number.isFinite(absLatSpeed) ? absLatSpeed : 0;
+    const safeSlip = Number.isFinite(absSlip) ? absSlip : 0;
+    const safeSfxVolume = Number.isFinite(sfxVolume) ? Math.max(0, Math.min(1, sfxVolume)) : 0.8;
+
     // Skid triggers when sliding laterally with sufficient speed
-    const isSkidding = absSpeed > 15 && (absLatSpeed > 2.5 || absSlip > 0.25);
+    const isSkidding = safeSpeed > 15 && (safeLatSpeed > 2.5 || safeSlip > 0.25);
 
     let targetVolume = 0;
     if (isSkidding) {
-      const intensity = Math.min((absLatSpeed - 2.0) / 8.0, 1.0);
-      targetVolume = intensity * 0.25 * sfxVolume;
+      const intensity = Math.min((safeLatSpeed - 2.0) / 8.0, 1.0);
+      targetVolume = intensity * 0.25 * safeSfxVolume;
 
       // Modulate screech pitch with speed
-      const targetFreq = 1000 + Math.min(absSpeed * 10, 1200);
-      filterRef.current.frequency.setTargetAtTime(targetFreq, ctxRef.current.currentTime, 0.05);
+      const targetFreq = 1000 + Math.min(safeSpeed * 10, 1200);
+      if (Number.isFinite(targetFreq) && ctxRef.current.currentTime >= 0) {
+        filterRef.current.frequency.setTargetAtTime(targetFreq, ctxRef.current.currentTime, 0.05);
+      }
     }
 
-    gainRef.current.gain.setTargetAtTime(targetVolume, ctxRef.current.currentTime, 0.06);
+    if (Number.isFinite(targetVolume) && ctxRef.current.currentTime >= 0) {
+      gainRef.current.gain.setTargetAtTime(targetVolume, ctxRef.current.currentTime, 0.06);
+    }
   });
 
   useEffect(() => {
     return () => {
-      if (ctxRef.current) {
+      if (sourceRef.current) {
         try {
-          ctxRef.current.close();
+          sourceRef.current.stop();
+          sourceRef.current.disconnect();
         } catch {}
-        ctxRef.current = null;
+        sourceRef.current = null;
       }
+      if (filterRef.current) {
+        try {
+          filterRef.current.disconnect();
+        } catch {}
+        filterRef.current = null;
+      }
+      if (gainRef.current) {
+        try {
+          gainRef.current.disconnect();
+        } catch {}
+        gainRef.current = null;
+      }
+      ctxRef.current = null;
     };
   }, []);
 }

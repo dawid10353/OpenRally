@@ -174,13 +174,17 @@ export function applyTireFrictionAndBrakes(
       currentFriction *= Math.max(0.60, 1.0 - wheelspinFrictionDrop);
     }
 
-    controller.setWheelFrictionSlip(i, currentFriction);
-    controller.setWheelBrake(i, brakeForce);
-    _gripsBuffer[i] = currentFriction;
+    const safeFriction = Number.isFinite(currentFriction) ? Math.max(0, currentFriction) : 1.0;
+    const safeBrake = Number.isFinite(brakeForce) ? Math.max(0, brakeForce) : 0;
+    const safeSteer = Number.isFinite(steerAngle) ? steerAngle : 0;
+
+    controller.setWheelFrictionSlip(i, safeFriction);
+    controller.setWheelBrake(i, safeBrake);
+    _gripsBuffer[i] = safeFriction;
 
     // Steering
     if (wheel.steerable) {
-      controller.setWheelSteering(i, steerAngle);
+      controller.setWheelSteering(i, safeSteer);
     }
   }
   

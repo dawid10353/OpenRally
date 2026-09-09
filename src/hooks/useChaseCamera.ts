@@ -55,6 +55,8 @@ export function useChaseCamera(
     const gameState = useGameStore.getState().gameState;
     if (gameState === 'paused') return;
 
+    const safeDelta = Number.isFinite(delta) && delta > 0 ? Math.min(delta, 0.1) : 1 / 60;
+
     const loadingTarget = useGameStore.getState().loadingTarget;
     const isMenuOrbit =
       gameState === 'menu' ||
@@ -93,15 +95,24 @@ export function useChaseCamera(
         idealPosRef.current.copy(_idealPos);
         idealLookRef.current.copy(_idealLook);
       } else {
-        const menuSmoothFactor = 1 - Math.exp(-3.5 * delta);
+        const menuSmoothFactor = 1 - Math.exp(-3.5 * safeDelta);
         idealPosRef.current.lerp(_idealPos, menuSmoothFactor);
         idealLookRef.current.lerp(_idealLook, menuSmoothFactor);
       }
 
       idealPosRef.current.y = Math.max(idealPosRef.current.y, _bodyPos.y + 0.5);
 
-      camera.position.copy(idealPosRef.current);
-      camera.lookAt(idealLookRef.current);
+      if (
+        Number.isFinite(idealPosRef.current.x) &&
+        Number.isFinite(idealPosRef.current.y) &&
+        Number.isFinite(idealPosRef.current.z) &&
+        Number.isFinite(idealLookRef.current.x) &&
+        Number.isFinite(idealLookRef.current.y) &&
+        Number.isFinite(idealLookRef.current.z)
+      ) {
+        camera.position.copy(idealPosRef.current);
+        camera.lookAt(idealLookRef.current);
+      }
 
       const menuFov = 52;
       currentFovRef.current = menuFov;
@@ -131,7 +142,7 @@ export function useChaseCamera(
     const targetPitch = Math.asin(MathUtils.clamp(_forward.y, -0.99, 0.99));
     
     // Smooth the vehicle pitch
-    const pitchSmoothFactor = 1 - Math.exp(-PITCH_SMOOTH_RATE * delta);
+    const pitchSmoothFactor = 1 - Math.exp(-PITCH_SMOOTH_RATE * safeDelta);
     if (idealPosRef.current.lengthSq() === 0) {
       smoothedPitchRef.current = targetPitch;
     } else {
@@ -160,7 +171,7 @@ export function useChaseCamera(
     }
 
     // Framerate-independent exponential smoothing for orbit angles
-    const orbitFactor = 1 - Math.exp(-orbitLerpSpeed * delta);
+    const orbitFactor = 1 - Math.exp(-orbitLerpSpeed * safeDelta);
     orbitYawRef.current = MathUtils.lerp(orbitYawRef.current, targetOrbitYaw, orbitFactor);
     orbitPitchRef.current = MathUtils.lerp(orbitPitchRef.current, targetOrbitPitch, orbitFactor);
 
@@ -190,8 +201,8 @@ export function useChaseCamera(
     const speedFactor = Math.min(speed / 180, 1.0);
     const basePosRate = POSITION_SMOOTH_RATE + speedFactor * 6.0;
     const dynamicPosRate = stickMagnitude > 0.05 ? basePosRate * 1.8 : basePosRate;
-    const posSmoothFactor = 1 - Math.exp(-dynamicPosRate * delta);
-    const lookSmoothFactor = 1 - Math.exp(-LOOK_SMOOTH_RATE * delta);
+    const posSmoothFactor = 1 - Math.exp(-dynamicPosRate * safeDelta);
+    const lookSmoothFactor = 1 - Math.exp(-LOOK_SMOOTH_RATE * safeDelta);
 
     if (idealPosRef.current.lengthSq() === 0 || idealPosRef.current.distanceTo(_idealPos) > 15) {
       idealPosRef.current.copy(_idealPos);
@@ -204,26 +215,36 @@ export function useChaseCamera(
     // Prevent camera from going below terrain (minimum Y)
     idealPosRef.current.y = Math.max(idealPosRef.current.y, _bodyPos.y + MIN_CAM_Y_OFFSET);
 
-    // Apply to camera
-    camera.position.copy(idealPosRef.current);
-    camera.lookAt(idealLookRef.current);
+    // Apply to camera with strict finite number check
+    if (
+      Number.isFinite(idealPosRef.current.x) &&
+      Number.isFinite(idealPosRef.current.y) &&
+      Number.isFinite(idealPosRef.current.z) &&
+      Number.isFinite(idealLookRef.current.x) &&
+      Number.isFinite(idealLookRef.current.y) &&
+      Number.isFinite(idealLookRef.current.z)
+    ) {
+      camera.position.copy(idealPosRef.current);
+      camera.lookAt(idealLookRef.current);
+    }
 
     // Dynamic FOV based on speed — subtle speed sensation without pushing the car far away
     const maxFovForMode = cameraMode === 'chase_close' ? MIN_FOV + 2 : MIN_FOV + 6;
+    const safeSpeed = Number.isFinite(speed) ? Math.max(0, speed) : 0;
 
     const targetFov = lerp(
       MIN_FOV,
       maxFovForMode,
-      Math.min(speed / MAX_SPEED_FOR_FOV, 1),
+      Math.min(safeSpeed / MAX_SPEED_FOR_FOV, 1),
     );
     currentFovRef.current = MathUtils.lerp(
       currentFovRef.current,
       targetFov,
-      1 - Math.pow(FOV_SMOOTH_BASE, delta * 60),
+      1 - Math.pow(FOV_SMOOTH_BASE, safeDelta * 60),
     );
 
     // Apply FOV if perspective camera and gate updateProjectionMatrix to avoid dirtying frustum planes every frame
-    if ('fov' in camera) {
+    if ('fov' in camera && Number.isFinite(currentFovRef.current)) {
       const persCamera = camera as PerspectiveCamera;
       if (Math.abs(persCamera.fov - currentFovRef.current) > 0.02) {
         persCamera.fov = currentFovRef.current;

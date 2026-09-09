@@ -103,8 +103,16 @@ export function applyPitchStabilization(
 
   // Apply restoring pitch torque in world space
   const totalPitchTorque = (pitchRestoringTorque + pitchDamping) * dt;
-  _pitchTorque.set(totalPitchTorque, 0, 0).applyQuaternion(_bodyQuat);
-  body.applyTorqueImpulse(_pitchTorque, true);
+  if (Number.isFinite(totalPitchTorque)) {
+    _pitchTorque.set(totalPitchTorque, 0, 0).applyQuaternion(_bodyQuat);
+    if (
+      Number.isFinite(_pitchTorque.x) &&
+      Number.isFinite(_pitchTorque.y) &&
+      Number.isFinite(_pitchTorque.z)
+    ) {
+      body.applyTorqueImpulse(_pitchTorque, true);
+    }
+  }
 }
 
 function applyAxleARB(
@@ -131,13 +139,16 @@ function applyAxleARB(
   // If left is more compressed than right, antiRollForce > 0
   const antiRollForce = (leftCompression - rightCompression) * stiffness;
   
-  // We want to push the left side UP (positive local Y impulse)
-  // and the right side DOWN (negative local Y impulse) to resist the roll.
-  applyWheelForce(body, controller, leftIndex, antiRollForce * dt);
-  applyWheelForce(body, controller, rightIndex, -antiRollForce * dt);
+  if (Number.isFinite(antiRollForce)) {
+    // We want to push the left side UP (positive local Y impulse)
+    // and the right side DOWN (negative local Y impulse) to resist the roll.
+    applyWheelForce(body, controller, leftIndex, antiRollForce * dt);
+    applyWheelForce(body, controller, rightIndex, -antiRollForce * dt);
+  }
 }
 
 function applyWheelForce(body: RapierRigidBody, controller: IRapierVehicleController, wheelIndex: number, forceY: number) {
+  if (!Number.isFinite(forceY)) return;
   const conn = controller.wheelChassisConnectionPointCs(wheelIndex);
   if (!conn) return;
   
@@ -147,6 +158,15 @@ function applyWheelForce(body: RapierRigidBody, controller: IRapierVehicleContro
   // Apply force along the local Y axis
   _impulse.set(0, forceY, 0).applyQuaternion(_bodyQuat);
   
-  body.applyImpulseAtPoint(_impulse, _worldPoint, true);
+  if (
+    Number.isFinite(_impulse.x) &&
+    Number.isFinite(_impulse.y) &&
+    Number.isFinite(_impulse.z) &&
+    Number.isFinite(_worldPoint.x) &&
+    Number.isFinite(_worldPoint.y) &&
+    Number.isFinite(_worldPoint.z)
+  ) {
+    body.applyImpulseAtPoint(_impulse, _worldPoint, true);
+  }
 }
 

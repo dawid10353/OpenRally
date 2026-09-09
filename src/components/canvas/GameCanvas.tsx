@@ -21,6 +21,7 @@ import { useGameStore } from '@/store/gameStore';
 import { getLevelPreset } from '@/config/levelRegistry';
 import { SKY_CONFIG, FOG_CONFIG, POSTPROCESSING_CONFIG } from '@/config/environment';
 import { calculateDprConfig, isMobileDevice, isMobileOrAndroid } from '@/utils/device';
+import { suspendSharedAudioContext } from '@/utils/audio/audioContext';
 import type { DrawDistance } from '@/types';
 
 export interface MobileFramePacerProps {
@@ -30,7 +31,7 @@ export interface MobileFramePacerProps {
 
 export interface FramePacerOptions {
   advance: (timestamp: number) => void;
-  clock?: { elapsedTime: number };
+  clock?: { elapsedTime: number; oldTime?: number };
   targetFps?: number;
   enabled?: boolean;
 }
@@ -81,6 +82,9 @@ export function startFramePacingLoop({
       // Prevent large delta spike if resuming from tab backgrounding / app pause
       if (elapsed > 200 && clock) {
         clock.elapsedTime = (now - interval) / 1000;
+        if ('oldTime' in clock) {
+          (clock as { oldTime: number }).oldTime = now - interval;
+        }
       }
       lastTime = now;
       try {
@@ -191,6 +195,7 @@ export function GameCanvas() {
   const drawDistance = useSettingsStore((s) => s.drawDistance ?? (isMobileDevice() ? 'medium' : 'far'));
   const gameState = useGameStore((s) => s.gameState);
   const selectedLevelId = useGameStore((s) => s.selectedLevelId);
+  const isGarageOpen = useGameStore((s) => s.isGarageOpen);
 
   const isMobile = isMobileOrAndroid();
 
@@ -264,7 +269,11 @@ export function GameCanvas() {
       }}
       onCreated={({ gl }) => {
         if (gl.shadowMap) {
-          gl.shadowMap.type = PCFShadowMap;
+          if (isMobile) {
+            gl.shadowMap.enabled = false;
+          } else {
+            gl.shadowMap.type = PCFShadowMap;
+          }
         }
         const canvas = gl.domElement;
         canvas.addEventListener(
@@ -273,6 +282,11 @@ export function GameCanvas() {
             event.preventDefault();
             console.warn('[GameCanvas] webglcontextlost handled gracefully via preventDefault()');
             try {
+              const { gameState, setGameState } = useGameStore.getState();
+              if (gameState === 'playing') {
+                setGameState('paused');
+              }
+              suspendSharedAudioContext().catch(() => {});
               const { shadowsEnabled } = useSettingsStore.getState();
               if (shadowsEnabled && isMobile) {
                 useSettingsStore.setState({ shadowsEnabled: false });
@@ -295,7 +309,7 @@ export function GameCanvas() {
       }}
     >
       <MobileFramePacer targetFps={targetFps} enabled={isMobile && isGameplay} />
-      <MenuCinematicPacer enabled={!isGameplay} targetFps={isMobile ? 30 : 60} />
+      <MenuCinematicPacer enabled={!isGameplay && !isGarageOpen} targetFps={isMobile ? 30 : 60} />
       <Suspense fallback={null}>
         {!isMobile && <AdaptiveDpr />}
         <AdaptiveEvents />

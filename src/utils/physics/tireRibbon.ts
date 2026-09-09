@@ -117,6 +117,12 @@ const _scratchRight = new Vector3();
 const _scratchNormal = new Vector3(0, 1, 0);
 const _scratchUp = new Vector3(0, 1, 0);
 const _tempColor = new Color();
+const _edgeLeft = new Vector3();
+const _edgeRight = new Vector3();
+const _projLeft = new Vector3();
+const _normLeft = new Vector3();
+const _projRight = new Vector3();
+const _normRight = new Vector3();
 
 /**
  * Computes left and right ribbon vertex positions perpendicular to forward travel direction
@@ -168,8 +174,12 @@ export function sampleTerrainHeightAndNormal(
   outNormal: Vector3,
   bias = 0.015,
 ): void {
+  const safeX = Number.isFinite(x) ? x : 0;
+  const safeZ = Number.isFinite(z) ? z : 0;
+  const safeBias = Number.isFinite(bias) ? bias : 0.015;
+
   if (!heightmapData || !levelData) {
-    outPos.set(x, 0 + bias, z);
+    outPos.set(safeX, 0 + safeBias, safeZ);
     outNormal.set(0, 1, 0);
     return;
   }
@@ -177,14 +187,14 @@ export function sampleTerrainHeightAndNormal(
   const { heights, cols, rows } = heightmapData;
   const { width, depth } = levelData.terrainBase;
 
-  const hCenter = getInterpolatedHeight(x, z, heights, rows, cols, width, depth);
+  const hCenter = getInterpolatedHeight(safeX, safeZ, heights, rows, cols, width, depth);
   
   // Sample adjacent points (0.5m delta) to compute surface normal gradient
   const delta = 0.5;
-  const hX1 = getInterpolatedHeight(x + delta, z, heights, rows, cols, width, depth);
-  const hX0 = getInterpolatedHeight(x - delta, z, heights, rows, cols, width, depth);
-  const hZ1 = getInterpolatedHeight(x, z + delta, heights, rows, cols, width, depth);
-  const hZ0 = getInterpolatedHeight(x, z - delta, heights, rows, cols, width, depth);
+  const hX1 = getInterpolatedHeight(safeX + delta, safeZ, heights, rows, cols, width, depth);
+  const hX0 = getInterpolatedHeight(safeX - delta, safeZ, heights, rows, cols, width, depth);
+  const hZ1 = getInterpolatedHeight(safeX, safeZ + delta, heights, rows, cols, width, depth);
+  const hZ0 = getInterpolatedHeight(safeX, safeZ - delta, heights, rows, cols, width, depth);
 
   const dX = (hX1 - hX0) / (2 * delta);
   const dZ = (hZ1 - hZ0) / (2 * delta);
@@ -193,9 +203,9 @@ export function sampleTerrainHeightAndNormal(
   
   // Elevate along normal to eliminate z-fighting
   outPos.set(
-    x + outNormal.x * bias,
-    hCenter + outNormal.y * bias,
-    z + outNormal.z * bias,
+    safeX + outNormal.x * safeBias,
+    hCenter + outNormal.y * safeBias,
+    safeZ + outNormal.z * safeBias,
   );
 }
 
@@ -293,7 +303,13 @@ export class TireRibbonBuffer {
     heightmapData?: HeightmapData,
     levelData?: LevelData,
   ): boolean {
-    if (!isGrounded || speedMps < 0.2) {
+    if (
+      !isGrounded ||
+      speedMps < 0.2 ||
+      !Number.isFinite(contactPos.x) ||
+      !Number.isFinite(contactPos.y) ||
+      !Number.isFinite(contactPos.z)
+    ) {
       this.wasAirborne = true;
       return false;
     }
@@ -331,40 +347,34 @@ export class TireRibbonBuffer {
     _scratchForward.subVectors(contactPos, this.lastPosition);
 
     const halfWidth = this.config.tireWidth / 2;
-    const leftEdge = new Vector3();
-    const rightEdge = new Vector3();
 
     computeRibbonEdges(
       contactPos,
       _scratchForward,
       surfaceNormal,
       halfWidth,
-      leftEdge,
-      rightEdge,
+      _edgeLeft,
+      _edgeRight,
     );
 
-    // Project both edges precisely onto the terrain
-    const leftProjected = new Vector3();
-    const leftNormal = new Vector3();
+    // Project both edges precisely onto the terrain with zero object allocations
     sampleTerrainHeightAndNormal(
-      leftEdge.x,
-      leftEdge.z,
+      _edgeLeft.x,
+      _edgeLeft.z,
       heightmapData,
       levelData,
-      leftProjected,
-      leftNormal,
+      _projLeft,
+      _normLeft,
       this.config.normalOffset,
     );
 
-    const rightProjected = new Vector3();
-    const rightNormal = new Vector3();
     sampleTerrainHeightAndNormal(
-      rightEdge.x,
-      rightEdge.z,
+      _edgeRight.x,
+      _edgeRight.z,
       heightmapData,
       levelData,
-      rightProjected,
-      rightNormal,
+      _projRight,
+      _normRight,
       this.config.normalOffset,
     );
 
@@ -376,8 +386,8 @@ export class TireRibbonBuffer {
 
     const isDisconnected = this.wasAirborne;
     this.pushPoint(
-      leftProjected,
-      rightProjected,
+      _projLeft,
+      _projRight,
       vCoord,
       _tempColor,
       effectiveAlpha,

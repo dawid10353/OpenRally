@@ -9,6 +9,7 @@ import {
   MeshStandardMaterial,
   Mesh,
   LinearFilter,
+  NearestFilter,
   RepeatWrapping,
   SRGBColorSpace,
   type IUniform,
@@ -63,8 +64,9 @@ export function Ocean() {
       RedFormat,
       FloatType
     );
-    texture.minFilter = LinearFilter;
-    texture.magFilter = LinearFilter;
+    const isMobile = isMobileDevice();
+    texture.minFilter = isMobile ? NearestFilter : LinearFilter;
+    texture.magFilter = isMobile ? NearestFilter : LinearFilter;
     texture.generateMipmaps = false;
     texture.needsUpdate = true;
     return texture;
@@ -332,7 +334,8 @@ export function Ocean() {
     };
 
     if (mat.userData && mat.userData.shader) {
-      mat.userData.shader.uniforms.time.value += delta * WATER_WAVE_SPEED;
+      const safeDelta = Number.isFinite(delta) && delta > 0 ? Math.min(delta, 0.1) : 1 / 60;
+      mat.userData.shader.uniforms.time.value += safeDelta * WATER_WAVE_SPEED;
     }
   });
 

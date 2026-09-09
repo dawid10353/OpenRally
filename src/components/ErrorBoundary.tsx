@@ -1,5 +1,11 @@
 import { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
+import {
+  recordCrash,
+  formatCrashReport,
+  copyCrashReportToClipboard,
+  type CrashLogEntry,
+} from '@/utils/diagnostics/crashLogger';
 
 interface Props {
   children?: ReactNode;
@@ -8,21 +14,45 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  crashReport: string | null;
+  copied: boolean;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
-    error: null
+    error: null,
+    crashReport: null,
+    copied: false,
   };
 
-  public static getDerivedStateFromError(error: Error): State {
+  public static getDerivedStateFromError(error: Error): Partial<State> {
     return { hasError: true, error };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error:', error, errorInfo);
+    console.error('Uncaught error in ErrorBoundary:', error, errorInfo);
+    try {
+      const entry: CrashLogEntry = recordCrash(error, errorInfo);
+      const report = formatCrashReport(entry);
+      this.setState({ crashReport: report });
+    } catch (e) {
+      console.warn('[ErrorBoundary] Suppressed error formatting crash report:', e);
+    }
   }
+
+  private handleCopyDiagnostics = async () => {
+    const report =
+      this.state.crashReport ||
+      `# OpenRally Crash Diagnostics\nError: ${this.state.error?.message || 'Unknown'}\nStack: ${this.state.error?.stack || 'N/A'}`;
+    const success = await copyCrashReportToClipboard(report);
+    if (success) {
+      this.setState({ copied: true });
+      setTimeout(() => {
+        this.setState({ copied: false });
+      }, 3000);
+    }
+  };
 
   public render() {
     if (this.state.hasError) {
@@ -47,17 +77,17 @@ export class ErrorBoundary extends Component<Props, State> {
             textAlign: 'center',
           }}
         >
-          <h2 style={{ fontSize: '24px', marginBottom: '12px', color: '#ef4444' }}>
+          <h2 style={{ fontSize: '24px', marginBottom: '8px', color: '#ef4444' }}>
             OpenRally Encountered an Issue
           </h2>
           <p style={{ color: '#9ca3af', marginBottom: '20px', maxWidth: '600px', fontSize: '14px' }}>
-            A rendering or physics exception occurred. You can reload the game or restore safe mobile defaults.
+            A rendering or physics exception occurred. You can reload the game, copy local diagnostics, or restore safe mobile defaults.
           </p>
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '12px', marginBottom: '20px' }}>
             <button
               onClick={() => window.location.reload()}
               style={{
-                padding: '10px 20px',
+                padding: '10px 18px',
                 background: '#2563eb',
                 color: '#ffffff',
                 border: 'none',
@@ -69,6 +99,21 @@ export class ErrorBoundary extends Component<Props, State> {
               Reload Game
             </button>
             <button
+              onClick={this.handleCopyDiagnostics}
+              style={{
+                padding: '10px 18px',
+                background: this.state.copied ? '#059669' : '#0284c7',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '6px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'background-color 0.2s',
+              }}
+            >
+              {this.state.copied ? '✓ Copied to Clipboard!' : '📋 Copy Crash Diagnostics'}
+            </button>
+            <button
               onClick={() => {
                 if (typeof localStorage !== 'undefined') {
                   localStorage.removeItem('openrally_settings');
@@ -76,7 +121,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 window.location.reload();
               }}
               style={{
-                padding: '10px 20px',
+                padding: '10px 18px',
                 background: '#374151',
                 color: '#ffffff',
                 border: 'none',
@@ -97,12 +142,14 @@ export class ErrorBoundary extends Component<Props, State> {
               padding: '16px',
               borderRadius: '8px',
               maxWidth: '800px',
+              width: '90%',
               textAlign: 'left',
               maxHeight: '200px',
               overflowY: 'auto',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
             }}
           >
-            {this.state.error?.toString()}
+            {this.state.crashReport || this.state.error?.toString()}
           </pre>
         </div>
       );

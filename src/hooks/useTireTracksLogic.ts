@@ -34,11 +34,6 @@ export function useTireTracksLogic(
   const meshRef3 = useRef<Mesh>(null);
   const meshRefs = useMemo(() => [meshRef0, meshRef1, meshRef2, meshRef3], []);
 
-  // Geometries for each wheel ribbon
-  const geometries = useMemo(() => {
-    return Array.from({ length: 4 }, () => new BufferGeometry());
-  }, []);
-
   // Preset configuration based on active graphics quality and mobile device scaling
   const presets = useMemo(() => (isMobileDevice() ? TIRE_TRACK_MOBILE_PRESETS : TIRE_TRACK_QUALITY_PRESETS), []);
   const qualityPreset = presets[graphicsQuality] ?? presets.medium;
@@ -56,6 +51,11 @@ export function useTireTracksLogic(
     );
   }, [qualityPreset.maxSegments, qualityPreset.lifetime, qualityPreset.minDistance]);
 
+  // Geometries for each wheel ribbon (recreated when ribbon buffer capacity changes)
+  const geometries = useMemo(() => {
+    return Array.from({ length: 4 }, () => new BufferGeometry());
+  }, [ribbonBuffers]);
+
   // Bind buffer geometry attributes on initialization or quality change
   useEffect(() => {
     for (let i = 0; i < 4; i++) {
@@ -69,6 +69,12 @@ export function useTireTracksLogic(
       geo.setIndex(new BufferAttribute(buf.indices, 1));
       geo.setDrawRange(0, 0);
     }
+
+    return () => {
+      for (let i = 0; i < 4; i++) {
+        geometries[i].dispose();
+      }
+    };
   }, [geometries, ribbonBuffers]);
 
   useFrame((state) => {

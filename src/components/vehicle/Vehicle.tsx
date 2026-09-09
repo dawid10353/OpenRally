@@ -1,4 +1,4 @@
-import { useRef, Suspense } from 'react';
+import { useRef, Suspense, Component, type ReactNode, type ErrorInfo } from 'react';
 import { RigidBody, CuboidCollider } from '@react-three/rapier';
 import type { RapierRigidBody } from '@react-three/rapier';
 import { Group, Object3D } from 'three';
@@ -27,6 +27,48 @@ interface VehicleVisualModelProps {
   rotationOffset?: [number, number, number];
   scale: [number, number, number];
   chassisSize: [number, number, number];
+}
+
+interface VehicleModelErrorBoundaryProps {
+  children: ReactNode;
+  fallback: ReactNode;
+}
+
+interface VehicleModelErrorBoundaryState {
+  hasError: boolean;
+}
+
+/**
+ * Robust error boundary isolating 3D GLB vehicle asset loading and shader errors.
+ * Ensures that if a vehicle GLB model fails to load (e.g. offline mobile mode, corrupted mesh),
+ * it seamlessly degrades to the procedural chassis box proxy instead of crashing the React tree.
+ */
+export class VehicleModelErrorBoundary extends Component<
+  VehicleModelErrorBoundaryProps,
+  VehicleModelErrorBoundaryState
+> {
+  public override state: VehicleModelErrorBoundaryState = {
+    hasError: false,
+  };
+
+  public static getDerivedStateFromError(): VehicleModelErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  public override componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+    console.warn(
+      '[VehicleModelErrorBoundary] Suppressed vehicle model loading error, rendering fallback proxy:',
+      error,
+      errorInfo,
+    );
+  }
+
+  public override render(): ReactNode {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
 }
 
 /**
@@ -150,7 +192,7 @@ export function Vehicle() {
 
         {/* Visual Mesh (Interpolated Position) */}
         <group ref={visualRef}>
-          <Suspense
+          <VehicleModelErrorBoundary
             fallback={
               <mesh position={[0, 0.8, 0]}>
                 <boxGeometry
@@ -164,14 +206,29 @@ export function Vehicle() {
               </mesh>
             }
           >
-            <VehicleVisualModel
-              modelPath={effectiveModelPath}
-              positionOffset={vehiclePreset.modelPositionOffset ?? [0, 0.2, 0.1]}
-              rotationOffset={vehiclePreset.modelRotationOffset ?? [0, 0, 0]}
-              scale={vehiclePreset.modelScale ?? [4.5, 4.5, 4.5]}
-              chassisSize={config.chassisSize}
-            />
-          </Suspense>
+            <Suspense
+              fallback={
+                <mesh position={[0, 0.8, 0]}>
+                  <boxGeometry
+                    args={[
+                      config.chassisSize[0],
+                      config.chassisSize[1],
+                      config.chassisSize[2],
+                    ]}
+                  />
+                  <meshStandardMaterial color="#888" roughness={0.6} />
+                </mesh>
+              }
+            >
+              <VehicleVisualModel
+                modelPath={effectiveModelPath}
+                positionOffset={vehiclePreset.modelPositionOffset ?? [0, 0.2, 0.1]}
+                rotationOffset={vehiclePreset.modelRotationOffset ?? [0, 0, 0]}
+                scale={vehiclePreset.modelScale ?? [4.5, 4.5, 4.5]}
+                chassisSize={config.chassisSize}
+              />
+            </Suspense>
+          </VehicleModelErrorBoundary>
 
           {/* Soft contact ambient occlusion shadow directly beneath the chassis */}
           <mesh position={[0, -0.42, 0]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -249,13 +306,7 @@ export function Vehicle() {
   );
 }
 
+// Preload core vehicle models on initial load; non-default vehicles are loaded on-demand
 useGLTF.preload(VEHICLE_MODEL_PATH);
 useGLTF.preload(VEHICLE_WRC_MODEL_PATH);
-useGLTF.preload('/models/vehicles/car_zephyr_wr4_opt.glb');
-useGLTF.preload('/models/vehicles/car_phantom_b_opt.glb');
-useGLTF.preload('/models/vehicles/car_bantam_turbo_opt.glb');
-useGLTF.preload('/models/vehicles/car_vanguard_gt_opt.glb');
-useGLTF.preload('/models/vehicles/car_shadowfire_rs_opt.glb');
-useGLTF.preload('/models/vehicles/car_kodiak_raid_opt.glb');
-useGLTF.preload('/models/vehicles/car_vortex_b_opt.glb');
 

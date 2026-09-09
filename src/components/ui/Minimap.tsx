@@ -149,8 +149,16 @@ export function Minimap() {
 
     // ─── 2. Dynamic render loop for player & checkpoints ───
     let animationFrameId: number;
+    let isInitialRender = true;
 
     const renderMinimap = () => {
+      const currentState = useGameStore.getState().gameState;
+      if (currentState === 'paused' && !isInitialRender) {
+        animationFrameId = requestAnimationFrame(renderMinimap);
+        return;
+      }
+      isInitialRender = false;
+
       ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
       ctx.drawImage(offscreen, 0, 0);
 
@@ -189,37 +197,42 @@ export function Minimap() {
       const gameStore = useGameStore.getState();
       const [carX, , carZ] = gameStore.position;
       const heading = gameStore.heading;
-      const [playerCx, playerCy] = toCanvasCoords(carX, carZ);
 
-      ctx.save();
-      ctx.translate(playerCx, playerCy);
-      ctx.rotate(-heading); // Three.js Y heading to 2D canvas rotation
+      if (Number.isFinite(carX) && Number.isFinite(carZ) && Number.isFinite(heading)) {
+        const [playerCx, playerCy] = toCanvasCoords(carX, carZ);
 
-      // Shadow behind player arrow
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-      ctx.beginPath();
-      ctx.moveTo(1, 8);
-      ctx.lineTo(5, -4);
-      ctx.lineTo(1, -2);
-      ctx.lineTo(-3, -4);
-      ctx.closePath();
-      ctx.fill();
+        if (Number.isFinite(playerCx) && Number.isFinite(playerCy)) {
+          ctx.save();
+          ctx.translate(playerCx, playerCy);
+          ctx.rotate(-heading); // Three.js Y heading to 2D canvas rotation
 
-      // Rally car pointer arrow (+Y on canvas when heading=0)
-      ctx.beginPath();
-      ctx.moveTo(0, 7);
-      ctx.lineTo(4, -5);
-      ctx.lineTo(0, -3);
-      ctx.lineTo(-4, -5);
-      ctx.closePath();
+          // Shadow behind player arrow
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+          ctx.beginPath();
+          ctx.moveTo(1, 8);
+          ctx.lineTo(5, -4);
+          ctx.lineTo(1, -2);
+          ctx.lineTo(-3, -4);
+          ctx.closePath();
+          ctx.fill();
 
-      ctx.fillStyle = '#ff2233';
-      ctx.fill();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.2;
-      ctx.stroke();
+          // Rally car pointer arrow (+Y on canvas when heading=0)
+          ctx.beginPath();
+          ctx.moveTo(0, 7);
+          ctx.lineTo(4, -5);
+          ctx.lineTo(0, -3);
+          ctx.lineTo(-4, -5);
+          ctx.closePath();
 
-      ctx.restore();
+          ctx.fillStyle = '#ff2233';
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+
+          ctx.restore();
+        }
+      }
 
       animationFrameId = requestAnimationFrame(renderMinimap);
     };

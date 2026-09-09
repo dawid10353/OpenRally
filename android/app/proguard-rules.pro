@@ -1,21 +1,30 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# ==============================================================================
+# OpenRally Production ProGuard / R8 Optimization & Obfuscation Rules
+# ==============================================================================
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Preserve line numbers and source file attributes for readable stack traces in crash logs
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Capacitor Core & Plugin Bridge Classes
+-keep class com.getcapacitor.** { *; }
+-keep interface com.getcapacitor.** { *; }
+-keep class com.getcapacitor.annotation.** { *; }
+-keep class com.openrally.app.** { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Preserve WebView JavaScript Interfaces and annotated methods
+-keepattributes JavascriptInterface
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+
+# Preserve Cordova compatibility plugins
+-keep class org.apache.cordova.** { *; }
+-keep interface org.apache.cordova.** { *; }
+
+# AndroidX Core, WebKit & AppCompat
+-keep class androidx.webkit.** { *; }
+-dontwarn androidx.webkit.**
+-keep class androidx.core.** { *; }
+-dontwarn androidx.core.**
+

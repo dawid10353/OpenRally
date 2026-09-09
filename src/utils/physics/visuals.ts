@@ -50,9 +50,14 @@ export function syncWheelVisuals(
         effectiveSpeed = Math.abs(freeWheelSpeedMps) > Math.abs(forwardSpeed) ? freeWheelSpeedMps : forwardSpeed;
       }
 
-      // Spin rotation (X axis) based on speed
-      const spinSpeed = (effectiveSpeed / wheelConfig.radius) * dt;
-      wheelObj.children[0]?.rotateX(spinSpeed);
+      // Spin rotation (X axis) based on speed with division-by-zero & NaN sanity guards
+      const safeRadius = typeof wheelConfig.radius === 'number' && wheelConfig.radius > 0 ? wheelConfig.radius : 0.35;
+      const safeDt = Number.isFinite(dt) && dt > 0 ? dt : 1 / 60;
+      const safeSpeed = Number.isFinite(effectiveSpeed) ? effectiveSpeed : 0;
+      const spinSpeed = (safeSpeed / safeRadius) * safeDt;
+      if (Number.isFinite(spinSpeed)) {
+        wheelObj.children[0]?.rotateX(spinSpeed);
+      }
     }
   }
 }

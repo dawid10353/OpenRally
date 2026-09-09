@@ -6,6 +6,8 @@ import { useGymkhanaStore } from '@/store/gymkhanaStore';
 import { getAvailableVehicles, getVehiclePreset } from '@/config/vehicleRegistry';
 import { getAvailableLevels, getLevelPreset } from '@/config/levelRegistry';
 import { resetGamepadEdgeState } from '@/utils/input/gamepad';
+import { useGameEventListener } from '@/utils/events';
+import { unlockSharedAudioContext } from '@/utils/audio/audioContext';
 import type { GameMode } from '@/types';
 import {
   menuStyles,
@@ -86,6 +88,20 @@ export function MenuOverlay() {
   const setControlsTab = useCallback((tab: ControlsTab) => {
     setControlsTabInternal(tab);
   }, []);
+
+  const handleResume = useCallback(() => {
+    unlockSharedAudioContext().catch(() => {});
+    setGameState('playing');
+  }, [setGameState]);
+
+  // Handle Android back button / navigation gesture
+  useGameEventListener('android_back_pressed', () => {
+    if (view !== 'main') {
+      setView('main');
+    } else if (gameState === 'paused') {
+      handleResume();
+    }
+  });
 
   // Filter out synthetic pointer events caused by CSS transform animations
   const handlePointerMoveItem = useCallback((index: number, e: React.PointerEvent) => {
@@ -206,6 +222,7 @@ export function MenuOverlay() {
       useGymkhanaStore.getState().startCountdown();
     }
     setView('main');
+    unlockSharedAudioContext().catch(() => {});
     setGameState('playing');
   }, [gameMode, selectedLevelId, setGameState, setView, syncBestLapForLevel]);
 
@@ -377,7 +394,7 @@ export function MenuOverlay() {
                 textColor={textColor}
                 onPointerMoveItem={handlePointerMoveItem}
                 onSelectView={setView}
-                onResume={() => setGameState('playing')}
+                onResume={handleResume}
                 onReset={handleReset}
                 onReturnToMainMenu={handleReturnToMainMenu}
                 onOpenGarage={() => {
@@ -494,7 +511,7 @@ export function MenuOverlay() {
                 textColor={textColor}
                 onPointerMoveItem={handlePointerMoveItem}
                 onSelectView={setView}
-                onResume={() => setGameState('playing')}
+                onResume={handleResume}
                 onReset={handleReset}
                 onReturnToMainMenu={handleReturnToMainMenu}
                 onOpenGarage={() => {

@@ -257,10 +257,11 @@ export function calculateRPM(
 
   // ─── 5. Inertia Integration over dt (if provided) ──────────────────────
   if (options?.dt !== undefined && options?.currentRpm !== undefined) {
-    const dt = Math.max(0, Math.min(0.1, options.dt));
-    const prevRpm = options.currentRpm;
+    const dt = Number.isFinite(options.dt) ? Math.max(0, Math.min(0.1, options.dt)) : 1 / 60;
+    const prevRpm = Number.isFinite(options.currentRpm) ? options.currentRpm : IDLE_RPM;
+    const safeTarget = Number.isFinite(blendedTarget) ? blendedTarget : IDLE_RPM;
     const isAir = grounded < 0.4;
-    const isRevvingUp = blendedTarget > prevRpm;
+    const isRevvingUp = safeTarget > prevRpm;
 
     // Fast, responsive throttle rev-up (lightweight flywheel), smooth off-throttle engine braking
     const rate = isAir
@@ -268,12 +269,14 @@ export function calculateRPM(
       : (isRevvingUp ? 18000 : 11000);
 
     const maxStep = rate * dt;
-    const diff = blendedTarget - prevRpm;
+    const diff = safeTarget - prevRpm;
     const nextRpm = prevRpm + Math.sign(diff) * Math.min(Math.abs(diff), maxStep);
+    const finalRpm = Math.min(MAX_RPM, Math.max(800, nextRpm));
 
-    return Math.min(MAX_RPM, Math.max(800, nextRpm));
+    return Number.isFinite(finalRpm) ? finalRpm : IDLE_RPM;
   }
 
   // Direct clamped return for non-integrated callers
-  return Math.min(MAX_RPM, Math.max(800, blendedTarget));
+  const safeClamped = Number.isFinite(blendedTarget) ? blendedTarget : IDLE_RPM;
+  return Math.min(MAX_RPM, Math.max(800, safeClamped));
 }

@@ -85,6 +85,9 @@ export function Lights() {
   useFrame((state) => {
     if (lightRef.current && targetRef.current) {
       const camPos = state.camera.position;
+      if (!Number.isFinite(camPos.x) || !Number.isFinite(camPos.y) || !Number.isFinite(camPos.z)) {
+        return;
+      }
 
       // Update the light target to ground focus point under the camera
       targetRef.current.position.set(camPos.x, Math.max(0, camPos.y - 3), camPos.z);

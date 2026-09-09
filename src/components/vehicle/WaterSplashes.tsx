@@ -128,7 +128,9 @@ export function WaterSplashes({ wheelsRef, chassisRef }: WaterSplashesProps) {
       return;
     }
 
-    timeAccumulator.current += delta;
+    // Clamp delta to prevent burst emissions after backgrounding or delta spikes
+    const safeDelta = Number.isFinite(delta) && delta > 0 ? Math.min(delta, 0.1) : 1 / 60;
+    timeAccumulator.current = Math.min(timeAccumulator.current + safeDelta, 0.15);
     
     // Znacznie gęstsze rozbryzgi
     const EMIT_RATE = isDriving ? Math.max(0.005, 0.02 - (speed * 0.0005)) : 0.1; 
@@ -196,7 +198,7 @@ export function WaterSplashes({ wheelsRef, chassisRef }: WaterSplashesProps) {
       const pIdx = activeIndicesRef.current[i];
       const p = particles[pIdx];
 
-      p.life += delta;
+      p.life += safeDelta;
       if (p.life >= p.maxLife) {
         p.active = false;
         freeIndicesRef.current[freeCountRef.current++] = pIdx;
@@ -204,18 +206,18 @@ export function WaterSplashes({ wheelsRef, chassisRef }: WaterSplashesProps) {
       }
 
       // Grawitacja ciągnie krople w dół silniej niż kurz
-      p.velocity.y -= delta * 15; 
+      p.velocity.y -= safeDelta * 15; 
       
       // Opór powietrza w poziomie
-      p.velocity.x *= Math.pow(0.5, delta); 
-      p.velocity.z *= Math.pow(0.5, delta);
+      p.velocity.x *= Math.pow(0.5, safeDelta); 
+      p.velocity.z *= Math.pow(0.5, safeDelta);
 
-      p.position.addScaledVector(p.velocity, delta);
-      p.rotationAngle += p.rotationSpeed * delta;
+      p.position.addScaledVector(p.velocity, safeDelta);
+      p.rotationAngle += p.rotationSpeed * safeDelta;
       
       // Jeśli kropelka spadnie poniżej wody, znika szybciej
       if (p.position.y < WATER_LEVEL) {
-        p.life += delta * 2; 
+        p.life += safeDelta * 2; 
       }
 
       if (p.life >= p.maxLife) {

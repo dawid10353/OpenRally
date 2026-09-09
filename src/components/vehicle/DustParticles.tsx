@@ -134,8 +134,9 @@ export function DustParticles({ wheelsRef, chassisRef }: DustParticlesProps) {
       return;
     }
 
-    // Emit new particles using a time accumulator to guarantee continuous flow without gaps
-    timeAccumulator.current += delta;
+    // Clamp delta to prevent burst emissions after backgrounding or delta spikes
+    const safeDelta = Number.isFinite(delta) && delta > 0 ? Math.min(delta, 0.1) : 1 / 60;
+    timeAccumulator.current = Math.min(timeAccumulator.current + safeDelta, 0.15);
     const EMIT_RATE = isDrifting ? 0.02 : 0.05; // 50 particles/sec drift, 20 particles/sec drive
 
     if (isDriving || isDrifting) {
@@ -212,7 +213,7 @@ export function DustParticles({ wheelsRef, chassisRef }: DustParticlesProps) {
       const pIdx = activeIndicesRef.current[i];
       const p = particles[pIdx];
 
-      p.life += delta;
+      p.life += safeDelta;
       if (p.life >= p.maxLife) {
         p.active = false;
         freeIndicesRef.current[freeCountRef.current++] = pIdx;
@@ -220,12 +221,12 @@ export function DustParticles({ wheelsRef, chassisRef }: DustParticlesProps) {
       }
 
       // Air resistance (drag) and upward lift
-      p.velocity.x *= Math.pow(0.05, delta); // slow down quickly laterally
-      p.velocity.z *= Math.pow(0.05, delta);
-      p.velocity.y += delta * 1.5; // slight upward drift
+      p.velocity.x *= Math.pow(0.05, safeDelta); // slow down quickly laterally
+      p.velocity.z *= Math.pow(0.05, safeDelta);
+      p.velocity.y += safeDelta * 1.5; // slight upward drift
 
-      p.position.addScaledVector(p.velocity, delta);
-      p.rotationAngle += p.rotationSpeed * delta;
+      p.position.addScaledVector(p.velocity, safeDelta);
+      p.rotationAngle += p.rotationSpeed * safeDelta;
       
       const progress = p.life / p.maxLife;
       

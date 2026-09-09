@@ -40,6 +40,18 @@ export function useBumperCamera(targetRef: React.RefObject<Object3D | null>): vo
     target.getWorldPosition(_bodyPos);
     target.getWorldQuaternion(_worldQuat);
 
+    if (
+      !Number.isFinite(_bodyPos.x) ||
+      !Number.isFinite(_bodyPos.y) ||
+      !Number.isFinite(_bodyPos.z) ||
+      !Number.isFinite(_worldQuat.x) ||
+      !Number.isFinite(_worldQuat.y) ||
+      !Number.isFinite(_worldQuat.z) ||
+      !Number.isFinite(_worldQuat.w)
+    ) {
+      return;
+    }
+
     const lookBack = isLookBackActive();
 
     if (lookBack) {
@@ -61,21 +73,23 @@ export function useBumperCamera(targetRef: React.RefObject<Object3D | null>): vo
     // Dynamic FOV based on speed (higher sense of speed in bumper mode)
     // We increase max FOV slightly for bumper to enhance speed sensation
     const bumperMaxFov = MAX_FOV + 10;
+    const safeSpeed = Number.isFinite(speed) ? Math.max(0, speed) : 0;
+    const safeDelta = Number.isFinite(delta) && delta > 0 ? Math.min(delta, 0.1) : 1 / 60;
     
     const targetFov = lerp(
       MIN_FOV,
       bumperMaxFov,
-      Math.min(speed / MAX_SPEED_FOR_FOV, 1),
+      Math.min(safeSpeed / MAX_SPEED_FOR_FOV, 1),
     );
     
     currentFovRef.current = MathUtils.lerp(
       currentFovRef.current,
       targetFov,
-      1 - Math.pow(FOV_SMOOTH_BASE, delta * 60),
+      1 - Math.pow(FOV_SMOOTH_BASE, safeDelta * 60),
     );
 
     // Apply FOV and update projection matrix only when delta is significant to avoid scene graph churn
-    if ('fov' in camera) {
+    if ('fov' in camera && Number.isFinite(currentFovRef.current)) {
       const persCamera = camera as PerspectiveCamera;
       if (Math.abs(persCamera.fov - currentFovRef.current) > 0.02) {
         persCamera.fov = currentFovRef.current;

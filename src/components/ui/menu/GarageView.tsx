@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, Component, type ReactNode, type ErrorInfo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Environment } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
@@ -131,6 +131,81 @@ function getVehicleCategoryTag(preset: VehiclePreset): string {
   return preset.category.toUpperCase();
 }
 
+interface GarageErrorBoundaryProps {
+  children: ReactNode;
+}
+
+interface GarageErrorBoundaryState {
+  hasError: boolean;
+  errorMessage: string | null;
+}
+
+export class GarageCanvasErrorBoundary extends Component<
+  GarageErrorBoundaryProps,
+  GarageErrorBoundaryState
+> {
+  public override state: GarageErrorBoundaryState = {
+    hasError: false,
+    errorMessage: null,
+  };
+
+  public static getDerivedStateFromError(error: Error): GarageErrorBoundaryState {
+    return {
+      hasError: true,
+      errorMessage: error?.message || '3D Preview unavailable on this device',
+    };
+  }
+
+  public override componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+    console.warn('[GarageCanvasErrorBoundary] Suppressed 3D preview error in Garage:', error, errorInfo);
+  }
+
+  public override render(): ReactNode {
+    if (this.state.hasError) {
+      return (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            color: '#94a3b8',
+            textAlign: 'center',
+            padding: '16px',
+            gap: '8px',
+          }}
+        >
+          <span style={{ fontSize: '24px' }}>🏎️</span>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: '#f87171' }}>
+            3D Preview Unavailable
+          </span>
+          <span style={{ fontSize: '10px', color: '#64748b', maxWidth: '240px' }}>
+            GPU memory limit or context lost. Vehicle can still be equipped and raced.
+          </span>
+          <button
+            type="button"
+            onClick={() => this.setState({ hasError: false, errorMessage: null })}
+            style={{
+              marginTop: '6px',
+              padding: '4px 12px',
+              borderRadius: '6px',
+              background: 'rgba(255, 255, 255, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              color: '#fff',
+              fontSize: '11px',
+              cursor: 'pointer',
+            }}
+          >
+            Retry 3D View
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export function GarageView({
   availableVehicles,
   previewVehicleId,
@@ -191,8 +266,10 @@ export function GarageView({
   }, [previewVehicleId]);
 
   useEffect(() => {
+    useGameStore.getState().setGarageOpen(true);
     const controls = controlsRef.current;
     return () => {
+      useGameStore.getState().setGarageOpen(false);
       if (controls) {
         controls.dispose();
       }
@@ -292,8 +369,9 @@ export function GarageView({
             cursor: 'grab',
           }}
         >
+          <GarageCanvasErrorBoundary>
           <Canvas
-            shadows={shouldEnableCanvasShadows(shadowsEnabled, graphicsQuality)}
+            shadows={!isMobileOrAndroid() && shouldEnableCanvasShadows(shadowsEnabled, graphicsQuality)}
             dpr={[1, isMobileOrAndroid() ? 1.5 : 2]}
             camera={{ position: [3.8, 2.0, -5.4], fov: 42 }}
             onCreated={({ gl }) => {
@@ -359,6 +437,7 @@ export function GarageView({
             <GarageGamepadTurntable controlsRef={controlsRef} />
             <Environment preset="city" />
           </Canvas>
+          </GarageCanvasErrorBoundary>
 
           {/* Interactive Zoom & Reset Controls (44x44px Touch Targets) */}
           <div style={{

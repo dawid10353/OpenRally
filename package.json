@@ -14,7 +14,10 @@
     "preview": "vite preview",
     "build:android": "./build-apk.sh",
     "open:android": "npx cap open android",
-    "build:apk": "./build-apk.sh"
+    "build:apk": "./build-apk.sh",
+    "build:bundle": "./build-bundle.sh",
+    "build:release": "./build-bundle.sh",
+    "generate:key": "./generate-release-key.sh"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.1",

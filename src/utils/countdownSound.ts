@@ -2,32 +2,14 @@
  * Web Audio synthesizer for rally countdown start beeps.
  * Produces crisp 520Hz ready beeps for 3, 2, 1 and high-pitch 1040Hz triumphant beep for START.
  */
-let _audioCtx: AudioContext | null = null;
-
-function getAudioContext(): AudioContext | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    if (!_audioCtx) {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (AudioCtx) {
-        _audioCtx = new AudioCtx();
-      }
-    }
-    if (_audioCtx && _audioCtx.state === 'suspended') {
-      _audioCtx.resume().catch(() => {});
-    }
-    return _audioCtx;
-  } catch {
-    return null;
-  }
-}
+import { getSharedAudioContext } from '@/utils/audio/audioContext';
 
 /**
  * Plays a rally countdown tone.
  * @param isGo - True if it's the START signal (1040 Hz), false for 3, 2, 1 preparatory beeps (520 Hz).
  */
 export function playCountdownBeep(isGo: boolean): void {
-  const ctx = getAudioContext();
+  const ctx = getSharedAudioContext();
   if (!ctx) return;
 
   try {
@@ -45,6 +27,15 @@ export function playCountdownBeep(isGo: boolean): void {
 
     osc.connect(gain);
     gain.connect(ctx.destination);
+
+    osc.onended = () => {
+      try {
+        osc.disconnect();
+        gain.disconnect();
+      } catch {
+        // Ignore
+      }
+    };
 
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + duration);

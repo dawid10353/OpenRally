@@ -4,6 +4,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { sampleGamepad } from '@/utils/input/gamepad';
 import { getAvailableLevels, getLevelPreset } from '@/config/levelRegistry';
 import { getAvailableVehicles } from '@/config/vehicleRegistry';
+import { unlockSharedAudioContext } from '@/utils/audio/audioContext';
 import type {
   GraphicsQuality,
   AntiAliasingMode,
@@ -367,7 +368,10 @@ export function useMenuGamepadNavigation({
 
     if (curView === 'main') {
       if (isPaused) {
-        if (curIdx === 0) setGameState('playing');
+        if (curIdx === 0) {
+          unlockSharedAudioContext().catch(() => {});
+          setGameState('playing');
+        }
         else if (curIdx === 1) handleReset();
         else if (curIdx === 2) setView('options');
         else if (curIdx === 3) handleReturnToMainMenu();
@@ -400,6 +404,7 @@ export function useMenuGamepadNavigation({
           setSelectedVehicleId(previewVehicleIdRef.current);
           useGameStore.getState().triggerReset(true);
           setView('main');
+          unlockSharedAudioContext().catch(() => {});
           setGameState('playing');
         }
       } else if (curIdx === 1) {
@@ -474,6 +479,7 @@ export function useMenuGamepadNavigation({
     } else if (curView !== 'main') {
       setView('main');
     } else if (isPaused) {
+      unlockSharedAudioContext().catch(() => {});
       setGameState('playing');
     }
   }, [setGameState, setView]);

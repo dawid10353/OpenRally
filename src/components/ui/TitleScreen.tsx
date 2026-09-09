@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { getActiveGamepad, sampleGamepad } from '@/utils/input/gamepad';
 
+import { unlockSharedAudioContext, getSharedAudioContext } from '@/utils/audio/audioContext';
+
 let _unlockAudioCtx: AudioContext | null = null;
 
 /**
@@ -20,14 +22,18 @@ export function TitleScreen() {
     try {
       if (typeof window === 'undefined') return;
       if (!_unlockAudioCtx) {
-        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        if (AudioCtx) {
-          _unlockAudioCtx = new AudioCtx();
+        _unlockAudioCtx = getSharedAudioContext();
+        if (!_unlockAudioCtx) {
+          const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+          if (AudioCtx) {
+            _unlockAudioCtx = new AudioCtx();
+          }
         }
       }
       if (_unlockAudioCtx && _unlockAudioCtx.state === 'suspended') {
         _unlockAudioCtx.resume().catch(() => {});
       }
+      unlockSharedAudioContext().catch(() => {});
     } catch {
       // Ignored
     }

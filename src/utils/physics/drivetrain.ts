@@ -111,7 +111,8 @@ export function applyDrivetrain(
         // Auto reverse trigger when stopped
         engineForce = -config.engine.maxForce * input.brake * REVERSE_FORCE_MULTIPLIER * baseTorqueMultiplier * revLimiterGovernor;
       }
-      controller.setWheelEngineForce(i, engineForce);
+      const safeEngineForce = Number.isFinite(engineForce) ? engineForce : 0;
+      controller.setWheelEngineForce(i, safeEngineForce);
     } else {
       controller.setWheelEngineForce(i, 0);
     }
@@ -162,8 +163,14 @@ export function applyAwdDriftPropulsion(
     groundedRatio *
     dt;
 
-  if (thrustMagnitude > 0) {
+  if (Number.isFinite(thrustMagnitude) && thrustMagnitude > 0) {
     _thrustImpulse.copy(forwardVector).multiplyScalar(thrustMagnitude);
-    body.applyImpulse(_thrustImpulse, true);
+    if (
+      Number.isFinite(_thrustImpulse.x) &&
+      Number.isFinite(_thrustImpulse.y) &&
+      Number.isFinite(_thrustImpulse.z)
+    ) {
+      body.applyImpulse(_thrustImpulse, true);
+    }
   }
 }

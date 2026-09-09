@@ -255,7 +255,7 @@ describe('Mobile Frame Pacing (60 FPS on 120Hz LTPO)', () => {
 
     it('prevents clock delta explosion when resuming after tab backgrounding (> 200ms hiatus)', () => {
       const advanceSpy = vi.fn();
-      const clockMock = { elapsedTime: 1.0 };
+      const clockMock = { elapsedTime: 1.0, oldTime: 1000.0 };
       currentTime = 1000.0;
 
       const stop = startFramePacingLoop({
@@ -279,9 +279,10 @@ describe('Mobile Frame Pacing (60 FPS on 120Hz LTPO)', () => {
 
       // Clock elapsedTime should be adjusted so delta = (now - interval) / 1000
       // interval = 1000 / 60 = 16.667ms -> adjusted time = (6000 - 16.667) / 1000 = ~5.9833s
-      // preventing a 5-second physics explosion!
+      // and oldTime set to now - interval = 6000 - 16.667, preventing a 5-second physics explosion!
       const expectedAdjustedTime = (6000 - 1000 / 60) / 1000;
       expect(clockMock.elapsedTime).toBeCloseTo(expectedAdjustedTime, 4);
+      expect(clockMock.oldTime).toBeCloseTo(6000 - 1000 / 60, 4);
 
       stop();
     });

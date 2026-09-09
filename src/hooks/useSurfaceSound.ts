@@ -13,10 +13,7 @@ import {
   AUDIO_RAMP_TIME,
 } from '@/config/sound';
 
-/** Augment Window for Safari's prefixed AudioContext */
-interface WebkitWindow extends Window {
-  webkitAudioContext?: typeof AudioContext;
-}
+import { getSharedAudioContext } from '@/utils/audio/audioContext';
 
 /**
  * Procedural surface/tire rolling sound generator using Web Audio API.
@@ -41,9 +38,8 @@ export function useSurfaceSound(wheelsRef: React.RefObject<(Object3D | null)[]>)
 
       const initAudio = async () => {
         try {
-          const AudioCtx = window.AudioContext || (window as unknown as WebkitWindow).webkitAudioContext;
-          if (!AudioCtx) return;
-          const ctx = new AudioCtx();
+          const ctx = getSharedAudioContext();
+          if (!ctx) return;
 
           const currentPlaying = useGameStore.getState().gameState === 'playing';
 
@@ -64,10 +60,6 @@ export function useSurfaceSound(wheelsRef: React.RefObject<(Object3D | null)[]>)
           source.playbackRate.value = SURFACE_BASE_PITCH;
           source.connect(masterGain);
           source.start();
-
-          if (!currentPlaying && ctx.state === 'running') {
-            ctx.suspend();
-          }
 
           ctxRef.current = ctx;
           sourceRef.current = source;
@@ -90,7 +82,7 @@ export function useSurfaceSound(wheelsRef: React.RefObject<(Object3D | null)[]>)
       if (gameState === 'playing') {
         try {
           if (ctxRef.current.state === 'suspended') {
-            ctxRef.current.resume();
+            ctxRef.current.resume().catch(() => {});
           }
           gainRef.current.disconnect();
           gainRef.current.connect(ctxRef.current.destination);
@@ -108,7 +100,7 @@ export function useSurfaceSound(wheelsRef: React.RefObject<(Object3D | null)[]>)
           // ignore
         }
         if (ctxRef.current.state === 'running') {
-          ctxRef.current.suspend();
+          ctxRef.current.suspend().catch(() => {});
         }
       }
     }
@@ -118,10 +110,22 @@ export function useSurfaceSound(wheelsRef: React.RefObject<(Object3D | null)[]>)
   useFrame(() => {
     if (!isInitialized || !sourceRef.current || !ctxRef.current || !gainRef.current || gameState !== 'playing') {
       if (gainRef.current && gameState !== 'playing') {
-        gainRef.current.gain.cancelScheduledValues(0);
-        gainRef.current.gain.setValueAtTime(0, 0);
-        gainRef.current.gain.value = 0;
+        try {
+          gainRef.current.gain.cancelScheduledValues(0);
+          gainRef.current.gain.value = 0;
+        } catch {
+          // Ignore
+        }
       }
+      return;
+    }
+
+    if (ctxRef.current.state === 'closed') {
+      ctxRef.current = null;
+      sourceRef.current = null;
+      gainRef.current = null;
+      isInitializingRef.current = false;
+      setIsInitialized(false);
       return;
     }
 
@@ -139,32 +143,46 @@ export function useSurfaceSound(wheelsRef: React.RefObject<(Object3D | null)[]>)
 
     const speed = useGameStore.getState().speed;
     const absSpeed = Math.abs(speed);
+    const safeSpeed = Number.isFinite(absSpeed) ? absSpeed : 0;
+    const safeSfxVolume = Number.isFinite(sfxVolume) ? Math.max(0, Math.min(1, sfxVolume)) : 0.8;
 
     // Calculate volume: 0 below MIN_SPEED or if in the air
     let targetVolume = 0;
-    if (isGrounded && absSpeed > SURFACE_MIN_SPEED) {
-      const speedFactor = Math.min((absSpeed - SURFACE_MIN_SPEED) / (SURFACE_SPEED_FOR_MAX_VOL - SURFACE_MIN_SPEED), 1);
-      targetVolume = speedFactor * SURFACE_MAX_VOLUME * sfxVolume;
+    if (isGrounded && safeSpeed > SURFACE_MIN_SPEED) {
+      const speedFactor = Math.min((safeSpeed - SURFACE_MIN_SPEED) / (SURFACE_SPEED_FOR_MAX_VOL - SURFACE_MIN_SPEED), 1);
+      targetVolume = speedFactor * SURFACE_MAX_VOLUME * safeSfxVolume;
     }
 
     // Faster ramp down when losing contact with ground, normal ramp otherwise
     const rampTime = isGrounded ? AUDIO_RAMP_TIME : 0.05; 
-    gainRef.current.gain.setTargetAtTime(targetVolume, ctxRef.current.currentTime, rampTime);
+    if (Number.isFinite(targetVolume) && ctxRef.current.currentTime >= 0) {
+      gainRef.current.gain.setTargetAtTime(targetVolume, ctxRef.current.currentTime, rampTime);
+    }
 
     // Pitch increases slightly with speed for more realism
-    const targetPitch = SURFACE_BASE_PITCH + absSpeed * SURFACE_PITCH_PER_KMH;
-    sourceRef.current.playbackRate.setTargetAtTime(targetPitch, ctxRef.current.currentTime, AUDIO_RAMP_TIME);
+    const targetPitch = SURFACE_BASE_PITCH + safeSpeed * SURFACE_PITCH_PER_KMH;
+    if (Number.isFinite(targetPitch) && ctxRef.current.currentTime >= 0) {
+      sourceRef.current.playbackRate.setTargetAtTime(targetPitch, ctxRef.current.currentTime, AUDIO_RAMP_TIME);
+    }
   });
 
-  // Cleanup on unmount
+  // Cleanup on unmount (disconnect nodes without closing shared AudioContext)
   useEffect(() => {
     return () => {
-      if (ctxRef.current) {
+      if (sourceRef.current) {
         try {
-          ctxRef.current.close();
+          sourceRef.current.stop();
+          sourceRef.current.disconnect();
         } catch {}
-        ctxRef.current = null;
+        sourceRef.current = null;
       }
+      if (gainRef.current) {
+        try {
+          gainRef.current.disconnect();
+        } catch {}
+        gainRef.current = null;
+      }
+      ctxRef.current = null;
     };
   }, []);
 }
