@@ -27,10 +27,13 @@ echo "Java version:    $(java -version 2>&1 | head -n 1)"
 echo "Android SDK:     $ANDROID_HOME"
 
 echo "=== [2/5] Building Web Assets (Vite + TS) ==="
+rm -f "$SCRIPT_DIR/dist/openrally.apk" "$SCRIPT_DIR/android/app/src/main/assets/public/openrally.apk"
 npm run build
+rm -f "$SCRIPT_DIR/dist/openrally.apk"
 
 echo "=== [3/5] Syncing Capacitor Android Project ==="
 npx cap sync android
+rm -f "$SCRIPT_DIR/android/app/src/main/assets/public/openrally.apk"
 
 echo "=== [4/5] Compiling Android APK with Gradle ==="
 cd "$SCRIPT_DIR/android"
