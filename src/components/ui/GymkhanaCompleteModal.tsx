@@ -2,10 +2,10 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useGymkhanaStore } from '@/store/gymkhanaStore';
 import { useGameStore } from '@/store/gameStore';
 import { useMultiplayerStore } from '@/store/multiplayerStore';
-import { networkClient } from '@/network/networkClient';
 import { sampleGamepad, resetGamepadEdgeState } from '@/utils/input/gamepad';
 import { isTextEditingActive } from '@/utils/input/textInput';
 import { getVehiclePreset } from '@/config/vehicleRegistry';
+import { returnToMainMenu } from '@/utils/navigation';
 
 function formatScore(score: number): string {
   return score.toLocaleString('en-US');
@@ -59,7 +59,6 @@ function GymkhanaCompleteModalContent() {
   const dismissResultsModal = useGymkhanaStore((s) => s.dismissResultsModal);
   const startCountdown = useGymkhanaStore((s) => s.startCountdown);
 
-  const setGameState = useGameStore((s) => s.setGameState);
   const setGameMode = useGameStore((s) => s.setGameMode);
   const triggerReset = useGameStore((s) => s.triggerReset);
 
@@ -86,14 +85,8 @@ function GymkhanaCompleteModalContent() {
   }, [dismissResultsModal, setGameMode, isMultiplayerGymkhana]);
 
   const handleReturnToMenu = useCallback(() => {
-    resetGamepadEdgeState();
-    dismissResultsModal();
-    useGymkhanaStore.getState().resetBlitz();
-    if (isMultiplayer && currentRoom) {
-      networkClient.leaveRoom(currentRoom.id);
-    }
-    setGameState('menu');
-  }, [dismissResultsModal, setGameState, isMultiplayer, currentRoom]);
+    returnToMainMenu();
+  }, []);
 
   const playAgainRef = useRef(handlePlayAgain);
   playAgainRef.current = handlePlayAgain;

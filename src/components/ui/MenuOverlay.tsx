@@ -8,7 +8,7 @@ import { getAvailableLevels, getLevelPreset } from '@/config/levelRegistry';
 import { resetGamepadEdgeState } from '@/utils/input/gamepad';
 import { useGameEventListener } from '@/utils/events';
 import { unlockSharedAudioContext } from '@/utils/audio/audioContext';
-import { networkClient } from '@/network/networkClient';
+import { returnToMainMenu } from '@/utils/navigation';
 import type { GameMode } from '@/types';
 import {
   menuStyles,
@@ -235,27 +235,11 @@ export function MenuOverlay() {
   }, [setSelectedLevelId, setView, syncBestLapForLevel]);
 
   const handleReturnToMainMenu = useCallback(() => {
-    resetGamepadEdgeState();
     setFocusedIndexInternal(0);
-    networkClient.disconnect();
-    const spawnPos = currentLevelPreset.spawnPosition;
-    useGameStore.setState({
-      speed: 0,
-      lateralSpeed: 0,
-      slipAngle: 0,
-      rpm: 1000,
-      gear: 1,
-      heading: currentLevelPreset.spawnRotationY,
-      position: [spawnPos[0], spawnPos[1], spawnPos[2]],
-      isSceneReady: false,
-      loadingTarget: 'menu',
-    });
-    useGameStore.getState().triggerReset(true);
-    useRacingStore.getState().resetRace();
-    syncBestLapForLevel(selectedLevelId);
     setView('main');
-    setGameState('loading');
-  }, [currentLevelPreset, selectedLevelId, setGameState, setView, syncBestLapForLevel]);
+    syncBestLapForLevel(selectedLevelId);
+    returnToMainMenu();
+  }, [selectedLevelId, setView, syncBestLapForLevel]);
 
   // Clean up confirmation timer on unmount
   useEffect(() => {

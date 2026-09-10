@@ -11,3 +11,4 @@ export * from './CreditsView';
 export * from './HeroShowcase';
 export * from './MultiplayerView';
 export * from './useMenuGamepadNavigation';
+export * from './menuGamepadRegistry';

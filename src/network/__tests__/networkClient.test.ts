@@ -11,10 +11,72 @@ describe('NetworkClient', () => {
     vi.restoreAllMocks();
   });
 
-  it('resolves default ws endpoint in local dev', () => {
+  it('resolves default ws endpoint as remote server URL by default', () => {
     const endpoint = getWebSocketEndpoint();
-    expect(endpoint).toBeDefined();
-    expect(typeof endpoint).toBe('string');
+    expect(endpoint).toBe('wss://vps-db5f427e.vps.ovh.net/ws');
+  });
+
+  function mockLocation(loc: Partial<Location>): () => void {
+    const original = globalThis.window;
+    globalThis.window = { location: loc as Location } as Window & typeof globalThis;
+    return () => {
+      globalThis.window = original;
+    };
+  }
+
+  it('respects ?ws=local query parameter override', () => {
+    const restore = mockLocation({
+      search: '?ws=local',
+      hostname: 'localhost',
+      host: 'localhost:5173',
+      protocol: 'http:',
+    });
+    expect(getWebSocketEndpoint()).toBe('ws://localhost:3001');
+    restore();
+  });
+
+  it('respects ?ws=remote query parameter override', () => {
+    const restore = mockLocation({
+      search: '?ws=remote',
+      hostname: 'localhost',
+      host: 'localhost:5173',
+      protocol: 'http:',
+    });
+    expect(getWebSocketEndpoint()).toBe('wss://vps-db5f427e.vps.ovh.net/ws');
+    restore();
+  });
+
+  it('respects custom ?ws=... query parameter override', () => {
+    const restore = mockLocation({
+      search: '?ws=wss://custom-server.com/ws',
+      hostname: 'localhost',
+      host: 'localhost:5173',
+      protocol: 'http:',
+    });
+    expect(getWebSocketEndpoint()).toBe('wss://custom-server.com/ws');
+    restore();
+  });
+
+  it('routes to wss://${host}/ws when deployed behind HTTPS on a remote domain', () => {
+    const restore = mockLocation({
+      search: '',
+      hostname: 'play.openrally.com',
+      host: 'play.openrally.com',
+      protocol: 'https:',
+    });
+    expect(getWebSocketEndpoint()).toBe('wss://play.openrally.com/ws');
+    restore();
+  });
+
+  it('connects to remote server when on Android Capacitor (localhost HTTPS)', () => {
+    const restore = mockLocation({
+      search: '',
+      hostname: 'localhost',
+      host: 'localhost',
+      protocol: 'https:',
+    });
+    expect(getWebSocketEndpoint()).toBe('wss://vps-db5f427e.vps.ovh.net/ws');
+    restore();
   });
 
   it('initializes and manages entity buffers', () => {

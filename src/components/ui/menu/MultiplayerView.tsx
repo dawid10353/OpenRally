@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { menuStyles, getFocusStyle } from './menuStyles';
 import type { MenuView } from './types';
 import { useMultiplayerStore } from '@/store/multiplayerStore';
@@ -9,14 +9,37 @@ import { networkClient } from '@/network/networkClient';
 import { getAvailableVehicles, getVehiclePreset } from '@/config/vehicleRegistry';
 import { getAvailableLevels, getLevelPreset } from '@/config/levelRegistry';
 import { unlockSharedAudioContext } from '@/utils/audio/audioContext';
+import { registerMenuGamepadDelegate } from './menuGamepadRegistry';
 import type { RoomSummary } from '@/types/network';
 import type { GameMode } from '@/types/game';
+
+export type MultiplayerFocusTarget =
+  | { area: 'vehicles'; index: number }
+  | { area: 'refresh' }
+  | { area: 'create_toggle' }
+  | { area: 'modal_track'; index: number }
+  | { area: 'modal_mode'; index: number }
+  | { area: 'modal_launch' }
+  | { area: 'room_join'; index: number }
+  | { area: 'room_delete'; index: number }
+  | { area: 'quick_play' }
+  | { area: 'back' };
 
 interface MultiplayerViewProps {
   focusedIndex: number;
   textColor: string;
   onPointerMoveItem: (index: number, e: React.PointerEvent) => void;
   onSelectView: (view: MenuView) => void;
+}
+
+function getGamepadFocusStyle(isFocused: boolean): React.CSSProperties {
+  if (!isFocused) return {};
+  return {
+    outline: '2px solid #38BDF8',
+    outlineOffset: '2px',
+    boxShadow: '0 0 16px rgba(56, 189, 248, 0.85)',
+    borderColor: '#38BDF8',
+  };
 }
 
 export function MultiplayerView({
@@ -41,7 +64,7 @@ export function MultiplayerView({
 
   const [inputNick, setInputNick] = useState(nickname);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newRoomName, setNewRoomName] = useState('');
+  const [newRoomName, setNewRoomName] = useState(() => `${nickname || 'Apex_Driver'} Rally`);
   const [createLevelId, setCreateLevelId] = useState('level1_island');
   const [createGameMode, setCreateGameMode] = useState<GameMode>('timeattack');
   const [createError, setCreateError] = useState<string | null>(null);
@@ -49,6 +72,50 @@ export function MultiplayerView({
   // Available roster of vehicles and registered levels
   const vehicles = getAvailableVehicles();
   const levels = getAvailableLevels();
+
+  // Focus management for Gamepad / Keyboard navigation
+  const [focusTarget, setFocusTarget] = useState<MultiplayerFocusTarget>(() => {
+    if (focusedIndex === 1) return { area: 'back' };
+    return { area: 'quick_play' };
+  });
+
+  // Keep references to latest state to avoid recreation of delegate handlers
+  const focusTargetRef = useRef<MultiplayerFocusTarget>(focusTarget);
+  focusTargetRef.current = focusTarget;
+  const showCreateModalRef = useRef(showCreateModal);
+  showCreateModalRef.current = showCreateModal;
+  const roomsRef = useRef(rooms);
+  roomsRef.current = rooms;
+  const vehiclesRef = useRef(vehicles);
+  vehiclesRef.current = vehicles;
+  const levelsRef = useRef(levels);
+  levelsRef.current = levels;
+  const selectedVehicleIdRef = useRef(selectedVehicleId);
+  selectedVehicleIdRef.current = selectedVehicleId;
+  const selfIdRef = useRef(selfId);
+  selfIdRef.current = selfId;
+
+  const newRoomNameRef = useRef(newRoomName);
+  newRoomNameRef.current = newRoomName;
+  const createLevelIdRef = useRef(createLevelId);
+  createLevelIdRef.current = createLevelId;
+  const createGameModeRef = useRef(createGameMode);
+  createGameModeRef.current = createGameMode;
+  const inputNickRef = useRef(inputNick);
+  inputNickRef.current = inputNick;
+
+  const createPreset = getLevelPreset(createLevelId);
+  const currentSupportedModes = createPreset.supportedModes ?? ['freeroam', 'timeattack'];
+  const currentSupportedModesRef = useRef(currentSupportedModes);
+  currentSupportedModesRef.current = currentSupportedModes;
+
+  // Auto-scroll focused element into view
+  useEffect(() => {
+    const el = document.querySelector('[data-gamepad-focused="true"]');
+    if (el instanceof HTMLElement) {
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+    }
+  }, [focusTarget]);
 
   // Connect to relay server on view mount to fetch live rooms and subscribe
   useEffect(() => {
@@ -70,14 +137,14 @@ export function MultiplayerView({
   };
 
   const getEffectiveNickname = () => {
-    return inputNick.trim() || nickname || 'Apex_Driver';
+    return inputNickRef.current.trim() || useMultiplayerStore.getState().nickname || 'Apex_Driver';
   };
 
   const handleSelectCreateTrack = (lvlId: string) => {
     setCreateLevelId(lvlId);
     const preset = getLevelPreset(lvlId);
     const supported = preset.supportedModes ?? ['freeroam', 'timeattack'];
-    if (!supported.includes(createGameMode)) {
+    if (!supported.includes(createGameModeRef.current)) {
       setCreateGameMode(supported[0]);
     }
   };
@@ -101,16 +168,16 @@ export function MultiplayerView({
       useGymkhanaStore.getState().startCountdown();
     }
 
-    networkClient.joinRoom(roomId, finalNick, selectedVehicleId);
+    networkClient.joinRoom(roomId, finalNick, selectedVehicleIdRef.current);
 
     unlockSharedAudioContext().catch(() => {});
     setGameState('playing');
     onSelectView('main');
   };
 
-  const handleCreateRoom = (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = newRoomName.trim();
+  const executeCreateRoom = () => {
+    const rawName = newRoomNameRef.current.trim() || `${getEffectiveNickname()} Rally`;
+    const trimmed = rawName.slice(0, 24);
     if (trimmed.length < 2 || trimmed.length > 24) {
       setCreateError('Room name must be between 2 and 24 characters.');
       return;
@@ -119,26 +186,35 @@ export function MultiplayerView({
     const finalNick = getEffectiveNickname();
     setNickname(finalNick);
 
-    setSelectedLevelId(createLevelId);
-    setGameMode(createGameMode);
+    const levelId = createLevelIdRef.current;
+    const mode = createGameModeRef.current;
+    const vehicleId = selectedVehicleIdRef.current;
+
+    setSelectedLevelId(levelId);
+    setGameMode(mode);
 
     useGameStore.getState().triggerReset(true);
     useRacingStore.getState().resetRace();
-    useRacingStore.getState().syncBestLapForLevel(createLevelId);
+    useRacingStore.getState().syncBestLapForLevel(levelId);
     useGymkhanaStore.getState().resetBlitz();
-    useGymkhanaStore.getState().syncBestScoreForLevel(createLevelId);
+    useGymkhanaStore.getState().syncBestScoreForLevel(levelId);
 
-    if (createGameMode === 'timeattack') {
+    if (mode === 'timeattack') {
       useRacingStore.getState().startCountdown();
-    } else if (createGameMode === 'gymkhana_blitz') {
+    } else if (mode === 'gymkhana_blitz') {
       useGymkhanaStore.getState().startCountdown();
     }
 
-    networkClient.createRoom(trimmed, finalNick, selectedVehicleId, createLevelId, createGameMode);
+    networkClient.createRoom(trimmed, finalNick, vehicleId, levelId, mode);
 
     unlockSharedAudioContext().catch(() => {});
     setGameState('playing');
     onSelectView('main');
+  };
+
+  const handleCreateRoom = (e: React.FormEvent) => {
+    e.preventDefault();
+    executeCreateRoom();
   };
 
   const handleDeleteRoom = (room: RoomSummary) => {
@@ -147,9 +223,219 @@ export function MultiplayerView({
     }
   };
 
+  const executeCreateRoomRef = useRef(executeCreateRoom);
+  executeCreateRoomRef.current = executeCreateRoom;
+  const handleJoinRoomRef = useRef(handleJoinRoom);
+  handleJoinRoomRef.current = handleJoinRoom;
+  const handleDeleteRoomRef = useRef(handleDeleteRoom);
+  handleDeleteRoomRef.current = handleDeleteRoom;
+
+  // Register Gamepad Delegate for MultiplayerView
+  useEffect(() => {
+    const unregister = registerMenuGamepadDelegate('multiplayer', {
+      handleTabLeft: () => {
+        const vList = vehiclesRef.current;
+        const curId = selectedVehicleIdRef.current;
+        const curIdx = vList.findIndex((v) => v.id === curId);
+        const prevIdx = (curIdx - 1 + vList.length) % vList.length;
+        setSelectedVehicleId(vList[prevIdx].id);
+        if (focusTargetRef.current.area === 'vehicles') {
+          setFocusTarget({ area: 'vehicles', index: prevIdx });
+        }
+      },
+      handleTabRight: () => {
+        const vList = vehiclesRef.current;
+        const curId = selectedVehicleIdRef.current;
+        const curIdx = vList.findIndex((v) => v.id === curId);
+        const nextIdx = (curIdx + 1) % vList.length;
+        setSelectedVehicleId(vList[nextIdx].id);
+        if (focusTargetRef.current.area === 'vehicles') {
+          setFocusTarget({ area: 'vehicles', index: nextIdx });
+        }
+      },
+      handleNavLeft: () => {
+        const cur = focusTargetRef.current;
+        const vList = vehiclesRef.current;
+        if (cur.area === 'refresh' || cur.area === 'create_toggle') {
+          setFocusTarget({ area: 'vehicles', index: 0 });
+        } else if (cur.area === 'modal_track') {
+          if (cur.index > 0) setFocusTarget({ area: 'modal_track', index: cur.index - 1 });
+          else setFocusTarget({ area: 'vehicles', index: 0 });
+        } else if (cur.area === 'modal_mode') {
+          if (cur.index > 0) setFocusTarget({ area: 'modal_mode', index: cur.index - 1 });
+          else setFocusTarget({ area: 'vehicles', index: 0 });
+        } else if (cur.area === 'modal_launch') {
+          setFocusTarget({ area: 'vehicles', index: 0 });
+        } else if (cur.area === 'room_delete') {
+          setFocusTarget({ area: 'room_join', index: cur.index });
+        } else if (cur.area === 'room_join') {
+          setFocusTarget({ area: 'vehicles', index: Math.min(vList.length - 1, cur.index) });
+        } else if (cur.area === 'quick_play' || cur.area === 'back') {
+          setFocusTarget({ area: 'vehicles', index: vList.length - 1 });
+        }
+      },
+      handleNavRight: () => {
+        const cur = focusTargetRef.current;
+        const rList = roomsRef.current;
+        const curUserId = selfIdRef.current;
+        if (cur.area === 'vehicles') {
+          if (showCreateModalRef.current) {
+            setFocusTarget({ area: 'modal_track', index: 0 });
+          } else if (rList.length > 0) {
+            setFocusTarget({ area: 'room_join', index: Math.min(rList.length - 1, cur.index) });
+          } else {
+            setFocusTarget({ area: 'create_toggle' });
+          }
+        } else if (cur.area === 'refresh') {
+          setFocusTarget({ area: 'create_toggle' });
+        } else if (cur.area === 'modal_track') {
+          if (cur.index < levelsRef.current.length - 1) {
+            setFocusTarget({ area: 'modal_track', index: cur.index + 1 });
+          }
+        } else if (cur.area === 'modal_mode') {
+          if (cur.index < currentSupportedModesRef.current.length - 1) {
+            setFocusTarget({ area: 'modal_mode', index: cur.index + 1 });
+          }
+        } else if (cur.area === 'room_join') {
+          const room = rList[cur.index];
+          if (curUserId && room && room.hostId === curUserId && !room.isPersistent) {
+            setFocusTarget({ area: 'room_delete', index: cur.index });
+          }
+        }
+      },
+      handleNavUp: () => {
+        const cur = focusTargetRef.current;
+        const rList = roomsRef.current;
+        if (cur.area === 'vehicles') {
+          if (cur.index > 0) setFocusTarget({ area: 'vehicles', index: cur.index - 1 });
+        } else if (cur.area === 'refresh') {
+          setFocusTarget({ area: 'vehicles', index: 0 });
+        } else if (cur.area === 'create_toggle') {
+          setFocusTarget({ area: 'refresh' });
+        } else if (cur.area === 'modal_track') {
+          setFocusTarget({ area: 'create_toggle' });
+        } else if (cur.area === 'modal_mode') {
+          setFocusTarget({ area: 'modal_track', index: Math.min(levelsRef.current.length - 1, cur.index) });
+        } else if (cur.area === 'modal_launch') {
+          setFocusTarget({ area: 'modal_mode', index: 0 });
+        } else if (cur.area === 'room_join' || cur.area === 'room_delete') {
+          if (cur.index > 0) {
+            setFocusTarget({ area: 'room_join', index: cur.index - 1 });
+          } else {
+            setFocusTarget({ area: 'create_toggle' });
+          }
+        } else if (cur.area === 'quick_play') {
+          if (showCreateModalRef.current) {
+            setFocusTarget({ area: 'modal_launch' });
+          } else if (rList.length > 0) {
+            setFocusTarget({ area: 'room_join', index: rList.length - 1 });
+          } else {
+            setFocusTarget({ area: 'create_toggle' });
+          }
+        } else if (cur.area === 'back') {
+          setFocusTarget({ area: 'quick_play' });
+        }
+      },
+      handleNavDown: () => {
+        const cur = focusTargetRef.current;
+        const vList = vehiclesRef.current;
+        const rList = roomsRef.current;
+        if (cur.area === 'vehicles') {
+          if (cur.index < vList.length - 1) {
+            setFocusTarget({ area: 'vehicles', index: cur.index + 1 });
+          } else {
+            setFocusTarget({ area: 'quick_play' });
+          }
+        } else if (cur.area === 'refresh') {
+          setFocusTarget({ area: 'create_toggle' });
+        } else if (cur.area === 'create_toggle') {
+          if (showCreateModalRef.current) {
+            setFocusTarget({ area: 'modal_track', index: 0 });
+          } else if (rList.length > 0) {
+            setFocusTarget({ area: 'room_join', index: 0 });
+          } else {
+            setFocusTarget({ area: 'quick_play' });
+          }
+        } else if (cur.area === 'modal_track') {
+          setFocusTarget({ area: 'modal_mode', index: 0 });
+        } else if (cur.area === 'modal_mode') {
+          setFocusTarget({ area: 'modal_launch' });
+        } else if (cur.area === 'modal_launch') {
+          setFocusTarget({ area: 'quick_play' });
+        } else if (cur.area === 'room_join' || cur.area === 'room_delete') {
+          if (cur.index < rList.length - 1) {
+            setFocusTarget({ area: 'room_join', index: cur.index + 1 });
+          } else {
+            setFocusTarget({ area: 'quick_play' });
+          }
+        } else if (cur.area === 'quick_play') {
+          setFocusTarget({ area: 'back' });
+        }
+      },
+      handleConfirm: () => {
+        const cur = focusTargetRef.current;
+        const vList = vehiclesRef.current;
+        const rList = roomsRef.current;
+        if (cur.area === 'vehicles') {
+          setSelectedVehicleId(vList[cur.index].id);
+        } else if (cur.area === 'refresh') {
+          networkClient.requestRooms();
+        } else if (cur.area === 'create_toggle') {
+          const next = !showCreateModalRef.current;
+          setShowCreateModal(next);
+          setNewRoomName(`${getEffectiveNickname()} Rally`);
+          setCreateError(null);
+          if (next) {
+            setFocusTarget({ area: 'modal_track', index: 0 });
+          } else {
+            setFocusTarget({ area: 'create_toggle' });
+          }
+        } else if (cur.area === 'modal_track') {
+          handleSelectCreateTrack(levelsRef.current[cur.index].id);
+        } else if (cur.area === 'modal_mode') {
+          setCreateGameMode(currentSupportedModesRef.current[cur.index]);
+        } else if (cur.area === 'modal_launch') {
+          executeCreateRoomRef.current();
+        } else if (cur.area === 'room_join') {
+          const room = rList[cur.index];
+          if (room) handleJoinRoomRef.current(room.id, room.levelId, room.gameMode);
+        } else if (cur.area === 'room_delete') {
+          const room = rList[cur.index];
+          if (room) handleDeleteRoomRef.current(room);
+        } else if (cur.area === 'quick_play') {
+          handleJoinRoomRef.current('gymkhana_freeroam', 'level5_gymkhana', 'freeroam');
+        } else if (cur.area === 'back') {
+          onSelectView('main');
+        }
+      },
+      handleBack: () => {
+        if (showCreateModalRef.current) {
+          setShowCreateModal(false);
+          setFocusTarget({ area: 'create_toggle' });
+          return true; // consumed
+        }
+        return false; // let navigation return to main menu
+      },
+      handleSpecialX: () => {
+        const cur = focusTargetRef.current;
+        const rList = roomsRef.current;
+        const curUserId = selfIdRef.current;
+        if (cur.area === 'room_join' || cur.area === 'room_delete') {
+          const room = rList[cur.index];
+          if (room && curUserId && room.hostId === curUserId && !room.isPersistent) {
+            handleDeleteRoomRef.current(room);
+          }
+        }
+      },
+      handleSpecialY: () => {
+        networkClient.requestRooms();
+      },
+    });
+
+    return unregister;
+  }, []);
+
   const currentPreset = getVehiclePreset(selectedVehicleId);
-  const createPreset = getLevelPreset(createLevelId);
-  const currentSupportedModes = createPreset.supportedModes ?? ['freeroam', 'timeattack'];
 
   return (
     <div
@@ -193,7 +479,12 @@ export function MultiplayerView({
           </span>
           <button
             type="button"
-            onClick={() => networkClient.requestRooms()}
+            data-gamepad-focused={focusTarget.area === 'refresh' ? 'true' : undefined}
+            onClick={() => {
+              setFocusTarget({ area: 'refresh' });
+              networkClient.requestRooms();
+            }}
+            onPointerMove={() => setFocusTarget({ area: 'refresh' })}
             style={{
               background: 'rgba(255, 255, 255, 0.08)',
               border: '1px solid rgba(255, 255, 255, 0.2)',
@@ -203,8 +494,10 @@ export function MultiplayerView({
               fontSize: '11px',
               fontWeight: 700,
               cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              ...getGamepadFocusStyle(focusTarget.area === 'refresh'),
             }}
-            title="Refresh rooms list"
+            title="Refresh rooms list (Gamepad: Y)"
           >
             🔄 Refresh
           </button>
@@ -276,7 +569,7 @@ export function MultiplayerView({
             <span style={{ fontSize: '11px', fontWeight: 800, color: '#38BDF8', letterSpacing: '1px' }}>
               CHAMPIONSHIP ROSTER (7 CARS)
             </span>
-            <span style={{ fontSize: '10px', color: '#64748B' }}>SELECT VEHICLE</span>
+            <span style={{ fontSize: '10px', color: '#64748B' }}>LB / RB TO SWITCH</span>
           </div>
 
           <div
@@ -289,13 +582,19 @@ export function MultiplayerView({
               paddingRight: '4px',
             }}
           >
-            {vehicles.map((v) => {
+            {vehicles.map((v, idx) => {
               const isSelected = selectedVehicleId === v.id;
+              const isFocused = focusTarget.area === 'vehicles' && focusTarget.index === idx;
               return (
                 <button
                   key={v.id}
                   type="button"
-                  onClick={() => setSelectedVehicleId(v.id)}
+                  data-gamepad-focused={isFocused ? 'true' : undefined}
+                  onClick={() => {
+                    setSelectedVehicleId(v.id);
+                    setFocusTarget({ area: 'vehicles', index: idx });
+                  }}
+                  onPointerMove={() => setFocusTarget({ area: 'vehicles', index: idx })}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -307,6 +606,7 @@ export function MultiplayerView({
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                     textAlign: 'left',
+                    ...getGamepadFocusStyle(isFocused),
                   }}
                 >
                   <div>
@@ -356,11 +656,15 @@ export function MultiplayerView({
             </span>
             <button
               type="button"
+              data-gamepad-focused={focusTarget.area === 'create_toggle' ? 'true' : undefined}
               onClick={() => {
-                setShowCreateModal(!showCreateModal);
+                const next = !showCreateModal;
+                setShowCreateModal(next);
                 setNewRoomName(`${getEffectiveNickname()} Rally`);
                 setCreateError(null);
+                setFocusTarget(next ? { area: 'modal_track', index: 0 } : { area: 'create_toggle' });
               }}
+              onPointerMove={() => setFocusTarget({ area: 'create_toggle' })}
               style={{
                 background: showCreateModal ? 'rgba(239, 68, 68, 0.2)' : 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)',
                 border: `1px solid ${showCreateModal ? '#F87171' : '#38BDF8'}`,
@@ -370,9 +674,11 @@ export function MultiplayerView({
                 fontSize: '11px',
                 fontWeight: 800,
                 cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                ...getGamepadFocusStyle(focusTarget.area === 'create_toggle'),
               }}
             >
-              {showCreateModal ? '✖ Cancel' : '➕ Create Room'}
+              {showCreateModal ? '✖ Cancel (B)' : '➕ Create Room'}
             </button>
           </div>
 
@@ -422,13 +728,19 @@ export function MultiplayerView({
                   SELECT TRACK:
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '6px' }}>
-                  {levels.map((lvl) => {
+                  {levels.map((lvl, lvlIdx) => {
                     const isSelected = createLevelId === lvl.id;
+                    const isFocused = focusTarget.area === 'modal_track' && focusTarget.index === lvlIdx;
                     return (
                       <button
                         key={lvl.id}
                         type="button"
-                        onClick={() => handleSelectCreateTrack(lvl.id)}
+                        data-gamepad-focused={isFocused ? 'true' : undefined}
+                        onClick={() => {
+                          handleSelectCreateTrack(lvl.id);
+                          setFocusTarget({ area: 'modal_track', index: lvlIdx });
+                        }}
+                        onPointerMove={() => setFocusTarget({ area: 'modal_track', index: lvlIdx })}
                         style={{
                           padding: '6px 8px',
                           borderRadius: '6px',
@@ -443,6 +755,7 @@ export function MultiplayerView({
                           flexDirection: 'column',
                           gap: '2px',
                           transition: 'all 0.15s ease',
+                          ...getGamepadFocusStyle(isFocused),
                         }}
                       >
                         <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -463,8 +776,9 @@ export function MultiplayerView({
                   SELECT GAME MODE ({createPreset.name}):
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  {currentSupportedModes.map((mode) => {
+                  {currentSupportedModes.map((mode, mIdx) => {
                     const isSelected = createGameMode === mode;
+                    const isFocused = focusTarget.area === 'modal_mode' && focusTarget.index === mIdx;
                     const label =
                       mode === 'timeattack'
                         ? '⏱️ TIME ATTACK'
@@ -486,7 +800,12 @@ export function MultiplayerView({
                       <button
                         key={mode}
                         type="button"
-                        onClick={() => setCreateGameMode(mode)}
+                        data-gamepad-focused={isFocused ? 'true' : undefined}
+                        onClick={() => {
+                          setCreateGameMode(mode);
+                          setFocusTarget({ area: 'modal_mode', index: mIdx });
+                        }}
+                        onPointerMove={() => setFocusTarget({ area: 'modal_mode', index: mIdx })}
                         style={{
                           flex: 1,
                           padding: '7px 10px',
@@ -499,6 +818,7 @@ export function MultiplayerView({
                           cursor: 'pointer',
                           transition: 'all 0.15s ease',
                           textAlign: 'center',
+                          ...getGamepadFocusStyle(isFocused),
                         }}
                       >
                         {label}
@@ -515,6 +835,8 @@ export function MultiplayerView({
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '2px' }}>
                 <button
                   type="submit"
+                  data-gamepad-focused={focusTarget.area === 'modal_launch' ? 'true' : undefined}
+                  onPointerMove={() => setFocusTarget({ area: 'modal_launch' })}
                   style={{
                     background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
                     border: '1px solid #34D399',
@@ -524,9 +846,11 @@ export function MultiplayerView({
                     fontSize: '11px',
                     fontWeight: 800,
                     cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    ...getGamepadFocusStyle(focusTarget.area === 'modal_launch'),
                   }}
                 >
-                  🚀 Create & Launch Room
+                  🚀 Create & Launch Room (A)
                 </button>
               </div>
             </form>
@@ -556,7 +880,7 @@ export function MultiplayerView({
                 No active rooms found. Connecting to relay server...
               </div>
             ) : (
-              rooms.map((r) => {
+              rooms.map((r, rIdx) => {
                 const isUserHost = selfId && r.hostId === selfId;
                 const roomLevel = getLevelPreset(r.levelId);
                 const modeLabel =
@@ -583,6 +907,9 @@ export function MultiplayerView({
                     : r.gameMode === 'gymkhana_blitz'
                       ? 'rgba(245, 158, 11, 0.4)'
                       : 'rgba(16, 185, 129, 0.4)';
+
+                const isJoinFocused = focusTarget.area === 'room_join' && focusTarget.index === rIdx;
+                const isDeleteFocused = focusTarget.area === 'room_delete' && focusTarget.index === rIdx;
 
                 return (
                   <div
@@ -656,7 +983,12 @@ export function MultiplayerView({
                       {isUserHost && !r.isPersistent && (
                         <button
                           type="button"
-                          onClick={() => handleDeleteRoom(r)}
+                          data-gamepad-focused={isDeleteFocused ? 'true' : undefined}
+                          onClick={() => {
+                            setFocusTarget({ area: 'room_delete', index: rIdx });
+                            handleDeleteRoom(r);
+                          }}
+                          onPointerMove={() => setFocusTarget({ area: 'room_delete', index: rIdx })}
                           style={{
                             background: 'rgba(239, 68, 68, 0.2)',
                             border: '1px solid rgba(239, 68, 68, 0.5)',
@@ -666,8 +998,10 @@ export function MultiplayerView({
                             fontSize: '11px',
                             fontWeight: 700,
                             cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                            ...getGamepadFocusStyle(isDeleteFocused),
                           }}
-                          title="Delete this room"
+                          title="Delete this room (Gamepad: X)"
                         >
                           🗑️
                         </button>
@@ -675,7 +1009,12 @@ export function MultiplayerView({
 
                       <button
                         type="button"
-                        onClick={() => handleJoinRoom(r.id, r.levelId, r.gameMode)}
+                        data-gamepad-focused={isJoinFocused ? 'true' : undefined}
+                        onClick={() => {
+                          setFocusTarget({ area: 'room_join', index: rIdx });
+                          handleJoinRoom(r.id, r.levelId, r.gameMode);
+                        }}
+                        onPointerMove={() => setFocusTarget({ area: 'room_join', index: rIdx })}
                         style={{
                           background: 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)',
                           border: '1px solid #38BDF8',
@@ -686,6 +1025,8 @@ export function MultiplayerView({
                           fontWeight: 800,
                           cursor: 'pointer',
                           letterSpacing: '0.5px',
+                          transition: 'all 0.15s ease',
+                          ...getGamepadFocusStyle(isJoinFocused),
                         }}
                       >
                         JOIN
@@ -718,6 +1059,7 @@ export function MultiplayerView({
       {/* Quick Play Action: Join Official Free Roam */}
       <button
         type="button"
+        data-gamepad-focused={focusTarget.area === 'quick_play' ? 'true' : undefined}
         style={{
           ...menuStyles.button,
           background: 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)',
@@ -730,9 +1072,13 @@ export function MultiplayerView({
           fontWeight: 800,
           fontSize: '13px',
           letterSpacing: '0.5px',
-          ...getFocusStyle(focusedIndex === 0),
+          ...getFocusStyle(focusedIndex === 0 || focusTarget.area === 'quick_play'),
+          ...getGamepadFocusStyle(focusTarget.area === 'quick_play'),
         }}
-        onPointerMove={(e) => onPointerMoveItem(0, e)}
+        onPointerMove={(e) => {
+          onPointerMoveItem(0, e);
+          setFocusTarget({ area: 'quick_play' });
+        }}
         onClick={() => handleJoinRoom('gymkhana_freeroam', 'level5_gymkhana', 'freeroam')}
       >
         🏎️ QUICK PLAY: ENTER APEX ARENA (OFFICIAL)
@@ -741,6 +1087,7 @@ export function MultiplayerView({
       {/* Back to Main Menu Button */}
       <button
         type="button"
+        data-gamepad-focused={focusTarget.area === 'back' ? 'true' : undefined}
         style={{
           ...menuStyles.button,
           ...menuStyles.secondaryButton,
@@ -752,13 +1099,44 @@ export function MultiplayerView({
           justifyContent: 'center',
           fontWeight: 600,
           fontSize: '12px',
-          ...getFocusStyle(focusedIndex === 1),
+          ...getFocusStyle(focusedIndex === 1 || focusTarget.area === 'back'),
+          ...getGamepadFocusStyle(focusTarget.area === 'back'),
         }}
-        onPointerMove={(e) => onPointerMoveItem(1, e)}
+        onPointerMove={(e) => {
+          onPointerMoveItem(1, e);
+          setFocusTarget({ area: 'back' });
+        }}
         onClick={() => onSelectView('main')}
       >
         Back to Main Menu
       </button>
+
+      {/* Gamepad & Controller Accessibility Legend */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '14px',
+          flexWrap: 'wrap',
+          marginTop: '10px',
+          padding: '6px 12px',
+          background: 'rgba(15, 23, 42, 0.6)',
+          border: '1px solid rgba(56, 189, 248, 0.2)',
+          borderRadius: '6px',
+          fontSize: '10px',
+          fontWeight: 700,
+          color: '#94A3B8',
+          letterSpacing: '0.3px',
+        }}
+      >
+        <span>🎮 <strong style={{ color: '#E2E8F0' }}>D-PAD / STICK</strong> Navigate</span>
+        <span><strong style={{ color: '#38BDF8' }}>A / ENTER</strong> Select / Join / Create</span>
+        <span><strong style={{ color: '#F87171' }}>B / ESC</strong> Back / Cancel</span>
+        <span><strong style={{ color: '#FBBF24' }}>LB / RB</strong> Switch Car</span>
+        <span><strong style={{ color: '#CBD5E1' }}>X</strong> Delete Room</span>
+        <span><strong style={{ color: '#34D399' }}>Y</strong> Refresh</span>
+      </div>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useRapier } from '@react-three/rapier';
 import type { RapierRigidBody } from '@react-three/rapier';
 import { Vector3, Quaternion, Euler, Object3D } from 'three';
 import type { VehicleConfig, SurfaceType } from '@/types/vehicle';
+import type { GameState } from '@/types/game';
 import { useInputUpdater } from '@/hooks/useInput';
 import { useGameStore } from '@/store/gameStore';
 import { useRacingStore } from '@/store/racingStore';
@@ -83,6 +84,7 @@ export function useVehiclePhysics(
     isAirborne: boolean;
   } | null>(null);
   const isPausedRef = useRef<boolean>(false);
+  const prevGameStateRef = useRef<GameState>(useGameStore.getState().gameState);
   const vehicleControllerRef = useRef<InstanceType<
     typeof rapier.DynamicRayCastVehicleController
   > | null>(null);
@@ -163,6 +165,14 @@ export function useVehiclePhysics(
   // Frame update: apply forces, read state
   useFrame((_, delta) => {
     const gameState = useGameStore.getState().gameState;
+    const prevGameState = prevGameStateRef.current;
+    prevGameStateRef.current = gameState;
+
+    const isEnteringMenu =
+      (prevGameState === 'playing' || prevGameState === 'paused') &&
+      (gameState === 'menu' || gameState === 'title');
+    const isMenuOrTitle = gameState === 'menu' || gameState === 'title';
+
     const body = chassisRef.current;
     if (!body || (typeof body.isValid === 'function' && !body.isValid())) return;
 
@@ -190,6 +200,14 @@ export function useVehiclePhysics(
     const curLinvel = body.linvel();
     const curAngvel = body.angvel();
 
+    // Menu out-of-bounds guard: vehicle in menu/title must stay strictly near spawn and above water
+    const distFromSpawnSq =
+      (currentBodyPos.x - spawnPos[0]) ** 2 +
+      (currentBodyPos.z - spawnPos[2]) ** 2;
+    const isMenuOutOfBounds =
+      isMenuOrTitle &&
+      (distFromSpawnSq > 100 || currentBodyPos.y < -1.0 || currentBodyPos.y > spawnPos[1] + 10.0);
+
     // Numerical sanity guard: detect NaN or infinite values produced by extreme collisions or solver instability
     const isCorrupted =
       !Number.isFinite(currentBodyPos.x) ||
@@ -202,7 +220,13 @@ export function useVehiclePhysics(
       !Number.isFinite(curAngvel.y) ||
       !Number.isFinite(curAngvel.z);
 
-    if (isCorrupted || currentBodyPos.y < fallResetY || resetState.pendingReset) {
+    if (
+      isEnteringMenu ||
+      isMenuOutOfBounds ||
+      isCorrupted ||
+      currentBodyPos.y < fallResetY ||
+      resetState.pendingReset
+    ) {
       body.setTranslation({ x: spawnPos[0], y: spawnPos[1], z: spawnPos[2] }, true);
 
       _spawnEuler.set(0, spawnRotY, 0);
@@ -220,7 +244,13 @@ export function useVehiclePhysics(
       isPausedRef.current = false;
 
       emitGameEvent('vehicle_reset', {
-        reason: isCorrupted ? 'stability_guard' : currentBodyPos.y < fallResetY ? 'out_of_bounds' : 'manual',
+        reason: isCorrupted
+          ? 'stability_guard'
+          : (currentBodyPos.y < fallResetY || isMenuOutOfBounds)
+            ? 'out_of_bounds'
+            : isEnteringMenu
+              ? 'manual'
+              : 'manual',
       });
 
       if (resetState.pendingReset) {
@@ -300,6 +330,18 @@ export function useVehiclePhysics(
 
       // 1. If already settled in menu: keep vehicle 100% frozen, solid, and motionless
       if (isSettledRef.current) {
+        // Guard against any corrupted settled position in menu
+        const settledDistSq =
+          (_settledPos.x - spawnPos[0]) ** 2 + (_settledPos.z - spawnPos[2]) ** 2;
+        if (isMenuOrTitle && (settledDistSq > 100 || _settledPos.y < -1.0)) {
+          isSettledRef.current = false;
+          settleFramesRef.current = 0;
+          body.setTranslation({ x: spawnPos[0], y: spawnPos[1], z: spawnPos[2] }, true);
+          body.setLinvel(_zeroVel, true);
+          body.setAngvel(_zeroVel, true);
+          return;
+        }
+
         body.setTranslation(_settledPos, true);
         body.setRotation(_settledRot, true);
         body.setLinvel(_zeroVel, true);
@@ -333,12 +375,17 @@ export function useVehiclePhysics(
 
       // Check if vehicle has touched ground and vertical velocity has stabilized
       const currentLinvel = body.linvel();
+      const p = body.translation();
+      const isNearSpawn =
+        Math.abs(p.y - spawnPos[1]) < 5.0 &&
+        (p.x - spawnPos[0]) ** 2 + (p.z - spawnPos[2]) ** 2 < 36;
+
       const hasLanded =
-        (settleFramesRef.current >= 18 && Math.abs(currentLinvel.y) < 0.25) ||
-        settleFramesRef.current >= 40;
+        ((settleFramesRef.current >= 18 && Math.abs(currentLinvel.y) < 0.25) ||
+          settleFramesRef.current >= 40) &&
+        (!isMenuOrTitle || isNearSpawn);
 
       if (hasLanded) {
-        const p = body.translation();
         const r = body.rotation();
         _settledPos.x = p.x;
         _settledPos.y = p.y;
@@ -356,6 +403,11 @@ export function useVehiclePhysics(
         if (!useGameStore.getState().isSceneReady) {
           useGameStore.getState().setSceneReady(true);
         }
+      } else if (settleFramesRef.current >= 40 && isMenuOrTitle && !isNearSpawn) {
+        body.setTranslation({ x: spawnPos[0], y: spawnPos[1], z: spawnPos[2] }, true);
+        body.setLinvel(_zeroVel, true);
+        body.setAngvel(_zeroVel, true);
+        settleFramesRef.current = 0;
       }
       return;
     }

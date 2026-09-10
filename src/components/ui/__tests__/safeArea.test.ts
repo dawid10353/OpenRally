@@ -47,9 +47,9 @@ describe('Safe-Area Inset Architecture & Display Cutout Mitigation', () => {
   it('incorporates safe-area variables in Minimap', () => {
     const content = fs.readFileSync(minimapPath, 'utf-8');
 
-    // Minimap dial respects top and right safe-area insets
-    expect(content).toContain('calc(20px + var(--sat))');
-    expect(content).toContain('calc(20px + var(--sar))');
+    // Minimap dial respects top and right safe-area insets below multiplayer HUD
+    expect(content).toContain('calc(54px + var(--sat))');
+    expect(content).toContain('calc(16px + var(--sar))');
   });
 
   it('incorporates safe-area variables in AnalogGauges cluster', () => {

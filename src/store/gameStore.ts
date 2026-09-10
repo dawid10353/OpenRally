@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { CameraMode, GameMode, GameState, GamepadType } from '@/types/game';
 import type { SurfaceType } from '@/types/vehicle';
 import { DEFAULT_VEHICLE_ID } from '@/config/vehicleRegistry';
-import { DEFAULT_LEVEL_ID } from '@/config/levelRegistry';
+import { DEFAULT_LEVEL_ID, getLevelPreset } from '@/config/levelRegistry';
 import { resetGamepadEdgeState } from '@/utils/input/gamepad';
 
 /**
@@ -107,13 +107,32 @@ export const useGameStore = create<GameStore>((set) => ({
 
   setGameState: (gameState) => {
     resetGamepadEdgeState();
-    set((state) => ({
-      gameState,
-      isSceneReady:
-        gameState === 'title' || gameState === 'menu'
-          ? false
-          : state.isSceneReady,
-    }));
+    set((state) => {
+      const isEnteringMenu =
+        (state.gameState === 'playing' || state.gameState === 'paused') &&
+        (gameState === 'menu' || gameState === 'title');
+
+      const levelPreset = isEnteringMenu ? getLevelPreset(state.selectedLevelId) : null;
+      const spawnPos = levelPreset?.spawnPosition;
+
+      return {
+        gameState,
+        isSceneReady:
+          gameState === 'title' || gameState === 'menu'
+            ? false
+            : state.isSceneReady,
+        loadingTarget:
+          gameState === 'menu' || gameState === 'title' ? 'menu' : state.loadingTarget,
+        pendingReset: isEnteringMenu ? true : state.pendingReset,
+        speed: isEnteringMenu ? 0 : state.speed,
+        lateralSpeed: isEnteringMenu ? 0 : state.lateralSpeed,
+        slipAngle: isEnteringMenu ? 0 : state.slipAngle,
+        rpm: isEnteringMenu ? 1000 : state.rpm,
+        gear: isEnteringMenu ? 1 : state.gear,
+        heading: isEnteringMenu && levelPreset ? levelPreset.spawnRotationY : state.heading,
+        position: isEnteringMenu && spawnPos ? [spawnPos[0], spawnPos[1], spawnPos[2]] : state.position,
+      };
+    });
   },
   setLoadingTarget: (loadingTarget) => set({ loadingTarget }),
   setGameMode: (gameMode) => set({ gameMode }),

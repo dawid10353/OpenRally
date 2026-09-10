@@ -4,8 +4,8 @@ import { useRacingStore } from '@/store/racingStore';
 import { getLevelPreset } from '@/config/levelRegistry';
 import { CatmullRomCurve3, Vector3 } from 'three';
 
-const CANVAS_SIZE = 180;
-const MARGIN = 14;
+const CANVAS_SIZE = 146;
+const MARGIN = 11;
 const INNER_SIZE = CANVAS_SIZE - MARGIN * 2;
 
 /**
@@ -80,10 +80,10 @@ export function Minimap() {
 
       // Crosshair lines
       offCtx.beginPath();
-      offCtx.moveTo(CANVAS_SIZE / 2, 12);
-      offCtx.lineTo(CANVAS_SIZE / 2, CANVAS_SIZE - 12);
-      offCtx.moveTo(12, CANVAS_SIZE / 2);
-      offCtx.lineTo(CANVAS_SIZE - 12, CANVAS_SIZE / 2);
+      offCtx.moveTo(CANVAS_SIZE / 2, 10);
+      offCtx.lineTo(CANVAS_SIZE / 2, CANVAS_SIZE - 10);
+      offCtx.moveTo(10, CANVAS_SIZE / 2);
+      offCtx.lineTo(CANVAS_SIZE - 10, CANVAS_SIZE / 2);
       offCtx.stroke();
       offCtx.setLineDash([]);
 
@@ -95,15 +95,15 @@ export function Minimap() {
       offCtx.stroke();
 
       // Cardinal direction letters (N, S, E, W) in classic motorsport typography
-      offCtx.font = 'bold 9px "Segoe UI", sans-serif';
+      offCtx.font = 'bold 8px "Segoe UI", sans-serif';
       offCtx.textAlign = 'center';
       offCtx.textBaseline = 'middle';
       offCtx.fillStyle = '#ff3344';
-      offCtx.fillText('N', CANVAS_SIZE / 2, 16);
+      offCtx.fillText('N', CANVAS_SIZE / 2, 14);
       offCtx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-      offCtx.fillText('S', CANVAS_SIZE / 2, CANVAS_SIZE - 16);
-      offCtx.fillText('E', CANVAS_SIZE - 15, CANVAS_SIZE / 2);
-      offCtx.fillText('W', 15, CANVAS_SIZE / 2);
+      offCtx.fillText('S', CANVAS_SIZE / 2, CANVAS_SIZE - 14);
+      offCtx.fillText('E', CANVAS_SIZE - 13, CANVAS_SIZE / 2);
+      offCtx.fillText('W', 13, CANVAS_SIZE / 2);
 
       // Spline generation for rally stage route
       const spline = new CatmullRomCurve3(trackPoints, true, 'catmullrom', 0.5);
@@ -111,7 +111,7 @@ export function Minimap() {
 
       // Outer road base (dark asphalt edge)
       offCtx.beginPath();
-      offCtx.lineWidth = 6;
+      offCtx.lineWidth = 5;
       offCtx.strokeStyle = 'rgba(40, 50, 65, 0.9)';
       offCtx.lineCap = 'round';
       offCtx.lineJoin = 'round';
@@ -126,7 +126,7 @@ export function Minimap() {
 
       // Inner rally stage track line (crisp high-contrast rally surface)
       offCtx.beginPath();
-      offCtx.lineWidth = 2.5;
+      offCtx.lineWidth = 2;
       offCtx.strokeStyle = '#f8fafc';
       for (let i = 0; i < sampledPoints.length; i++) {
         const [px, py] = toCanvasCoords(sampledPoints[i].x, sampledPoints[i].z);
@@ -140,10 +140,10 @@ export function Minimap() {
       const [startPx, startPy] = toCanvasCoords(trackPoints[0].x, trackPoints[0].z);
       offCtx.fillStyle = '#eab308';
       offCtx.beginPath();
-      offCtx.arc(startPx, startPy, 4.5, 0, Math.PI * 2);
+      offCtx.arc(startPx, startPy, 3.5, 0, Math.PI * 2);
       offCtx.fill();
       offCtx.strokeStyle = '#000000';
-      offCtx.lineWidth = 1.2;
+      offCtx.lineWidth = 1;
       offCtx.stroke();
     }
 
@@ -173,20 +173,20 @@ export function Minimap() {
           if (isTarget) {
             // Target checkpoint with pulse ring
             ctx.beginPath();
-            ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+            ctx.arc(cx, cy, 5, 0, Math.PI * 2);
             ctx.fillStyle = 'rgba(227, 24, 55, 0.35)';
             ctx.fill();
 
             ctx.beginPath();
-            ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+            ctx.arc(cx, cy, 3.2, 0, Math.PI * 2);
             ctx.fillStyle = '#e31837';
             ctx.fill();
             ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 1.5;
+            ctx.lineWidth = 1.2;
             ctx.stroke();
           } else if (!isStart) {
             ctx.beginPath();
-            ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
+            ctx.arc(cx, cy, 2, 0, Math.PI * 2);
             ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
             ctx.fill();
           }
@@ -209,25 +209,25 @@ export function Minimap() {
           // Shadow behind player arrow
           ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
           ctx.beginPath();
-          ctx.moveTo(1, 8);
-          ctx.lineTo(5, -4);
-          ctx.lineTo(1, -2);
-          ctx.lineTo(-3, -4);
+          ctx.moveTo(1, 6.5);
+          ctx.lineTo(4, -3.5);
+          ctx.lineTo(1, -1.8);
+          ctx.lineTo(-2.5, -3.5);
           ctx.closePath();
           ctx.fill();
 
           // Rally car pointer arrow (+Y on canvas when heading=0)
           ctx.beginPath();
-          ctx.moveTo(0, 7);
-          ctx.lineTo(4, -5);
-          ctx.lineTo(0, -3);
-          ctx.lineTo(-4, -5);
+          ctx.moveTo(0, 6);
+          ctx.lineTo(3.5, -4);
+          ctx.lineTo(0, -2.2);
+          ctx.lineTo(-3.5, -4);
           ctx.closePath();
 
           ctx.fillStyle = '#ff2233';
           ctx.fill();
           ctx.strokeStyle = '#ffffff';
-          ctx.lineWidth = 1.2;
+          ctx.lineWidth = 1;
           ctx.stroke();
 
           ctx.restore();
@@ -259,10 +259,10 @@ export function Minimap() {
       />
 
       {/* 4 Rally Corner Screws */}
-      <div style={{ ...styles.screw, top: '6px', left: '6px' }} />
-      <div style={{ ...styles.screw, top: '6px', right: '6px' }} />
-      <div style={{ ...styles.screw, bottom: '6px', left: '6px' }} />
-      <div style={{ ...styles.screw, bottom: '6px', right: '6px' }} />
+      <div style={{ ...styles.screw, top: '5px', left: '5px' }} />
+      <div style={{ ...styles.screw, top: '5px', right: '5px' }} />
+      <div style={{ ...styles.screw, bottom: '5px', left: '5px' }} />
+      <div style={{ ...styles.screw, bottom: '5px', right: '5px' }} />
     </div>
   );
 }
@@ -270,8 +270,8 @@ export function Minimap() {
 const styles: Record<string, React.CSSProperties> = {
   container: {
     position: 'absolute',
-    top: 'calc(20px + var(--sat))',
-    right: 'calc(20px + var(--sar))',
+    top: 'calc(54px + var(--sat))',
+    right: 'calc(16px + var(--sar))',
     width: `${CANVAS_SIZE}px`,
     height: `${CANVAS_SIZE}px`,
     borderRadius: '50%',
@@ -284,21 +284,21 @@ const styles: Record<string, React.CSSProperties> = {
   },
   headerBadge: {
     position: 'absolute',
-    top: '4px',
+    top: '3px',
     left: '50%',
     transform: 'translateX(-50%)',
     background: 'rgba(15, 20, 30, 0.9)',
     border: '1px solid rgba(255, 255, 255, 0.15)',
     borderRadius: '8px',
-    padding: '1px 8px',
+    padding: '1px 6px',
     zIndex: 25,
     pointerEvents: 'none',
   },
   headerText: {
-    fontSize: '8px',
+    fontSize: '7.5px',
     fontWeight: 900,
     color: '#94a3b8',
-    letterSpacing: '1.2px',
+    letterSpacing: '1px',
     fontFamily: "'Segoe UI', sans-serif",
   },
   canvas: {
@@ -308,8 +308,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   screw: {
     position: 'absolute',
-    width: '5px',
-    height: '5px',
+    width: '4px',
+    height: '4px',
     borderRadius: '50%',
     background: '#64748b',
     border: '1px solid #1e293b',

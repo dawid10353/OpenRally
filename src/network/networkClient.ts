@@ -14,24 +14,49 @@ export const TELEMETRY_SEND_INTERVAL_MS = 33; // ~30Hz
 const PING_INTERVAL_MS = 2000;
 const MAX_RECONNECT_ATTEMPTS = 5;
 
+export const DEFAULT_REMOTE_WS_URL = 'wss://vps-db5f427e.vps.ovh.net/ws';
+
 /**
- * Resolves the WebSocket URL depending on deployment environment and protocols.
+ * Resolves the WebSocket URL depending on deployment environment, mobile platform, and query parameters.
+ * Connects directly to the dedicated remote server for Android builds and local web environments by default,
+ * while respecting explicit overrides (?ws=local, ?ws=remote, ?ws=url) and VITE_WS_URL env variables.
  */
 export function getWebSocketEndpoint(): string {
-  if (typeof window === 'undefined') return 'ws://127.0.0.1:3001';
+  // 1. Environment variable override if provided at build or runtime
+  const envWs = (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_WS_URL;
+  if (envWs) {
+    return envWs;
+  }
 
-  // Explicit override via query param ?ws=... for testing
+  if (typeof window === 'undefined') {
+    return DEFAULT_REMOTE_WS_URL;
+  }
+
+  // 2. Explicit override via query param ?ws=...
   const urlParams = new URLSearchParams(window.location.search);
   const explicitWs = urlParams.get('ws');
-  if (explicitWs) return explicitWs;
+  if (explicitWs) {
+    if (explicitWs === 'local') {
+      return `ws://${window.location.hostname || '127.0.0.1'}:3001`;
+    }
+    if (explicitWs === 'remote') {
+      return DEFAULT_REMOTE_WS_URL;
+    }
+    return explicitWs;
+  }
 
-  // If running on the remote VPS or behind HTTPS Nginx reverse proxy
-  if (window.location.protocol === 'https:') {
+  // 3. If running on a remote web domain behind HTTPS reverse proxy (excluding localhost in Capacitor / local dev)
+  const isLocalHost =
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname === '::1';
+
+  if (window.location.protocol === 'https:' && !isLocalHost) {
     return `wss://${window.location.host}/ws`;
   }
 
-  // Local development fallback
-  return `ws://${window.location.hostname}:3001`;
+  // 4. Default for Android (Capacitor localhost) and local dev: connect directly to dedicated remote server
+  return DEFAULT_REMOTE_WS_URL;
 }
 
 /**

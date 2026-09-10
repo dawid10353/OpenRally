@@ -6,6 +6,7 @@ import { isTextEditingActive } from '@/utils/input/textInput';
 import { getAvailableLevels, getLevelPreset } from '@/config/levelRegistry';
 import { getAvailableVehicles } from '@/config/vehicleRegistry';
 import { unlockSharedAudioContext } from '@/utils/audio/audioContext';
+import { getMenuGamepadDelegate } from './menuGamepadRegistry';
 import type {
   GraphicsQuality,
   AntiAliasingMode,
@@ -102,7 +103,7 @@ export function useMenuGamepadNavigation({
       return modes.length + 1;
     }
     if (curView === 'garage') return 2;
-    if (curView === 'multiplayer') return 1;
+    if (curView === 'multiplayer') return 2;
     if (curView === 'options') {
       const cat = settingsCategoryRef.current;
       if (cat === 'graphics') return 9; // 0: Tabs, 1: Quality, 2: FPS, 3: DrawDist, 4: AA, 5: Res, 6: Shadows, 7: PP, 8: Back
@@ -122,6 +123,12 @@ export function useMenuGamepadNavigation({
 
   const handleTabLeft = useCallback(() => {
     const curView = viewRef.current;
+    const delegate = getMenuGamepadDelegate(curView);
+    if (delegate?.handleTabLeft) {
+      delegate.handleTabLeft();
+      return;
+    }
+
     if (curView === 'options') {
       const curCat = settingsCategoryRef.current;
       const idx = SETTINGS_CATEGORIES.indexOf(curCat);
@@ -141,6 +148,12 @@ export function useMenuGamepadNavigation({
 
   const handleTabRight = useCallback(() => {
     const curView = viewRef.current;
+    const delegate = getMenuGamepadDelegate(curView);
+    if (delegate?.handleTabRight) {
+      delegate.handleTabRight();
+      return;
+    }
+
     if (curView === 'options') {
       const curCat = settingsCategoryRef.current;
       const idx = SETTINGS_CATEGORIES.indexOf(curCat);
@@ -159,12 +172,26 @@ export function useMenuGamepadNavigation({
   }, [availableVehicles, setControlsTab, setFocusedIndex, setPreviewVehicleId]);
 
   const handleNavUp = useCallback(() => {
+    const curView = viewRef.current;
+    const delegate = getMenuGamepadDelegate(curView);
+    if (delegate?.handleNavUp) {
+      delegate.handleNavUp();
+      return;
+    }
+
     const count = getItemCount();
     const next = (focusedIndexRef.current - 1 + count) % count;
     setFocusedIndex(next);
   }, [getItemCount, setFocusedIndex]);
 
   const handleNavDown = useCallback(() => {
+    const curView = viewRef.current;
+    const delegate = getMenuGamepadDelegate(curView);
+    if (delegate?.handleNavDown) {
+      delegate.handleNavDown();
+      return;
+    }
+
     const count = getItemCount();
     const next = (focusedIndexRef.current + 1) % count;
     setFocusedIndex(next);
@@ -172,6 +199,12 @@ export function useMenuGamepadNavigation({
 
   const handleNavLeft = useCallback(() => {
     const curView = viewRef.current;
+    const delegate = getMenuGamepadDelegate(curView);
+    if (delegate?.handleNavLeft) {
+      delegate.handleNavLeft();
+      return;
+    }
+
     const curIdx = focusedIndexRef.current;
 
     if (curView === 'start_mode') {
@@ -268,6 +301,12 @@ export function useMenuGamepadNavigation({
 
   const handleNavRight = useCallback(() => {
     const curView = viewRef.current;
+    const delegate = getMenuGamepadDelegate(curView);
+    if (delegate?.handleNavRight) {
+      delegate.handleNavRight();
+      return;
+    }
+
     const curIdx = focusedIndexRef.current;
 
     if (curView === 'start_mode') {
@@ -364,6 +403,12 @@ export function useMenuGamepadNavigation({
 
   const handleConfirm = useCallback(() => {
     const curView = viewRef.current;
+    const delegate = getMenuGamepadDelegate(curView);
+    if (delegate?.handleConfirm) {
+      delegate.handleConfirm();
+      return;
+    }
+
     const curIdx = focusedIndexRef.current;
     const isPaused = useGameStore.getState().gameState === 'paused';
 
@@ -471,6 +516,14 @@ export function useMenuGamepadNavigation({
 
   const handleBack = useCallback(() => {
     const curView = viewRef.current;
+    const delegate = getMenuGamepadDelegate(curView);
+    if (delegate?.handleBack) {
+      const handled = delegate.handleBack();
+      if (handled === true) {
+        return;
+      }
+    }
+
     const isPaused = useGameStore.getState().gameState === 'paused';
 
     if (curView === 'garage') {
@@ -485,6 +538,18 @@ export function useMenuGamepadNavigation({
     }
   }, [setGameState, setView]);
 
+  const handleSpecialX = useCallback(() => {
+    const curView = viewRef.current;
+    const delegate = getMenuGamepadDelegate(curView);
+    delegate?.handleSpecialX?.();
+  }, []);
+
+  const handleSpecialY = useCallback(() => {
+    const curView = viewRef.current;
+    const delegate = getMenuGamepadDelegate(curView);
+    delegate?.handleSpecialY?.();
+  }, []);
+
   const actionsRef = useRef({
     handleNavUp,
     handleNavDown,
@@ -494,6 +559,8 @@ export function useMenuGamepadNavigation({
     handleTabRight,
     handleConfirm,
     handleBack,
+    handleSpecialX,
+    handleSpecialY,
   });
   actionsRef.current = {
     handleNavUp,
@@ -504,6 +571,8 @@ export function useMenuGamepadNavigation({
     handleTabRight,
     handleConfirm,
     handleBack,
+    handleSpecialX,
+    handleSpecialY,
   };
 
   // Keyboard navigation listener across all menus
@@ -544,6 +613,10 @@ export function useMenuGamepadNavigation({
       } else if (e.code === 'Escape' || e.code === 'Backspace') {
         e.preventDefault();
         actionsRef.current.handleBack();
+      } else if (e.code === 'Delete' || e.code === 'KeyX') {
+        actionsRef.current.handleSpecialX();
+      } else if (e.code === 'KeyR') {
+        actionsRef.current.handleSpecialY();
       }
     };
 
@@ -574,6 +647,12 @@ export function useMenuGamepadNavigation({
           actionsRef.current.handleTabLeft();
         } else if (gp.menuTabRight) {
           actionsRef.current.handleTabRight();
+        }
+
+        if (gp.resetToggle) {
+          actionsRef.current.handleSpecialX();
+        } else if (gp.cameraToggle) {
+          actionsRef.current.handleSpecialY();
         }
 
         if (gp.menuUp) {
