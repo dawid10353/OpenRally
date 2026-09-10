@@ -7,6 +7,7 @@ import { networkClient } from '@/network/networkClient';
 import { Wheel } from '@/components/vehicle/Wheel';
 import { VehicleModelErrorBoundary } from '@/components/vehicle/Vehicle';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useTagStore } from '@/store/tagStore';
 import { isMobileDevice } from '@/utils/device';
 import {
   registerRemoteVehicleMesh,
@@ -147,6 +148,8 @@ export function RemoteVehicle({ player }: RemoteVehicleProps) {
     }
   });
 
+  const isTagger = useTagStore((s) => s.taggerId === player.id);
+
   return (
     <group ref={groupRef} visible={hasFirstSample}>
       {/* Floating 3D Nameplate */}
@@ -159,9 +162,11 @@ export function RemoteVehicle({ player }: RemoteVehicleProps) {
         >
           <div
             style={{
-              background: 'rgba(15, 23, 42, 0.85)',
-              border: '1px solid rgba(56, 189, 248, 0.5)',
-              padding: '3px 8px',
+              background: isTagger
+                ? 'linear-gradient(135deg, rgba(220, 38, 38, 0.95), rgba(153, 27, 27, 0.95))'
+                : 'rgba(15, 23, 42, 0.85)',
+              border: isTagger ? '2px solid #EF4444' : '1px solid rgba(56, 189, 248, 0.5)',
+              padding: isTagger ? '4px 10px' : '3px 8px',
               borderRadius: '6px',
               color: '#F8FAFC',
               fontSize: '11px',
@@ -171,7 +176,9 @@ export function RemoteVehicle({ player }: RemoteVehicleProps) {
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+              boxShadow: isTagger
+                ? '0 0 16px rgba(239, 68, 68, 0.85), 0 4px 12px rgba(0,0,0,0.6)'
+                : '0 4px 12px rgba(0,0,0,0.5)',
               backdropFilter: 'blur(4px)',
             }}
           >
@@ -180,12 +187,14 @@ export function RemoteVehicle({ player }: RemoteVehicleProps) {
                 width: '6px',
                 height: '6px',
                 borderRadius: '50%',
-                background: '#38BDF8',
-                boxShadow: '0 0 6px #38BDF8',
+                background: isTagger ? '#EF4444' : '#38BDF8',
+                boxShadow: isTagger ? '0 0 8px #FF0000' : '0 0 6px #38BDF8',
               }}
             />
             <span>{player.nickname}</span>
-            <span style={{ fontSize: '9px', color: '#94A3B8' }}>{preset.name}</span>
+            <span style={{ fontSize: '9px', color: isTagger ? '#FCA5A5' : '#94A3B8' }}>
+              {preset.name}
+            </span>
           </div>
         </Html>
       )}

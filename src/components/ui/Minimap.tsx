@@ -1,6 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { useRacingStore } from '@/store/racingStore';
+import { useMultiplayerStore } from '@/store/multiplayerStore';
+import { useTagStore } from '@/store/tagStore';
+import { getAllRemoteVehicleMeshes } from '@/components/vehicle/remoteVehicleRegistry';
 import { getLevelPreset } from '@/config/levelRegistry';
 import { CatmullRomCurve3, Vector3 } from 'three';
 
@@ -193,8 +196,50 @@ export function Minimap() {
         }
       }
 
-      // Draw Player Rally Car Blip & Heading
+      // Draw remote drivers & highlight Rally Tag tagger
       const gameStore = useGameStore.getState();
+      const mpState = useMultiplayerStore.getState();
+      const tagState = useTagStore.getState();
+      const isTagMode = gameStore.gameMode === 'tag';
+
+      if (mpState.status !== 'disconnected' && !!mpState.currentRoom) {
+        const remoteMeshes = getAllRemoteVehicleMeshes();
+        for (const [remoteId] of Object.entries(mpState.remotePlayers)) {
+          const mesh = remoteMeshes.get(remoteId);
+          if (!mesh) continue;
+          const [rcx, rcy] = toCanvasCoords(mesh.position.x, mesh.position.z);
+          if (!Number.isFinite(rcx) || !Number.isFinite(rcy)) continue;
+
+          const isRemoteTagger = isTagMode && tagState.taggerId === remoteId;
+          if (isRemoteTagger) {
+            // Enlarged pulsating red blip for the tagger!
+            const pulse = (Math.sin(Date.now() / 150) + 1) * 0.5;
+            ctx.beginPath();
+            ctx.arc(rcx, rcy, 6 + pulse * 3, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(239, 68, 68, ${0.3 + pulse * 0.4})`;
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(rcx, rcy, 4.5, 0, Math.PI * 2);
+            ctx.fillStyle = '#EF4444';
+            ctx.fill();
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+          } else {
+            // Normal remote player (cyan / light blue dot)
+            ctx.beginPath();
+            ctx.arc(rcx, rcy, 3, 0, Math.PI * 2);
+            ctx.fillStyle = '#38BDF8';
+            ctx.fill();
+            ctx.strokeStyle = '#0F172A';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Draw Player Rally Car Blip & Heading
       const [carX, , carZ] = gameStore.position;
       const heading = gameStore.heading;
 
@@ -205,6 +250,15 @@ export function Minimap() {
           ctx.save();
           ctx.translate(playerCx, playerCy);
           ctx.rotate(-heading); // Three.js Y heading to 2D canvas rotation
+
+          // Halo for local player if tagger
+          if (isTagMode && tagState.isTagger) {
+            const pulse = (Math.sin(Date.now() / 150) + 1) * 0.5;
+            ctx.beginPath();
+            ctx.arc(0, 0, 8 + pulse * 4, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(239, 68, 68, ${0.35 + pulse * 0.35})`;
+            ctx.fill();
+          }
 
           // Shadow behind player arrow
           ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';

@@ -13,8 +13,10 @@ export function RemoteVehicleManager() {
   const selfId = useMultiplayerStore((s) => s.selfId);
   const status = useMultiplayerStore((s) => s.status);
 
-  // Never render remote vehicles or overhead badges in main menu, title or loading screens
-  if (gameState !== 'playing' || status === 'disconnected' || !selfId) {
+  const currentRoom = useMultiplayerStore((s) => s.currentRoom);
+
+  // Never render remote vehicles or overhead badges in main menu, title or loading screens, or in single player
+  if (gameState !== 'playing' || status === 'disconnected' || !selfId || !currentRoom) {
     return null;
   }
 

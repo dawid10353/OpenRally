@@ -47,12 +47,17 @@ describe('MultiplayerHUD - Mobile Ergonomics & Responsive Positioning', () => {
     });
   });
 
-  it('renders null when disconnected or not in playing gameState', () => {
+  it('renders null when disconnected, not playing, or in single player (currentRoom is null)', () => {
     useMultiplayerStore.setState({ status: 'disconnected' });
     expect(renderToString(<MultiplayerHUD />)).toBe('');
 
     useMultiplayerStore.setState({ status: 'in_game' });
     useGameStore.setState({ gameState: 'menu' });
+    expect(renderToString(<MultiplayerHUD />)).toBe('');
+
+    // Crucial: visiting multiplayer menu connected to lobby, then backing out to single player Free Roam
+    useGameStore.setState({ gameState: 'playing', gameMode: 'freeroam' });
+    useMultiplayerStore.setState({ status: 'in_lobby', currentRoom: null });
     expect(renderToString(<MultiplayerHUD />)).toBe('');
   });
 

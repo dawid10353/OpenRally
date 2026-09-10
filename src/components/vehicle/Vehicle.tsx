@@ -18,6 +18,7 @@ import { VEHICLE_MODEL_PATH, VEHICLE_WRC_MODEL_PATH } from '@/config/assets';
 import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useMultiplayerStore } from '@/store/multiplayerStore';
+import { useTagStore } from '@/store/tagStore';
 import { getVehiclePreset } from '@/config/vehicleRegistry';
 import { useTerrainData } from '@/components/terrain/TerrainContext';
 import { isMobileDevice } from '@/utils/device';
@@ -160,24 +161,38 @@ export function Vehicle() {
   const spawnPos = levelPreset.spawnPosition;
   const spawnRotY = levelPreset.spawnRotationY;
 
-  const isMultiplayer = useMultiplayerStore((s) => s.status) !== 'disconnected';
-  const isSpectating = useMultiplayerStore((s) => s.isSpectating);
-  const slotIndex = isMultiplayer
-    ? useMultiplayerStore.getState().slotIndex
-    : 0;
-  const gridColumn = slotIndex % 2;
-  const gridRow = Math.floor(slotIndex / 2);
-  const lateralOffset = isMultiplayer ? (gridColumn === 0 ? -2.8 : 2.8) : 0;
-  const longitudinalOffset = isMultiplayer ? -gridRow * 6.0 : 0;
+  const gameMode = useGameStore((s) => s.gameMode);
+  const tagSpawnIndex = useTagStore((s) => s.assignedSpawnIndex);
 
-  // Rotate offsets by track spawn heading so cars align perfectly on any starting grid
-  const cosY = Math.cos(spawnRotY);
-  const sinY = Math.sin(spawnRotY);
-  const effectiveSpawnPos: [number, number, number] = [
-    spawnPos[0] + cosY * lateralOffset + sinY * longitudinalOffset,
-    spawnPos[1],
-    spawnPos[2] - sinY * lateralOffset + cosY * longitudinalOffset,
-  ];
+  const isMultiplayer = useMultiplayerStore((s) => s.status) !== 'disconnected' && !!useMultiplayerStore.getState().currentRoom;
+  const isSpectating = useMultiplayerStore((s) => s.isSpectating);
+
+  let effectiveSpawnPos: [number, number, number];
+  let effectiveSpawnRotY = spawnRotY;
+
+  if (gameMode === 'tag' && levelPreset.tagSpawnPoints && levelPreset.tagSpawnPoints.length > 0) {
+    const spIndex = tagSpawnIndex % levelPreset.tagSpawnPoints.length;
+    const pt = levelPreset.tagSpawnPoints[spIndex];
+    effectiveSpawnPos = pt.position;
+    effectiveSpawnRotY = pt.rotationY;
+  } else {
+    const slotIndex = isMultiplayer
+      ? useMultiplayerStore.getState().slotIndex
+      : 0;
+    const gridColumn = slotIndex % 2;
+    const gridRow = Math.floor(slotIndex / 2);
+    const lateralOffset = isMultiplayer ? (gridColumn === 0 ? -2.8 : 2.8) : 0;
+    const longitudinalOffset = isMultiplayer ? -gridRow * 6.0 : 0;
+
+    // Rotate offsets by track spawn heading so cars align perfectly on any starting grid
+    const cosY = Math.cos(spawnRotY);
+    const sinY = Math.sin(spawnRotY);
+    effectiveSpawnPos = [
+      spawnPos[0] + cosY * lateralOffset + sinY * longitudinalOffset,
+      spawnPos[1],
+      spawnPos[2] - sinY * lateralOffset + cosY * longitudinalOffset,
+    ];
+  }
 
   return (
     <group visible={!isSpectating}>
@@ -187,7 +202,7 @@ export function Vehicle() {
         colliders={false}
         mass={config.chassisMass}
         position={effectiveSpawnPos}
-        rotation={[0, spawnRotY, 0]}
+        rotation={[0, effectiveSpawnRotY, 0]}
         linearDamping={0.15}
         angularDamping={2.2}
         canSleep={false}

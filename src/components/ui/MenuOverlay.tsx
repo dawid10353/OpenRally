@@ -3,6 +3,8 @@ import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useRacingStore } from '@/store/racingStore';
 import { useGymkhanaStore } from '@/store/gymkhanaStore';
+import { useMultiplayerStore } from '@/store/multiplayerStore';
+import { networkClient } from '@/network/networkClient';
 import { getAvailableVehicles, getVehiclePreset } from '@/config/vehicleRegistry';
 import { getAvailableLevels, getLevelPreset } from '@/config/levelRegistry';
 import { resetGamepadEdgeState } from '@/utils/input/gamepad';
@@ -199,6 +201,10 @@ export function MenuOverlay() {
 
   const handleStartRace = useCallback((vehicleId: string) => {
     resetGamepadEdgeState();
+    if (!useMultiplayerStore.getState().currentRoom) {
+      networkClient.disconnect();
+      useMultiplayerStore.getState().reset();
+    }
     setSelectedVehicleId(vehicleId);
     useGameStore.setState({ loadingTarget: 'gameplay', isSceneReady: false });
     useGameStore.getState().triggerReset(true);

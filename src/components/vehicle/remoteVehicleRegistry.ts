@@ -22,3 +22,10 @@ export function unregisterRemoteVehicleMesh(playerId: string): void {
 export function getRemoteVehicleMesh(playerId: string): Object3D | null {
   return remoteVehicleMeshMap.get(playerId) ?? null;
 }
+
+/**
+ * Returns all currently registered remote vehicle meshes for proximity checking.
+ */
+export function getAllRemoteVehicleMeshes(): ReadonlyMap<string, Object3D> {
+  return remoteVehicleMeshMap;
+}

@@ -4,14 +4,16 @@ import { useRapier } from '@react-three/rapier';
 import type { RapierRigidBody } from '@react-three/rapier';
 import { Vector3, Quaternion, Euler, Object3D } from 'three';
 import type { VehicleConfig, SurfaceType } from '@/types/vehicle';
-import type { GameState } from '@/types/game';
+import type { GameState, InputState } from '@/types/game';
 import { useInputUpdater } from '@/hooks/useInput';
 import { useGameStore } from '@/store/gameStore';
 import { useRacingStore } from '@/store/racingStore';
 import { useGymkhanaStore } from '@/store/gymkhanaStore';
+import { useTagStore } from '@/store/tagStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useMultiplayerStore } from '@/store/multiplayerStore';
 import { networkClient } from '@/network/networkClient';
+import { getAllRemoteVehicleMeshes } from '@/components/vehicle/remoteVehicleRegistry';
 import { DEFAULT_VEHICLE_CONFIG, MS_TO_KMH, MAX_DELTA } from '@/config/vehicle';
 import { updateGearbox, handleManualGearShift, calculateRPM } from '@/utils/physics/powertrain';
 import { applyDrivetrain, applyAwdDriftPropulsion } from '@/utils/physics/drivetrain';
@@ -39,6 +41,14 @@ const _settledPos = { x: 0, y: 0, z: 0 };
 const _settledRot = { x: 0, y: 0, z: 0, w: 1 };
 const _settledSuspensions: number[] = [0, 0, 0, 0];
 const _zeroVel = { x: 0, y: 0, z: 0 };
+const _frozenInput: InputState = {
+  steering: 0,
+  throttle: 0,
+  brake: 1,
+  handbrake: true,
+  cameraToggle: false,
+  reset: false,
+};
 const _telemetryState = {
   speed: 0,
   lateralSpeed: 0,
@@ -188,13 +198,21 @@ export function useVehiclePhysics(
       settleFramesRef.current += 1;
       if (settleFramesRef.current >= 15) {
         useGameStore.getState().setSceneReady(true);
+        networkClient.sendClientReady();
       }
     }
 
     // --- CHECK PENDING RESET FOR ALL STATES (PLAYING, LOADING, PAUSED, MENU) ---
     const resetState = useGameStore.getState();
-    const spawnPos = levelPreset.spawnPosition;
-    const spawnRotY = levelPreset.spawnRotationY;
+    const tagStoreState = useTagStore.getState();
+    let spawnPos = levelPreset.spawnPosition;
+    let spawnRotY = levelPreset.spawnRotationY;
+    if (resetState.gameMode === 'tag' && levelPreset.tagSpawnPoints && levelPreset.tagSpawnPoints.length > 0) {
+      const spIndex = tagStoreState.assignedSpawnIndex % levelPreset.tagSpawnPoints.length;
+      const pt = levelPreset.tagSpawnPoints[spIndex];
+      spawnPos = pt.position;
+      spawnRotY = pt.rotationY;
+    }
     const fallResetY = levelPreset.fallResetY;
     const currentBodyPos = body.translation();
     const curLinvel = body.linvel();
@@ -402,6 +420,7 @@ export function useVehiclePhysics(
         body.setAngvel(_zeroVel, true);
         if (!useGameStore.getState().isSceneReady) {
           useGameStore.getState().setSceneReady(true);
+          networkClient.sendClientReady();
         }
       } else if (settleFramesRef.current >= 40 && isMenuOrTitle && !isNearSpawn) {
         body.setTranslation({ x: spawnPos[0], y: spawnPos[1], z: spawnPos[2] }, true);
@@ -446,14 +465,26 @@ export function useVehiclePhysics(
 
     // Automatic Gearbox Logic
     const state = useGameStore.getState();
+    const tagState = useTagStore.getState();
+
+    // Tick tag store freeze/immunity counters
+    if (state.gameMode === 'tag') {
+      tagState.tickDelta(dt);
+    }
+
     const isCountingDown = 
       (state.gameMode === 'timeattack' && useRacingStore.getState().raceStatus === 'countdown') ||
-      (state.gameMode === 'gymkhana_blitz' && useGymkhanaStore.getState().status === 'countdown');
+      (state.gameMode === 'gymkhana_blitz' && useGymkhanaStore.getState().status === 'countdown') ||
+      (state.gameMode === 'tag' && tagState.phase === 'countdown');
 
-    if (isCountingDown) {
+    const isTagFrozen = state.gameMode === 'tag' && tagState.isFrozen;
+
+    if (isCountingDown || isTagFrozen) {
       body.setLinvel({ x: 0, y: Math.min(0, linvel.y), z: 0 }, true);
       body.setAngvel({ x: 0, y: 0, z: 0 }, true);
     }
+
+    const effectiveInput = (isCountingDown || isTagFrozen) ? _frozenInput : input;
 
     const isGymkhanaFinished =
       useGymkhanaStore.getState().showResultsModal ||
@@ -475,9 +506,9 @@ export function useVehiclePhysics(
     let currentGear: number;
 
     if (transmissionMode === 'manual') {
-      currentGear = handleManualGearShift(state.gear, input, isAirborneRef.current);
+      currentGear = handleManualGearShift(state.gear, effectiveInput, isAirborneRef.current);
     } else {
-      currentGear = updateGearbox(speedKmh, forwardSpeed, input, state.gear, isAirborneRef.current, {
+      currentGear = updateGearbox(speedKmh, forwardSpeed, effectiveInput, state.gear, isAirborneRef.current, {
         slipAngle,
       });
     }
@@ -491,13 +522,14 @@ export function useVehiclePhysics(
     }
 
     // --- 1. APPLY DRIVETRAIN (Engine, Reverse, Rev Limiter) ---
-    applyDrivetrain(controller, config, input, forwardSpeed, currentGear, slipAngle, speedKmh);
+    const powerMultiplier = (state.gameMode === 'tag' && tagState.isTagger) ? 1.5 : 1.0;
+    applyDrivetrain(controller, config, effectiveInput, forwardSpeed, currentGear, slipAngle, speedKmh, powerMultiplier);
 
     // --- 2. APPLY TIRE FRICTION & BRAKES ---
     const { grips: tireGrips, surface } = applyTireFrictionAndBrakes(
       controller,
       config,
-      input,
+      effectiveInput,
       speedKmh,
       forwardSpeed,
       pos.x,
@@ -517,7 +549,7 @@ export function useVehiclePhysics(
     }
 
     // --- 3. APPLY ARCADE ASSISTS ---
-    applyAssists(body, config, input, forwardSpeed, dt);
+    applyAssists(body, config, effectiveInput, forwardSpeed, dt);
 
     // --- 3.5. APPLY SUSPENSION ARB ---
     applyAntiRollBars(body, controller, config, dt);
@@ -633,7 +665,7 @@ export function useVehiclePhysics(
     useGameStore.setState(_telemetryState);
 
     // --- 7.5. MULTIPLAYER TELEMETRY BROADCAST ---
-    if (useMultiplayerStore.getState().status !== 'disconnected' && !isSpectating) {
+    if (useMultiplayerStore.getState().status !== 'disconnected' && !isSpectating && !!useMultiplayerStore.getState().currentRoom) {
       const curAngvel = body.angvel();
       const wheels = wheelRefs.current;
       const w0 = wheels?.[0]?.children[0]?.rotation.x ?? 0;
@@ -659,6 +691,26 @@ export function useVehiclePhysics(
         surface,
         score: liveGymkhanaScore,
       });
+    }
+
+    // --- 7.6. RALLY TAG PROXIMITY CHECK (TAGGER TOUCHES REMOTE DRIVER) ---
+    if (
+      state.gameMode === 'tag' &&
+      tagState.phase === 'active' &&
+      tagState.isTagger &&
+      !tagState.isFrozen
+    ) {
+      const remoteMeshes = getAllRemoteVehicleMeshes();
+      for (const [remoteId, mesh] of remoteMeshes) {
+        const dx = pos.x - mesh.position.x;
+        const dy = pos.y - mesh.position.y;
+        const dz = pos.z - mesh.position.z;
+        const distSq = dx * dx + dy * dy + dz * dz;
+        if (distSq <= 3.2 * 3.2) {
+          networkClient.sendTagTouch(remoteId);
+          break;
+        }
+      }
     }
 
     // --- 8. CHECK MANUAL RESET (KEYBOARD 'R' OR GAMEPAD BUTTON) ---

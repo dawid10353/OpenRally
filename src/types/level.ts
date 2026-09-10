@@ -81,6 +81,11 @@ export interface LevelData {
   props: PropData[];
 }
 
+export interface TagSpawnPoint {
+  readonly position: [number, number, number];
+  readonly rotationY: number;
+}
+
 /**
  * Complete level preset definition including gameplay metadata,
  * spawn positioning, reset bounds, and environmental styling.
@@ -104,6 +109,8 @@ export interface LevelPreset {
   readonly spawnPosition: [number, number, number];
   /** Vehicle spawn heading (radians around Y axis) */
   readonly spawnRotationY: number;
+  /** 12 Safe static spawn positions for Rally Tag mode */
+  readonly tagSpawnPoints?: readonly TagSpawnPoint[];
   /** Y elevation threshold below which vehicle resets */
   readonly fallResetY: number;
   /** Optional custom environment styling */

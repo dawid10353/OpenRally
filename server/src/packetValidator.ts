@@ -12,6 +12,7 @@ export const VALID_GAME_MODES: ReadonlySet<GameMode> = new Set([
   'freeroam',
   'timeattack',
   'gymkhana_blitz',
+  'tag',
 ]);
 
 const VALID_SURFACES: ReadonlySet<SurfaceType> = new Set([
@@ -59,67 +60,48 @@ export function sanitizeRoomName(raw: unknown): string | null {
   return trimmed;
 }
 
-export function isValidVehicleId(vehicleId: unknown): boolean {
-  return typeof vehicleId === 'string' && VALID_VEHICLE_IDS.has(vehicleId);
+function isValidVehicleId(raw: unknown): boolean {
+  return typeof raw === 'string' && VALID_VEHICLE_IDS.has(raw);
 }
 
-export function isValidNumber(val: unknown, min: number, max: number): val is number {
-  return typeof val === 'number' && Number.isFinite(val) && !Number.isNaN(val) && val >= min && val <= max;
+function isValidNumber(val: unknown, min: number, max: number): boolean {
+  return typeof val === 'number' && Number.isFinite(val) && val >= min && val <= max;
 }
 
-export function isValidVector3(val: unknown, maxCoord: number = 2000): val is [number, number, number] {
+function isValidTuple3(val: unknown, min: number, max: number): boolean {
   if (!Array.isArray(val) || val.length !== 3) return false;
-  return (
-    isValidNumber(val[0], -maxCoord, maxCoord) &&
-    isValidNumber(val[1], -maxCoord, maxCoord) &&
-    isValidNumber(val[2], -maxCoord, maxCoord)
-  );
+  return val.every((n) => isValidNumber(n, min, max));
 }
 
-export function isValidQuaternion(val: unknown): val is [number, number, number, number] {
+function isValidTuple4(val: unknown, min: number, max: number): boolean {
   if (!Array.isArray(val) || val.length !== 4) return false;
-  const [x, y, z, w] = val;
-  if (
-    !isValidNumber(x, -1.05, 1.05) ||
-    !isValidNumber(y, -1.05, 1.05) ||
-    !isValidNumber(z, -1.05, 1.05) ||
-    !isValidNumber(w, -1.05, 1.05)
-  ) {
-    return false;
-  }
-  const normSq = x * x + y * y + z * z + w * w;
-  return normSq >= 0.5 && normSq <= 1.5;
+  return val.every((n) => isValidNumber(n, min, max));
 }
 
 export function validateTelemetryPayload(raw: unknown): VehicleTelemetryPayload | null {
-  if (!raw || typeof raw !== 'object') return null;
+  if (typeof raw !== 'object' || raw === null) return null;
   const p = raw as Record<string, unknown>;
 
-  if (!isValidNumber(p.seq, 0, 1e9)) return null;
   if (!isValidNumber(p.time, 0, 1e15)) return null;
-  if (!isValidVector3(p.pos, 1000)) return null;
-  if (!isValidQuaternion(p.rot)) return null;
-  if (!isValidVector3(p.linVel, 200)) return null;
-  if (!isValidVector3(p.angVel, 100)) return null;
-  if (!isValidNumber(p.steer, -1.5, 1.5)) return null;
-
-  if (!Array.isArray(p.wheelRots) || p.wheelRots.length !== 4) return null;
-  for (let i = 0; i < 4; i++) {
-    if (!isValidNumber(p.wheelRots[i], -1e7, 1e7)) return null;
+  if (!isValidTuple3(p.pos, -50000, 50000)) return null;
+  if (!isValidTuple4(p.rot, -2, 2)) return null;
+  if (!isValidTuple3(p.linVel, -500, 500)) return null;
+  if (!isValidTuple3(p.angVel, -100, 100)) return null;
+  if (!isValidNumber(p.steer, -2, 2)) return null;
+  if (!isValidTuple4(p.wheelRots, -1e6, 1e6)) return null;
+  if (!isValidNumber(p.rpm, 0, 20000)) return null;
+  if (!isValidNumber(p.gear, -2, 10)) return null;
+  if (typeof p.isDrifting !== 'boolean') return null;
+  if (typeof p.surface !== 'string' || !VALID_SURFACES.has(p.surface as SurfaceType)) {
+    return null;
   }
 
-  if (!isValidNumber(p.rpm, 0, 15000)) return null;
-  if (!isValidNumber(p.gear, -1, 8)) return null;
-  if (typeof p.isDrifting !== 'boolean') return null;
+  const score = typeof p.score === 'number' && Number.isFinite(p.score) && p.score >= 0 ? p.score : undefined;
 
-  const surface = typeof p.surface === 'string' && VALID_SURFACES.has(p.surface as SurfaceType)
-    ? (p.surface as SurfaceType)
-    : 'tarmac';
-
-  const score = isValidNumber(p.score, 0, 1e8) ? p.score : undefined;
+  const seq = typeof p.seq === 'number' && Number.isFinite(p.seq) ? p.seq : 0;
 
   return {
-    seq: p.seq as number,
+    seq,
     time: p.time as number,
     pos: p.pos as [number, number, number],
     rot: p.rot as [number, number, number, number],
@@ -129,14 +111,14 @@ export function validateTelemetryPayload(raw: unknown): VehicleTelemetryPayload 
     wheelRots: p.wheelRots as [number, number, number, number],
     rpm: p.rpm as number,
     gear: p.gear as number,
-    isDrifting: p.isDrifting,
-    surface,
+    isDrifting: p.isDrifting as boolean,
+    surface: p.surface as SurfaceType,
     score,
   };
 }
 
 export function parseClientMessage(raw: unknown): ClientMessage | null {
-  if (!raw || typeof raw !== 'object') return null;
+  if (typeof raw !== 'object' || raw === null) return null;
   const msg = raw as Record<string, unknown>;
   const type = msg.type;
 
@@ -158,13 +140,13 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
         ? (msg.gameMode as GameMode)
         : 'freeroam';
 
-    // Enforce map compatibility: gymkhana_blitz only on gymkhana, timeattack only on circuit/rally
+    // Enforce map compatibility: gymkhana_blitz on gymkhana, timeattack on circuit/rally, tag on all maps
     if (levelId === 'level5_gymkhana') {
-      if (gameMode !== 'freeroam' && gameMode !== 'gymkhana_blitz') {
+      if (gameMode !== 'freeroam' && gameMode !== 'gymkhana_blitz' && gameMode !== 'tag') {
         gameMode = 'freeroam';
       }
     } else {
-      if (gameMode !== 'freeroam' && gameMode !== 'timeattack') {
+      if (gameMode !== 'freeroam' && gameMode !== 'timeattack' && gameMode !== 'tag') {
         gameMode = 'freeroam';
       }
     }
@@ -228,6 +210,15 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
   if (type === 'ping') {
     if (!isValidNumber(msg.clientTime, 0, 1e15)) return null;
     return { type: 'ping', clientTime: msg.clientTime as number };
+  }
+
+  if (type === 'client_ready') {
+    return { type: 'client_ready' };
+  }
+
+  if (type === 'tag_touch') {
+    if (typeof msg.targetPlayerId !== 'string' || msg.targetPlayerId.length === 0) return null;
+    return { type: 'tag_touch', targetPlayerId: msg.targetPlayerId as string };
   }
 
   return null;

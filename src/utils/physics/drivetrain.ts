@@ -23,7 +23,8 @@ export function applyDrivetrain(
   forwardSpeed: number,
   currentGear: number,
   slipAngle?: number,
-  speedKmh?: number
+  speedKmh?: number,
+  powerMultiplier: number = 1.0
 ): void {
   const gearRatio = currentGear > 0 && currentGear < GEAR_RATIOS.length ? GEAR_RATIOS[currentGear] : 1;
   const steerAmount = input.steering ? Math.abs(input.steering) : 0;
@@ -100,16 +101,16 @@ export function applyDrivetrain(
         // Reverse gear: Throttle powers car backward; in automatic mode, Brake also powers reverse
         const revDrive = input.throttle > 0 ? input.throttle : (input.brake > 0 && forwardSpeed < BRAKE_SPEED_THRESHOLD ? input.brake : 0);
         if (revDrive > 0) {
-          engineForce = -config.engine.maxForce * revDrive * REVERSE_FORCE_MULTIPLIER * baseTorqueMultiplier * revLimiterGovernor;
+          engineForce = -config.engine.maxForce * revDrive * REVERSE_FORCE_MULTIPLIER * baseTorqueMultiplier * revLimiterGovernor * powerMultiplier;
         }
       } else if (input.throttle > 0) {
-        engineForce = config.engine.maxForce * input.throttle * gearRatio * torqueMultiplier * driftPowerBoost * launchRamp * revLimiterGovernor;
+        engineForce = config.engine.maxForce * input.throttle * gearRatio * torqueMultiplier * driftPowerBoost * launchRamp * revLimiterGovernor * powerMultiplier;
       } else if (input.brake > 0 && forwardSpeed > BRAKE_SPEED_THRESHOLD) {
         // Braking when moving forward
         engineForce = 0;
       } else if (input.brake > 0) {
         // Auto reverse trigger when stopped
-        engineForce = -config.engine.maxForce * input.brake * REVERSE_FORCE_MULTIPLIER * baseTorqueMultiplier * revLimiterGovernor;
+        engineForce = -config.engine.maxForce * input.brake * REVERSE_FORCE_MULTIPLIER * baseTorqueMultiplier * revLimiterGovernor * powerMultiplier;
       }
       const safeEngineForce = Number.isFinite(engineForce) ? engineForce : 0;
       controller.setWheelEngineForce(i, safeEngineForce);

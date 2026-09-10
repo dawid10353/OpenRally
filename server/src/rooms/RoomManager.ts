@@ -267,6 +267,32 @@ export class RoomManager {
     }
   }
 
+  public handleClientReady(ws: WebSocket): void {
+    const playerId = this.wsToPlayer.get(ws);
+    if (!playerId) return;
+
+    const roomId = this.playerToRoom.get(playerId);
+    if (!roomId) return;
+
+    const room = this.rooms.get(roomId);
+    if (room) {
+      room.handleClientReady(playerId);
+    }
+  }
+
+  public handleTagTouch(ws: WebSocket, targetPlayerId: string): void {
+    const playerId = this.wsToPlayer.get(ws);
+    if (!playerId) return;
+
+    const roomId = this.playerToRoom.get(playerId);
+    if (!roomId) return;
+
+    const room = this.rooms.get(roomId);
+    if (room) {
+      room.handleTagTouch(playerId, targetPlayerId);
+    }
+  }
+
   public handleDisconnect(ws: WebSocket, reason: string = 'disconnect'): void {
     this.unsubscribeLobby(ws);
 

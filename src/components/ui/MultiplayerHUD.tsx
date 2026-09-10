@@ -98,7 +98,7 @@ export function MultiplayerHUD() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  if (status === 'disconnected' || gameState !== 'playing') {
+  if (status === 'disconnected' || gameState !== 'playing' || !currentRoom) {
     return null;
   }
 
@@ -127,13 +127,17 @@ export function MultiplayerHUD() {
       ? 'TIME ATTACK'
       : currentGameMode === 'gymkhana_blitz'
         ? 'GYMKHANA'
-        : 'FREE ROAM';
+        : currentGameMode === 'tag'
+          ? 'RALLY TAG'
+          : 'FREE ROAM';
   const modeBadgeColor =
     currentGameMode === 'timeattack'
       ? '#F87171'
       : currentGameMode === 'gymkhana_blitz'
         ? '#FBBF24'
-        : '#34D399';
+        : currentGameMode === 'tag'
+          ? '#F43F5E'
+          : '#34D399';
 
   // Desktop: Top-right corner above minimap
   // Mobile: Bottom horizontal center, subtle low-profile pill between touch pedals and steering

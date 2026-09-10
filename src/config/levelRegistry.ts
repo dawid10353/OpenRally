@@ -4,6 +4,7 @@ import { LEVEL2_DESERT_DATA } from './levels/desertCanyon';
 import { LEVEL3_SWEDEN_DATA } from './levels/swedenSnow';
 import { LEVEL4_BRITAIN_DATA } from './levels/highlandCastle';
 import { LEVEL5_GYMKHANA_DATA } from './levels/gymkhanaIsland';
+import { TAG_LEVEL_SPAWNS } from './tagSpawns';
 
 /**
  * Stage 1 / Default Level: Island Circuit.
@@ -16,9 +17,11 @@ export const LEVEL_PRESET_ISLAND: LevelPreset = {
   description: 'Coastal circuit featuring rolling green hills, mud track curves, and ocean vistas.',
   difficulty: 'easy',
   surfaceDescription: 'Mud & Grass',
+  supportedModes: ['freeroam', 'timeattack', 'tag'],
   data: LEVEL1_DATA,
   spawnPosition: [-3.5, 9.5, 2.0],
   spawnRotationY: Math.atan2(130 - (-70), -70 - (-35)), // Aligned with start straight
+  tagSpawnPoints: TAG_LEVEL_SPAWNS['level1_island'],
   fallResetY: -8.25,
   environment: {
     sky: {
@@ -49,9 +52,11 @@ export const LEVEL_PRESET_DESERT: LevelPreset = {
   description: 'Arid desert basin with rocky canyon passes, loose sand dunes, and elevated ridges.',
   difficulty: 'medium',
   surfaceDescription: 'Sand & Gravel',
+  supportedModes: ['freeroam', 'timeattack', 'tag'],
   data: LEVEL2_DESERT_DATA,
   spawnPosition: [-3.5, 9.5, -1.5],
   spawnRotationY: Math.atan2(140 - (-60), 50 - (-30)), // Aligned with start straight
+  tagSpawnPoints: TAG_LEVEL_SPAWNS['level2_desert'],
   fallResetY: -10.0,
   environment: {
     sky: {
@@ -82,9 +87,11 @@ export const LEVEL_PRESET_SWEDEN: LevelPreset = {
   description: 'High-speed Scandinavian winter stage with snowbanks, crest jumps, red cottages, and frozen lake.',
   difficulty: 'hard',
   surfaceDescription: 'Snow & Ice',
+  supportedModes: ['freeroam', 'timeattack', 'tag'],
   data: LEVEL3_SWEDEN_DATA,
   spawnPosition: [-3.5, 9.5, 1.5],
   spawnRotationY: Math.atan2(130 - (-70), -50 - (-40)), // Aligned with start straight
+  tagSpawnPoints: TAG_LEVEL_SPAWNS['level3_sweden'],
   fallResetY: -10.0,
   environment: {
     sky: {
@@ -116,9 +123,11 @@ export const LEVEL_PRESET_BRITAIN: LevelPreset = {
   description: 'Epic British highlands stage through medieval castle ruins, stone wall corridors, and tight technical hairpins.',
   difficulty: 'hard',
   surfaceDescription: 'Mud, Gravel & Stone',
+  supportedModes: ['freeroam', 'timeattack', 'tag'],
   data: LEVEL4_BRITAIN_DATA,
   spawnPosition: [-3.13, 9.75, -1.57],
   spawnRotationY: Math.atan2(45 - (-65), 20 - (-35)), // Aligned with CP0 track heading
+  tagSpawnPoints: TAG_LEVEL_SPAWNS['level4_britain'],
   fallResetY: -10.0,
   environment: {
     sky: {
@@ -141,7 +150,7 @@ export const LEVEL_PRESET_BRITAIN: LevelPreset = {
 /**
  * Stage 5 Level: Apex Gymkhana Arena.
  * High-octane industrial drift island compound with shipping container chicanes,
- * 360 donut zones, and wide tarmac pads. Exclusively supports Free Roam and Gymkhana Blitz.
+ * 360 donut zones, and wide tarmac pads. Exclusively supports Free Roam, Gymkhana Blitz, and Rally Tag.
  */
 export const LEVEL_PRESET_GYMKHANA: LevelPreset = {
   id: 'level5_gymkhana',
@@ -149,10 +158,11 @@ export const LEVEL_PRESET_GYMKHANA: LevelPreset = {
   description: 'Industrial island drift compound featuring shipping container chicanes, 360 donut zones, and wide asphalt drift pads.',
   difficulty: 'medium',
   surfaceDescription: 'Tarmac & Concrete',
-  supportedModes: ['freeroam', 'gymkhana_blitz'],
+  supportedModes: ['freeroam', 'gymkhana_blitz', 'tag'],
   data: LEVEL5_GYMKHANA_DATA,
   spawnPosition: [-1.86, 9.5, -4.64],
   spawnRotationY: Math.atan2(40, 100), // Aligned with CP0 track heading
+  tagSpawnPoints: TAG_LEVEL_SPAWNS['level5_gymkhana'],
   fallResetY: -10.0,
   environment: {
     sky: {

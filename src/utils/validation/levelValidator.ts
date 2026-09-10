@@ -166,6 +166,22 @@ export function validateLevelPreset(preset: LevelPreset): ValidationResult {
     errors.push(...clearanceValidation.errors);
   }
 
+  if (preset.tagSpawnPoints !== undefined) {
+    if (!Array.isArray(preset.tagSpawnPoints) || preset.tagSpawnPoints.length !== 12) {
+      errors.push('LevelPreset.tagSpawnPoints must be an array of exactly 12 TagSpawnPoints.');
+    } else {
+      for (let i = 0; i < preset.tagSpawnPoints.length; i++) {
+        const sp = preset.tagSpawnPoints[i];
+        if (!sp || !Array.isArray(sp.position) || sp.position.length !== 3 || !sp.position.every(Number.isFinite)) {
+          errors.push(`LevelPreset.tagSpawnPoints[${i}].position must be a valid 3-element tuple.`);
+        }
+        if (typeof sp.rotationY !== 'number' || !Number.isFinite(sp.rotationY)) {
+          errors.push(`LevelPreset.tagSpawnPoints[${i}].rotationY must be a finite number.`);
+        }
+      }
+    }
+  }
+
   return {
     valid: errors.length === 0,
     errors,

@@ -127,7 +127,13 @@ export function MultiplayerView({
       networkClient.requestRooms();
     }, 2500);
 
-    return () => clearInterval(pollInterval);
+    return () => {
+      clearInterval(pollInterval);
+      if (!useMultiplayerStore.getState().currentRoom) {
+        networkClient.disconnect();
+        useMultiplayerStore.getState().reset();
+      }
+    };
   }, []);
 
   const handleNickChange = (val: string) => {
@@ -784,17 +790,33 @@ export function MultiplayerView({
                         ? '⏱️ TIME ATTACK'
                         : mode === 'gymkhana_blitz'
                           ? '⚡ GYMKHANA BLITZ'
-                          : '🌴 FREE ROAM';
+                          : mode === 'tag'
+                            ? '🎯 RALLY TAG'
+                            : '🌴 FREE ROAM';
                     const activeColor =
-                      mode === 'timeattack' ? '#F87171' : mode === 'gymkhana_blitz' ? '#FBBF24' : '#34D399';
+                      mode === 'timeattack'
+                        ? '#F87171'
+                        : mode === 'gymkhana_blitz'
+                          ? '#FBBF24'
+                          : mode === 'tag'
+                            ? '#F43F5E'
+                            : '#34D399';
                     const activeBg =
                       mode === 'timeattack'
                         ? 'rgba(239, 68, 68, 0.2)'
                         : mode === 'gymkhana_blitz'
                           ? 'rgba(245, 158, 11, 0.2)'
-                          : 'rgba(16, 185, 129, 0.2)';
+                          : mode === 'tag'
+                            ? 'rgba(244, 63, 94, 0.2)'
+                            : 'rgba(16, 185, 129, 0.2)';
                     const activeBorder =
-                      mode === 'timeattack' ? '#EF4444' : mode === 'gymkhana_blitz' ? '#F59E0B' : '#10B981';
+                      mode === 'timeattack'
+                        ? '#EF4444'
+                        : mode === 'gymkhana_blitz'
+                          ? '#F59E0B'
+                          : mode === 'tag'
+                            ? '#F43F5E'
+                            : '#10B981';
 
                     return (
                       <button
@@ -888,25 +910,33 @@ export function MultiplayerView({
                     ? 'TIME ATTACK'
                     : r.gameMode === 'gymkhana_blitz'
                       ? 'GYMKHANA BLITZ'
-                      : 'FREE ROAM';
+                      : r.gameMode === 'tag'
+                        ? 'RALLY TAG'
+                        : 'FREE ROAM';
                 const modeColor =
                   r.gameMode === 'timeattack'
                     ? '#F87171'
                     : r.gameMode === 'gymkhana_blitz'
                       ? '#FBBF24'
-                      : '#34D399';
+                      : r.gameMode === 'tag'
+                        ? '#F43F5E'
+                        : '#34D399';
                 const modeBg =
                   r.gameMode === 'timeattack'
                     ? 'rgba(239, 68, 68, 0.15)'
                     : r.gameMode === 'gymkhana_blitz'
                       ? 'rgba(245, 158, 11, 0.15)'
-                      : 'rgba(16, 185, 129, 0.15)';
+                      : r.gameMode === 'tag'
+                        ? 'rgba(244, 63, 94, 0.15)'
+                        : 'rgba(16, 185, 129, 0.15)';
                 const modeBorder =
                   r.gameMode === 'timeattack'
                     ? 'rgba(239, 68, 68, 0.4)'
                     : r.gameMode === 'gymkhana_blitz'
                       ? 'rgba(245, 158, 11, 0.4)'
-                      : 'rgba(16, 185, 129, 0.4)';
+                      : r.gameMode === 'tag'
+                        ? 'rgba(244, 63, 94, 0.4)'
+                        : 'rgba(16, 185, 129, 0.4)';
 
                 const isJoinFocused = focusTarget.area === 'room_join' && focusTarget.index === rIdx;
                 const isDeleteFocused = focusTarget.area === 'room_delete' && focusTarget.index === rIdx;

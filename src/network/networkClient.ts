@@ -9,6 +9,7 @@ import { SnapshotRingBuffer } from './snapshotRingBuffer';
 import { useMultiplayerStore } from '@/store/multiplayerStore';
 import { useGameStore } from '@/store/gameStore';
 import { useGymkhanaStore } from '@/store/gymkhanaStore';
+import { useTagStore } from '@/store/tagStore';
 
 export const TELEMETRY_SEND_INTERVAL_MS = 33; // ~30Hz
 const PING_INTERVAL_MS = 2000;
@@ -253,6 +254,14 @@ export class NetworkClient {
     this.send(msg);
   }
 
+  public sendClientReady(): void {
+    this.send({ type: 'client_ready' });
+  }
+
+  public sendTagTouch(targetPlayerId: string): void {
+    this.send({ type: 'tag_touch', targetPlayerId });
+  }
+
   private sendQueue: ClientMessage[] = [];
 
   private send(msg: ClientMessage): void {
@@ -397,6 +406,37 @@ export class NetworkClient {
           useGymkhanaStore.getState().resetBlitz();
           useGymkhanaStore.getState().startCountdown();
           useGameStore.getState().triggerReset(true);
+          break;
+        }
+
+        case 'tag_match_countdown': {
+          useTagStore.getState().setCountdown(msg.countdown, msg.assignedSpawnIndex);
+          break;
+        }
+
+        case 'tag_match_start': {
+          useTagStore.getState().startMatch(msg.roundDuration, msg.taggerId, msg.assignedSpawnIndex);
+          useGameStore.getState().triggerReset(true);
+          break;
+        }
+
+        case 'tag_passed': {
+          useTagStore.getState().setTagPassed(msg.oldTaggerId, msg.newTaggerId, msg.freezeDurationMs);
+          break;
+        }
+
+        case 'tag_match_ended': {
+          useTagStore.getState().endMatch(msg.intermissionRemaining, msg.leaderboard);
+          break;
+        }
+
+        case 'tag_spectate': {
+          store.setSpectating(
+            msg.isSpectator,
+            msg.targetId,
+            msg.targetNickname,
+            msg.roundTimeRemaining
+          );
           break;
         }
 

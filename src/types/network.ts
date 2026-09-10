@@ -135,6 +135,14 @@ export interface EntitySnapshot {
   score?: number;
 }
 
+export interface TagLeaderboardEntry {
+  id: string;
+  nickname: string;
+  vehicleId: string;
+  timeClean: number;
+  tagsMade: number;
+}
+
 /**
  * Discriminated union of all messages sent from Client to Server.
  */
@@ -181,6 +189,13 @@ export type ClientMessage =
   | {
       type: 'ping';
       clientTime: number;
+    }
+  | {
+      type: 'client_ready';
+    }
+  | {
+      type: 'tag_touch';
+      targetPlayerId: string;
     };
 
 /**
@@ -253,6 +268,35 @@ export type ServerMessage =
       type: 'gymkhana_round_start';
       duration: number;
       countdown: number;
+    }
+  | {
+      type: 'tag_match_countdown';
+      countdown: number;
+      assignedSpawnIndex: number;
+    }
+  | {
+      type: 'tag_match_start';
+      roundDuration: number;
+      taggerId: string;
+      assignedSpawnIndex: number;
+    }
+  | {
+      type: 'tag_passed';
+      oldTaggerId: string;
+      newTaggerId: string;
+      freezeDurationMs: number;
+    }
+  | {
+      type: 'tag_match_ended';
+      intermissionRemaining: number;
+      leaderboard: TagLeaderboardEntry[];
+    }
+  | {
+      type: 'tag_spectate';
+      isSpectator: boolean;
+      targetId: string | null;
+      targetNickname: string | null;
+      roundTimeRemaining: number;
     }
   | {
       type: 'error';

@@ -21,6 +21,7 @@ export const VALID_GAME_MODES: ReadonlySet<GameMode> = new Set([
   'freeroam',
   'timeattack',
   'gymkhana_blitz',
+  'tag',
 ]);
 
 const VALID_SURFACES: ReadonlySet<SurfaceType> = new Set([
@@ -237,12 +238,13 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
         ? (msg.gameMode as GameMode)
         : 'freeroam';
 
+    // Enforce map compatibility: gymkhana_blitz on gymkhana, timeattack on circuit/rally, tag on all maps
     if (levelId === 'level5_gymkhana') {
-      if (gameMode !== 'freeroam' && gameMode !== 'gymkhana_blitz') {
+      if (gameMode !== 'freeroam' && gameMode !== 'gymkhana_blitz' && gameMode !== 'tag') {
         gameMode = 'freeroam';
       }
     } else {
-      if (gameMode !== 'freeroam' && gameMode !== 'timeattack') {
+      if (gameMode !== 'freeroam' && gameMode !== 'timeattack' && gameMode !== 'tag') {
         gameMode = 'freeroam';
       }
     }
@@ -307,6 +309,15 @@ export function parseClientMessage(raw: unknown): ClientMessage | null {
   if (type === 'ping') {
     if (!isValidNumber(msg.clientTime, 0, 1e15)) return null;
     return { type: 'ping', clientTime: msg.clientTime as number };
+  }
+
+  if (type === 'client_ready') {
+    return { type: 'client_ready' };
+  }
+
+  if (type === 'tag_touch') {
+    if (typeof msg.targetPlayerId !== 'string' || msg.targetPlayerId.length === 0) return null;
+    return { type: 'tag_touch', targetPlayerId: msg.targetPlayerId as string };
   }
 
   return null;
@@ -514,6 +525,92 @@ export function parseServerMessage(raw: unknown): ServerMessage | null {
       type: 'gymkhana_round_start',
       duration,
       countdown,
+    };
+  }
+
+  if (type === 'tag_match_countdown') {
+    const countdown = isValidNumber(msg.countdown, 0, 60) ? msg.countdown : 15;
+    const assignedSpawnIndex = isValidNumber(msg.assignedSpawnIndex, 0, 11) ? msg.assignedSpawnIndex : 0;
+    return {
+      type: 'tag_match_countdown',
+      countdown,
+      assignedSpawnIndex,
+    };
+  }
+
+  if (type === 'tag_match_start') {
+    const roundDuration = isValidNumber(msg.roundDuration, 1, 3600) ? msg.roundDuration : 180;
+    const taggerId = typeof msg.taggerId === 'string' ? msg.taggerId : '';
+    const assignedSpawnIndex = isValidNumber(msg.assignedSpawnIndex, 0, 11) ? msg.assignedSpawnIndex : 0;
+    return {
+      type: 'tag_match_start',
+      roundDuration,
+      taggerId,
+      assignedSpawnIndex,
+    };
+  }
+
+  if (type === 'tag_passed') {
+    const oldTaggerId = typeof msg.oldTaggerId === 'string' ? msg.oldTaggerId : '';
+    const newTaggerId = typeof msg.newTaggerId === 'string' ? msg.newTaggerId : '';
+    const freezeDurationMs = isValidNumber(msg.freezeDurationMs, 0, 30000) ? msg.freezeDurationMs : 2500;
+    return {
+      type: 'tag_passed',
+      oldTaggerId,
+      newTaggerId,
+      freezeDurationMs,
+    };
+  }
+
+  if (type === 'tag_match_ended') {
+    const intermissionRemaining = isValidNumber(msg.intermissionRemaining, 0, 3600)
+      ? msg.intermissionRemaining
+      : 20;
+    if (!Array.isArray(msg.leaderboard)) return null;
+    const leaderboard: Array<{
+      id: string;
+      nickname: string;
+      vehicleId: string;
+      timeClean: number;
+      tagsMade: number;
+    }> = [];
+    for (const entry of msg.leaderboard as Array<Record<string, unknown>>) {
+      if (
+        entry &&
+        typeof entry === 'object' &&
+        typeof entry.id === 'string' &&
+        typeof entry.nickname === 'string' &&
+        typeof entry.vehicleId === 'string' &&
+        isValidNumber(entry.timeClean, 0, 1e9) &&
+        isValidNumber(entry.tagsMade, 0, 1e6)
+      ) {
+        leaderboard.push({
+          id: entry.id,
+          nickname: entry.nickname,
+          vehicleId: entry.vehicleId,
+          timeClean: entry.timeClean,
+          tagsMade: entry.tagsMade,
+        });
+      }
+    }
+    return {
+      type: 'tag_match_ended',
+      intermissionRemaining,
+      leaderboard,
+    };
+  }
+
+  if (type === 'tag_spectate') {
+    if (typeof msg.isSpectator !== 'boolean') return null;
+    const targetId = typeof msg.targetId === 'string' ? msg.targetId : null;
+    const targetNickname = typeof msg.targetNickname === 'string' ? msg.targetNickname : undefined;
+    const roundTimeRemaining = isValidNumber(msg.roundTimeRemaining, 0, 3600) ? msg.roundTimeRemaining : 180;
+    return {
+      type: 'tag_spectate',
+      isSpectator: msg.isSpectator,
+      targetId,
+      targetNickname,
+      roundTimeRemaining,
     };
   }
 

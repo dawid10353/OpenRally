@@ -16,8 +16,8 @@ describe('Apex Gymkhana Arena Level Preset', () => {
     expect(available.some((l) => l.id === 'level5_gymkhana')).toBe(true);
   });
 
-  it('restricts supportedModes to freeroam and gymkhana_blitz, excluding timeattack', () => {
-    expect(LEVEL_PRESET_GYMKHANA.supportedModes).toEqual(['freeroam', 'gymkhana_blitz']);
+  it('restricts supportedModes to freeroam, gymkhana_blitz, and tag, excluding timeattack', () => {
+    expect(LEVEL_PRESET_GYMKHANA.supportedModes).toEqual(['freeroam', 'gymkhana_blitz', 'tag']);
     expect(LEVEL_PRESET_GYMKHANA.supportedModes).not.toContain('timeattack');
   });
 

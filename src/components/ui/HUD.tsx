@@ -3,8 +3,9 @@ import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { TelemetryHUD } from './TelemetryHUD';
 import { Minimap } from './Minimap';
-import { AnalogGauges, TimingBoard, GymkhanaBoard } from './gauges';
+import { AnalogGauges, TimingBoard, GymkhanaBoard, TagBoard } from './gauges';
 import { GymkhanaCompleteModal } from './GymkhanaCompleteModal';
+import { TagCompleteModal } from './TagCompleteModal';
 import { MultiplayerHUD } from './MultiplayerHUD';
 
 /**
@@ -65,11 +66,17 @@ export function HUD() {
       {/* Gymkhana Blitz Timer, Drift Score Card & Countdown */}
       <GymkhanaBoard />
 
+      {/* Rally Tag Board, Countdown & Role Status */}
+      <TagBoard />
+
       {/* Authentic Rally Twin-Gauge Cluster (Speedometer & Tachometer) */}
       <AnalogGauges />
 
       {/* Gymkhana Blitz Stage Complete Results Modal */}
       <GymkhanaCompleteModal />
+
+      {/* Rally Tag Stage Complete Results Modal */}
+      <TagCompleteModal />
 
       {/* Online Multiplayer Gymkhana Arena Status & Roster */}
       <MultiplayerHUD />

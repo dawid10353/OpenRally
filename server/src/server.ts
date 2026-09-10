@@ -104,6 +104,16 @@ wss.on('connection', (ws: WebSocket, req) => {
           roomManager.handlePing(ws, msg.clientTime);
           break;
         }
+
+        case 'client_ready': {
+          roomManager.handleClientReady(ws);
+          break;
+        }
+
+        case 'tag_touch': {
+          roomManager.handleTagTouch(ws, msg.targetPlayerId);
+          break;
+        }
       }
     } catch (err) {
       console.warn('[Server] Error handling packet:', err);
