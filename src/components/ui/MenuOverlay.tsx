@@ -3,6 +3,7 @@ import { useGameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useRacingStore } from '@/store/racingStore';
 import { useGymkhanaStore } from '@/store/gymkhanaStore';
+import { useTagStore } from '@/store/tagStore';
 import { useMultiplayerStore } from '@/store/multiplayerStore';
 import { networkClient } from '@/network/networkClient';
 import { getAvailableVehicles, getVehiclePreset } from '@/config/vehicleRegistry';
@@ -212,6 +213,7 @@ export function MenuOverlay() {
     syncBestLapForLevel(selectedLevelId);
     useGymkhanaStore.getState().resetBlitz();
     useGymkhanaStore.getState().syncBestScoreForLevel(selectedLevelId);
+    useTagStore.getState().reset();
     setView('main');
     setGameState('loading');
   }, [selectedLevelId, setGameState, setSelectedVehicleId, setView, syncBestLapForLevel]);
@@ -223,6 +225,7 @@ export function MenuOverlay() {
     syncBestLapForLevel(selectedLevelId);
     useGymkhanaStore.getState().resetBlitz();
     useGymkhanaStore.getState().syncBestScoreForLevel(selectedLevelId);
+    useTagStore.getState().reset();
     if (gameMode === 'timeattack') {
       useRacingStore.getState().startCountdown();
     } else if (gameMode === 'gymkhana_blitz') {

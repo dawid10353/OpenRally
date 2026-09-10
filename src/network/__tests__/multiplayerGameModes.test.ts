@@ -210,5 +210,45 @@ describe('Multiplayer Track & Gamemode Selection', () => {
       expect(useGameStore.getState().gameMode).toBe('gymkhana_blitz');
       expect(useMultiplayerStore.getState().currentRoom?.name).toBe('Gymkhana Blitz Challenge');
     });
+
+    it('syncs gameStore and tag mode when room_joined for Rally Tag is received', () => {
+      const incomingRoom: RoomSummary = {
+        id: 'room_tag_test',
+        name: 'Island Tag Chase',
+        hostId: 'p_tag_host',
+        hostNickname: 'TagHost',
+        levelId: 'level1_island',
+        gameMode: 'tag',
+        playerCount: 1,
+        maxPlayers: 12,
+        createdAt: Date.now(),
+      };
+
+      const messageEvent = new MessageEvent('message', {
+        data: JSON.stringify({
+          type: 'room_joined',
+          selfId: 'p_tag_me',
+          room: incomingRoom,
+          players: [
+            {
+              id: 'p_tag_me',
+              nickname: 'TagMe',
+              vehicleId: 'zephyr_wr4',
+              slotIndex: 0,
+              ping: 15,
+            },
+          ],
+        }),
+      });
+
+      networkClient.handleMessage(messageEvent);
+
+      expect(useGameStore.getState().selectedLevelId).toBe('level1_island');
+      expect(useGameStore.getState().gameMode).toBe('tag');
+      expect(useMultiplayerStore.getState().currentRoom?.name).toBe('Island Tag Chase');
+      expect(useMultiplayerStore.getState().currentRoom?.gameMode).toBe('tag');
+      expect(useMultiplayerStore.getState().status).toBe('in_lobby');
+    });
   });
 });
+

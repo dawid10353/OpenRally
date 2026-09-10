@@ -2,6 +2,7 @@ import { useGameStore } from '@/store/gameStore';
 import { useMultiplayerStore } from '@/store/multiplayerStore';
 import { useRacingStore } from '@/store/racingStore';
 import { useGymkhanaStore } from '@/store/gymkhanaStore';
+import { useTagStore } from '@/store/tagStore';
 import { networkClient } from '@/network/networkClient';
 import { getLevelPreset } from '@/config/levelRegistry';
 import { resetGamepadEdgeState } from '@/utils/input/gamepad';
@@ -34,6 +35,8 @@ export function returnToMainMenu(options?: ReturnToMainMenuOptions): void {
   useRacingStore.getState().resetRace();
   useGymkhanaStore.getState().dismissResultsModal();
   useGymkhanaStore.getState().resetBlitz();
+  useTagStore.getState().dismissResultsModal();
+  useTagStore.getState().reset();
 
   // 3. Prepare level and vehicle position for menu showcase
   const gameStore = useGameStore.getState();

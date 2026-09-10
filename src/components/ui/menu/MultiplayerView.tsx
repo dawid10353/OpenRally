@@ -5,6 +5,7 @@ import { useMultiplayerStore } from '@/store/multiplayerStore';
 import { useGameStore } from '@/store/gameStore';
 import { useRacingStore } from '@/store/racingStore';
 import { useGymkhanaStore } from '@/store/gymkhanaStore';
+import { useTagStore } from '@/store/tagStore';
 import { networkClient } from '@/network/networkClient';
 import { getAvailableVehicles, getVehiclePreset } from '@/config/vehicleRegistry';
 import { getAvailableLevels, getLevelPreset } from '@/config/levelRegistry';
@@ -109,6 +110,8 @@ export function MultiplayerView({
   const currentSupportedModesRef = useRef(currentSupportedModes);
   currentSupportedModesRef.current = currentSupportedModes;
 
+  const isLaunchingRef = useRef(false);
+
   // Auto-scroll focused element into view
   useEffect(() => {
     const el = document.querySelector('[data-gamepad-focused="true"]');
@@ -129,12 +132,23 @@ export function MultiplayerView({
 
     return () => {
       clearInterval(pollInterval);
-      if (!useMultiplayerStore.getState().currentRoom) {
+      const isEnteringGame =
+        isLaunchingRef.current ||
+        useGameStore.getState().gameState === 'playing' ||
+        !!useMultiplayerStore.getState().currentRoom;
+
+      if (!isEnteringGame) {
         networkClient.disconnect();
         useMultiplayerStore.getState().reset();
       }
     };
   }, []);
+
+  const handleBackToMain = () => {
+    networkClient.disconnect();
+    useMultiplayerStore.getState().reset();
+    onSelectView('main');
+  };
 
   const handleNickChange = (val: string) => {
     const clean = val.slice(0, 16);
@@ -156,6 +170,7 @@ export function MultiplayerView({
   };
 
   const handleJoinRoom = (roomId: string, levelId: string, roomGameMode: GameMode) => {
+    isLaunchingRef.current = true;
     const finalNick = getEffectiveNickname();
     setNickname(finalNick);
 
@@ -167,6 +182,7 @@ export function MultiplayerView({
     useRacingStore.getState().syncBestLapForLevel(levelId);
     useGymkhanaStore.getState().resetBlitz();
     useGymkhanaStore.getState().syncBestScoreForLevel(levelId);
+    useTagStore.getState().reset();
 
     if (roomGameMode === 'timeattack') {
       useRacingStore.getState().startCountdown();
@@ -189,6 +205,7 @@ export function MultiplayerView({
       return;
     }
 
+    isLaunchingRef.current = true;
     const finalNick = getEffectiveNickname();
     setNickname(finalNick);
 
@@ -204,6 +221,7 @@ export function MultiplayerView({
     useRacingStore.getState().syncBestLapForLevel(levelId);
     useGymkhanaStore.getState().resetBlitz();
     useGymkhanaStore.getState().syncBestScoreForLevel(levelId);
+    useTagStore.getState().reset();
 
     if (mode === 'timeattack') {
       useRacingStore.getState().startCountdown();
@@ -235,6 +253,8 @@ export function MultiplayerView({
   handleJoinRoomRef.current = handleJoinRoom;
   const handleDeleteRoomRef = useRef(handleDeleteRoom);
   handleDeleteRoomRef.current = handleDeleteRoom;
+  const handleBackToMainRef = useRef(handleBackToMain);
+  handleBackToMainRef.current = handleBackToMain;
 
   // Register Gamepad Delegate for MultiplayerView
   useEffect(() => {
@@ -411,7 +431,7 @@ export function MultiplayerView({
         } else if (cur.area === 'quick_play') {
           handleJoinRoomRef.current('gymkhana_freeroam', 'level5_gymkhana', 'freeroam');
         } else if (cur.area === 'back') {
-          onSelectView('main');
+          handleBackToMainRef.current();
         }
       },
       handleBack: () => {
@@ -1136,7 +1156,7 @@ export function MultiplayerView({
           onPointerMoveItem(1, e);
           setFocusTarget({ area: 'back' });
         }}
-        onClick={() => onSelectView('main')}
+        onClick={handleBackToMain}
       >
         Back to Main Menu
       </button>
