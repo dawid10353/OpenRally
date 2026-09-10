@@ -41,10 +41,13 @@ const initialStats: GymkhanaStats = {
   maxAngleDeg: 0,
   longestDriftSeconds: 0,
   totalDrifts: 0,
+  totalAirTime: 0,
+  longestJumpSeconds: 0,
 };
 
 let currentChainTime = 0;
 let continuousDriftTime = 0;
+let continuousAirTime = 0;
 
 export const useGymkhanaStore = create<GymkhanaStore>((set, get) => ({
   status: 'idle',
@@ -55,6 +58,8 @@ export const useGymkhanaStore = create<GymkhanaStore>((set, get) => ({
   isDrifting: false,
   driftAngleDeg: 0,
   graceTimer: 0,
+  isAirborne: false,
+  airTime: 0,
   bestScores: initialRecords,
   bestScore: initialRecords[initialLevel] ?? null,
   showResultsModal: false,
@@ -76,6 +81,7 @@ export const useGymkhanaStore = create<GymkhanaStore>((set, get) => ({
     playCountdownBeep(false);
     currentChainTime = 0;
     continuousDriftTime = 0;
+    continuousAirTime = 0;
     set({
       status: 'countdown',
       countdown: 3,
@@ -87,6 +93,8 @@ export const useGymkhanaStore = create<GymkhanaStore>((set, get) => ({
       isDrifting: false,
       driftAngleDeg: 0,
       graceTimer: 0,
+      isAirborne: false,
+      airTime: 0,
       showResultsModal: false,
       isNewRecord: false,
       stats: { ...initialStats },
@@ -145,6 +153,7 @@ export const useGymkhanaStore = create<GymkhanaStore>((set, get) => ({
   startBlitz: () => {
     currentChainTime = 0;
     continuousDriftTime = 0;
+    continuousAirTime = 0;
     set({
       status: 'active',
       countdown: null,
@@ -156,6 +165,8 @@ export const useGymkhanaStore = create<GymkhanaStore>((set, get) => ({
       isDrifting: false,
       driftAngleDeg: 0,
       graceTimer: 0,
+      isAirborne: false,
+      airTime: 0,
       showResultsModal: false,
       isNewRecord: false,
       stats: { ...initialStats },
@@ -167,6 +178,7 @@ export const useGymkhanaStore = create<GymkhanaStore>((set, get) => ({
     speedKmh: number,
     slipAngleRad: number,
     isGrounded: boolean,
+    isAirborne: boolean = !isGrounded,
   ) => {
     const state = get();
     if (state.status !== 'active') return;
@@ -178,6 +190,7 @@ export const useGymkhanaStore = create<GymkhanaStore>((set, get) => ({
     const absAngleRad = Math.abs(slipAngleRad);
     const angleDeg = Math.min(90, Math.round((absAngleRad * 180) / Math.PI));
     const meetsDriftCriteria =
+      !isAirborne &&
       isGrounded &&
       speedKmh >= MIN_DRIFT_SPEED_KMH &&
       absAngleRad >= MIN_DRIFT_ANGLE_RAD;
@@ -191,6 +204,64 @@ export const useGymkhanaStore = create<GymkhanaStore>((set, get) => ({
       stats,
     } = state;
 
+    // 3. Air time scoring & jump bonus
+    const wasAirborne = continuousAirTime > 0;
+    if (isAirborne) {
+      isDrifting = false;
+      continuousDriftTime = 0;
+
+      if (speedKmh >= 15.0) {
+        continuousAirTime += dt;
+        currentChainTime += dt;
+
+        // Maintain drift chain combo during flight
+        graceTimer = Math.max(graceTimer, DRIFT_GRACE_PERIOD_SECONDS);
+
+        // Multiplier progression: 1x -> 2x (1.5s) -> 3x (3.2s) -> 4x (5.2s) -> 5x (7.5s)
+        if (currentChainTime >= 7.5) {
+          multiplier = 5;
+        } else if (currentChainTime >= 5.2) {
+          multiplier = 4;
+        } else if (currentChainTime >= 3.2) {
+          multiplier = 3;
+        } else if (currentChainTime >= 1.5) {
+          multiplier = 2;
+        }
+
+        // Air points accrued dynamically based on speed and combo multiplier
+        const speedMultiplier = Math.min(3.0, speedKmh / 35.0);
+        const airPointsThisFrame = Math.round(
+          220 * speedMultiplier * multiplier * dt,
+        );
+        currentDriftScore += Math.max(1, airPointsThisFrame);
+
+        const maxMultiplier = Math.max(stats.maxMultiplier, multiplier);
+        if (maxMultiplier !== stats.maxMultiplier) {
+          stats = {
+            ...stats,
+            maxMultiplier,
+          };
+        }
+      }
+    } else if (wasAirborne) {
+      // Landing event from previous flight
+      if (continuousAirTime >= 0.35) {
+        // Landing bonus for catching air
+        const landingBonus = Math.round(continuousAirTime * 250 * multiplier);
+        currentDriftScore += landingBonus;
+
+        const totalAir = (stats.totalAirTime ?? 0) + continuousAirTime;
+        const longestJump = Math.max(stats.longestJumpSeconds ?? 0, continuousAirTime);
+        stats = {
+          ...stats,
+          totalAirTime: totalAir,
+          longestJumpSeconds: longestJump,
+        };
+      }
+      continuousAirTime = 0;
+    }
+
+    // 4. Ground drift scoring & chain banking
     if (meetsDriftCriteria) {
       if (!isDrifting) {
         emitGameEvent('drift_started', {
@@ -236,7 +307,7 @@ export const useGymkhanaStore = create<GymkhanaStore>((set, get) => ({
           maxAngleDeg,
         };
       }
-    } else {
+    } else if (!isAirborne) {
       if (continuousDriftTime > stats.longestDriftSeconds) {
         stats = {
           ...stats,
@@ -254,7 +325,7 @@ export const useGymkhanaStore = create<GymkhanaStore>((set, get) => ({
         graceTimer = Math.max(0, graceTimer - dt);
 
         if (graceTimer <= 0) {
-          // Grace period expired without re-engaging drift: Bank current chain!
+          // Grace period expired without re-engaging drift or jump: Bank current chain!
           totalScore += currentDriftScore;
           emitGameEvent('drift_ended', {
             duration: currentChainTime,
@@ -274,7 +345,7 @@ export const useGymkhanaStore = create<GymkhanaStore>((set, get) => ({
       }
     }
 
-    // 3. Check for Blitz completion
+    // 5. Check for Blitz completion
     if (newTimeRemaining <= 0) {
       if (continuousDriftTime > stats.longestDriftSeconds) {
         stats = {
@@ -282,6 +353,17 @@ export const useGymkhanaStore = create<GymkhanaStore>((set, get) => ({
           longestDriftSeconds: continuousDriftTime,
         };
       }
+
+      if (continuousAirTime >= 0.35) {
+        const totalAir = (stats.totalAirTime ?? 0) + continuousAirTime;
+        const longestJump = Math.max(stats.longestJumpSeconds ?? 0, continuousAirTime);
+        stats = {
+          ...stats,
+          totalAirTime: totalAir,
+          longestJumpSeconds: longestJump,
+        };
+      }
+      continuousAirTime = 0;
 
       // Auto-bank remaining score on finish
       if (currentDriftScore > 0) {
@@ -316,6 +398,8 @@ export const useGymkhanaStore = create<GymkhanaStore>((set, get) => ({
         isDrifting: false,
         driftAngleDeg: 0,
         graceTimer: 0,
+        isAirborne: false,
+        airTime: 0,
         bestScores: newBestScores,
         bestScore: newBest,
         showResultsModal: true,
@@ -333,6 +417,8 @@ export const useGymkhanaStore = create<GymkhanaStore>((set, get) => ({
       isDrifting,
       driftAngleDeg: meetsDriftCriteria ? angleDeg : 0,
       graceTimer,
+      isAirborne,
+      airTime: continuousAirTime,
       stats,
     });
   },
@@ -349,6 +435,7 @@ export const useGymkhanaStore = create<GymkhanaStore>((set, get) => ({
 
     currentChainTime = 0;
     continuousDriftTime = 0;
+    continuousAirTime = 0;
 
     set({
       totalScore: newTotal,
@@ -356,6 +443,8 @@ export const useGymkhanaStore = create<GymkhanaStore>((set, get) => ({
       multiplier: 1,
       isDrifting: false,
       graceTimer: 0,
+      isAirborne: false,
+      airTime: 0,
       stats: {
         ...stats,
         totalDrifts: stats.totalDrifts + 1,
@@ -369,18 +458,22 @@ export const useGymkhanaStore = create<GymkhanaStore>((set, get) => ({
 
     currentChainTime = 0;
     continuousDriftTime = 0;
+    continuousAirTime = 0;
 
     set({
       currentDriftScore: 0,
       multiplier: 1,
       isDrifting: false,
       graceTimer: 0,
+      isAirborne: false,
+      airTime: 0,
     });
   },
 
   resetBlitz: () => {
     currentChainTime = 0;
     continuousDriftTime = 0;
+    continuousAirTime = 0;
     set({
       status: 'idle',
       timeRemaining: BLITZ_DURATION_SECONDS,
@@ -390,6 +483,8 @@ export const useGymkhanaStore = create<GymkhanaStore>((set, get) => ({
       isDrifting: false,
       driftAngleDeg: 0,
       graceTimer: 0,
+      isAirborne: false,
+      airTime: 0,
       showResultsModal: false,
       isNewRecord: false,
       countdown: null,

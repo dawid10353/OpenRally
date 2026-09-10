@@ -59,6 +59,7 @@ const _telemetryState = {
   position: _posTuple,
   tireGrips: [1, 1, 1, 1] as number[],
   surface: 'tarmac' as SurfaceType,
+  isAirborne: false,
 };
 
 /**
@@ -661,6 +662,7 @@ export function useVehiclePhysics(
     _telemetryState.position = _posTuple;
     _telemetryState.tireGrips = tireGrips;
     _telemetryState.surface = surface;
+    _telemetryState.isAirborne = isAirborne;
 
     useGameStore.setState(_telemetryState);
 

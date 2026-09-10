@@ -238,6 +238,30 @@ export function generateLevel5Props(_mapWidth: number, _mapDepth: number): PropD
     });
   }
 
+  // 6. Stunt Jump Launch Ramps (Apex Gymkhana Big Air Ramps)
+  const jumpRampLocations = [
+    // Ramp 1: Launch Grid Straightaway Launch (towards Sweeper)
+    { x: 12, z: 35, rotY: 0.36 },
+    // Ramp 2: High-Speed Slalom Corridor Super Jump
+    { x: 172, z: -25, rotY: -2.76 },
+    // Ramp 3: South Hairpin Exit Power Launch
+    { x: -115, z: -115, rotY: -0.51 },
+    // Ramp 4: Donut Crossover Air Launch
+    { x: -65, z: 60, rotY: 2.45 },
+    // Ramp 5: Center Compound Freestyle Mega Ramp (Facing North)
+    { x: 0, z: -90, rotY: 0.0 },
+  ];
+
+  for (const jr of jumpRampLocations) {
+    props.push({
+      id: `jump_ramp_${propId++}`,
+      type: 'jump_ramp',
+      position: [jr.x, 0, jr.z],
+      rotation: [0, jr.rotY, 0],
+      scale: [1.0, 1.0, 1.0],
+    });
+  }
+
   return props;
 }
 

@@ -46,21 +46,49 @@ describe('gymkhanaStore', () => {
     expect(useGymkhanaStore.getState().status).toBe('active');
 
     // 1. Below speed threshold: no points
-    useGymkhanaStore.getState().tickBlitz(0.1, MIN_DRIFT_SPEED_KMH - 2, 0.4, true);
+    useGymkhanaStore.getState().tickBlitz(0.1, MIN_DRIFT_SPEED_KMH - 2, 0.4, true, false);
     expect(useGymkhanaStore.getState().currentDriftScore).toBe(0);
 
     // 2. Below angle threshold: no points
-    useGymkhanaStore.getState().tickBlitz(0.1, 50, MIN_DRIFT_ANGLE_RAD - 0.05, true);
+    useGymkhanaStore.getState().tickBlitz(0.1, 50, MIN_DRIFT_ANGLE_RAD - 0.05, true, false);
     expect(useGymkhanaStore.getState().currentDriftScore).toBe(0);
 
-    // 3. Airborne: no points
-    useGymkhanaStore.getState().tickBlitz(0.1, 50, 0.4, false);
-    expect(useGymkhanaStore.getState().currentDriftScore).toBe(0);
-
-    // 4. Valid drift: points accumulate!
-    useGymkhanaStore.getState().tickBlitz(0.5, 60, 0.5, true);
+    // 3. Valid ground drift: points accumulate!
+    useGymkhanaStore.getState().tickBlitz(0.5, 60, 0.5, true, false);
     expect(useGymkhanaStore.getState().currentDriftScore).toBeGreaterThan(0);
     expect(useGymkhanaStore.getState().isDrifting).toBe(true);
+  });
+
+  it('accumulates air time points and awards landing bonus when airborne', () => {
+    const store = useGymkhanaStore.getState();
+    store.startBlitz();
+
+    expect(useGymkhanaStore.getState().status).toBe('active');
+
+    // 1. Airborne below speed threshold: no points
+    useGymkhanaStore.getState().tickBlitz(0.2, 10, 0, false, true);
+    expect(useGymkhanaStore.getState().currentDriftScore).toBe(0);
+
+    // 2. Airborne at high speed (jump off ramp): points accumulate and combo grace is held!
+    useGymkhanaStore.getState().tickBlitz(0.5, 75, 0, false, true);
+    const scoreInAir = useGymkhanaStore.getState().currentDriftScore;
+    expect(scoreInAir).toBeGreaterThan(0);
+    expect(useGymkhanaStore.getState().isAirborne).toBe(true);
+    expect(useGymkhanaStore.getState().airTime).toBeCloseTo(0.5, 2);
+
+    // Second flight tick: points increase further
+    useGymkhanaStore.getState().tickBlitz(0.5, 70, 0, false, true);
+    expect(useGymkhanaStore.getState().currentDriftScore).toBeGreaterThan(scoreInAir);
+    expect(useGymkhanaStore.getState().airTime).toBeCloseTo(1.0, 2);
+
+    // 3. Landing tick: awards landing bonus and logs stats!
+    useGymkhanaStore.getState().tickBlitz(0.1, 65, 0, true, false);
+    const postLandingScore = useGymkhanaStore.getState().currentDriftScore;
+    expect(postLandingScore).toBeGreaterThan(scoreInAir);
+    expect(useGymkhanaStore.getState().isAirborne).toBe(false);
+    expect(useGymkhanaStore.getState().airTime).toBe(0);
+    expect(useGymkhanaStore.getState().stats.totalAirTime).toBeGreaterThanOrEqual(1.0);
+    expect(useGymkhanaStore.getState().stats.longestJumpSeconds).toBeGreaterThanOrEqual(1.0);
   });
 
   it('progresses combo multiplier during extended drift and banks after grace period', () => {

@@ -26,7 +26,8 @@ export type PropType =
   | 'hay_bale'
   | 'rally_sign'
   | 'shipping_container'
-  | 'drift_pylon';
+  | 'drift_pylon'
+  | 'jump_ramp';
 
 /**
  * Represents a single instance of a prop (tree, rock) in the level.

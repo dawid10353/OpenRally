@@ -54,6 +54,8 @@ interface GameStore {
   isSceneReady: boolean;
   /** Whether 3D Garage view modal is currently open */
   isGarageOpen: boolean;
+  /** Whether the vehicle is airborne (all wheels off ground) */
+  isAirborne: boolean;
 
   // Actions
   setGameState: (state: GameState) => void;
@@ -63,6 +65,7 @@ interface GameStore {
   setSelectedLevelId: (id: string) => void;
   setSceneReady: (ready: boolean) => void;
   setGarageOpen: (open: boolean) => void;
+  setIsAirborne: (isAirborne: boolean) => void;
   setSpeed: (speed: number) => void;
   setLateralSpeed: (lateralSpeed: number) => void;
   setSlipAngle: (slipAngle: number) => void;
@@ -104,6 +107,7 @@ export const useGameStore = create<GameStore>((set) => ({
   loadingTarget: 'menu',
   isSceneReady: false,
   isGarageOpen: false,
+  isAirborne: false,
 
   setGameState: (gameState) => {
     resetGamepadEdgeState();
@@ -140,6 +144,7 @@ export const useGameStore = create<GameStore>((set) => ({
   setSelectedLevelId: (selectedLevelId) => set({ selectedLevelId, isSceneReady: false }),
   setSceneReady: (isSceneReady) => set({ isSceneReady }),
   setGarageOpen: (isGarageOpen) => set({ isGarageOpen }),
+  setIsAirborne: (isAirborne) => set({ isAirborne }),
   setSpeed: (speed) => set({ speed }),
   setLateralSpeed: (lateralSpeed) => set({ lateralSpeed }),
   setSlipAngle: (slipAngle) => set({ slipAngle }),

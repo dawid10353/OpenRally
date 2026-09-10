@@ -32,6 +32,7 @@ export interface CategorizedProps {
   stoneBridges: PropItem[];
   shippingContainers: PropItem[];
   driftPylons: PropItem[];
+  jumpRamps: PropItem[];
   spatialGrid: Map<string, PropItem[]>;
 }
 
@@ -55,4 +56,5 @@ export interface ProximityCollidersProps {
   initialStoneBridges: PropItem[];
   initialShippingContainers: PropItem[];
   initialDriftPylons: PropItem[];
+  initialJumpRamps: PropItem[];
 }

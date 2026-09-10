@@ -412,3 +412,92 @@ export function createDriftPylonGeometry(): BufferGeometry {
   return merged;
 }
 
+/**
+ * Creates a competition-spec Gymkhana jump ramp.
+ * Features an inclined steel traction plate deck (5.5m wide, 8.0m run length, 1.85m peak launch lip),
+ * sunken ground transition skirt to prevent vehicle snagging, heavy steel side truss rails,
+ * vertical structural support pillars, and rear cross-braced panel.
+ */
+export function createJumpRampGeometry(): BufferGeometry {
+  const parts: BufferGeometry[] = [];
+
+  const width = 5.5;
+  const runLength = 8.0;
+  const entryY = -0.15;
+  const peakY = 1.85;
+  const heightDiff = peakY - entryY; // 2.0m
+  const slopeLength = Math.sqrt(runLength * runLength + heightDiff * heightDiff); // ~8.246m
+  const theta = Math.atan2(heightDiff, runLength); // ~0.24498 rad (~14.04 deg)
+  const centerY = (entryY + peakY) / 2; // 0.85m
+
+  // 1. Main traction deck (BoxGeometry with custom UVs on top face)
+  const deck = new BoxGeometry(width, 0.16, slopeLength);
+  const deckUvs = deck.attributes.uv;
+  const deckPositions = deck.attributes.position;
+  for (let i = 0; i < deckPositions.count; i++) {
+    const y = deckPositions.getY(i);
+    if (y > 0.05) {
+      const x = deckPositions.getX(i);
+      const z = deckPositions.getZ(i);
+      const u = (x + width / 2) / width;
+      const v = (z + slopeLength / 2) / slopeLength;
+      deckUvs.setXY(i, u, v);
+    }
+  }
+  deck.rotateX(-theta);
+  deck.translate(0, centerY, 0);
+  parts.push(deck);
+
+  // 2. Heavy steel side runner rails
+  const railL = new BoxGeometry(0.22, 0.38, slopeLength);
+  railL.rotateX(-theta);
+  railL.translate(-width / 2, centerY + 0.1, 0);
+  parts.push(railL);
+
+  const railR = new BoxGeometry(0.22, 0.38, slopeLength);
+  railR.rotateX(-theta);
+  railR.translate(width / 2, centerY + 0.1, 0);
+  parts.push(railR);
+
+  // 3. Rear upright support columns (under the peak lip)
+  const colBL = new BoxGeometry(0.26, peakY + 0.4, 0.26);
+  colBL.translate(-width / 2 + 0.1, (peakY - 0.4) / 2, runLength / 2 - 0.15);
+  parts.push(colBL);
+
+  const colBR = new BoxGeometry(0.26, peakY + 0.4, 0.26);
+  colBR.translate(width / 2 - 0.1, (peakY - 0.4) / 2, runLength / 2 - 0.15);
+  parts.push(colBR);
+
+  const colBM = new BoxGeometry(0.26, peakY + 0.4, 0.26);
+  colBM.translate(0, (peakY - 0.4) / 2, runLength / 2 - 0.15);
+  parts.push(colBM);
+
+  // 4. Mid-span upright support columns
+  const midHeight = centerY;
+  const colML = new BoxGeometry(0.22, midHeight + 0.4, 0.22);
+  colML.translate(-width / 2 + 0.1, (midHeight - 0.4) / 2, 0);
+  parts.push(colML);
+
+  const colMR = new BoxGeometry(0.22, midHeight + 0.4, 0.22);
+  colMR.translate(width / 2 - 0.1, (midHeight - 0.4) / 2, 0);
+  parts.push(colMR);
+
+  // 5. Rear safety backboard at Z = +3.93m
+  const backWall = new BoxGeometry(width - 0.1, peakY + 0.3, 0.14);
+  backWall.translate(0, (peakY - 0.3) / 2, runLength / 2 - 0.07);
+  parts.push(backWall);
+
+  // 6. Subterranean foundation anchor skirting
+  const skirtL = new BoxGeometry(0.18, 0.5, runLength);
+  skirtL.translate(-width / 2, -0.2, 0);
+  parts.push(skirtL);
+
+  const skirtR = new BoxGeometry(0.18, 0.5, runLength);
+  skirtR.translate(width / 2, -0.2, 0);
+  parts.push(skirtR);
+
+  const merged = BufferGeometryUtils.mergeGeometries(parts);
+  return merged;
+}
+
+

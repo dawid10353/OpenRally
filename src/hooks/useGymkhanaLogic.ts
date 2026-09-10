@@ -50,9 +50,8 @@ export function useGymkhanaLogic(): void {
 
     // 2. Active blitz ticking
     if (gymkhana.status === 'active') {
-      const { speed, slipAngle } = useGameStore.getState();
-      // Assume grounded if speed is non-zero (detailed wheel contact is verified in vehicle physics)
-      gymkhana.tickBlitz(delta, speed, slipAngle, true);
+      const { speed, slipAngle, isAirborne } = useGameStore.getState();
+      gymkhana.tickBlitz(delta, speed, slipAngle, !isAirborne, isAirborne);
     }
   });
 }

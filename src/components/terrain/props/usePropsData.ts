@@ -77,6 +77,7 @@ export function categorizeProps(
   const stoneBridgeList: PropItem[] = [];
   const shippingContainerList: PropItem[] = [];
   const driftPylonList: PropItem[] = [];
+  const jumpRampList: PropItem[] = [];
 
   const grid = new Map<string, PropItem[]>();
 
@@ -107,12 +108,13 @@ export function categorizeProps(
     else if (prop.type === 'shipping_container') {
       if (distToRoad < 5.0) continue;
     }
-    // 4. Trees, boulders, cairns (exempting clipping drift pylons, signs, gates, hay bales)
+    // 4. Trees, boulders, cairns (exempting clipping drift pylons, signs, gates, hay bales, jump ramps)
     else if (
       prop.type !== 'castle_gate' &&
       prop.type !== 'rally_sign' &&
       prop.type !== 'hay_bale' &&
-      prop.type !== 'drift_pylon'
+      prop.type !== 'drift_pylon' &&
+      prop.type !== 'jump_ramp'
     ) {
       if (distToRoad < 12.0) continue;
     }
@@ -254,6 +256,8 @@ export function categorizeProps(
       shippingContainerList.push(item);
     } else if (prop.type === 'drift_pylon') {
       driftPylonList.push(item);
+    } else if (prop.type === 'jump_ramp') {
+      jumpRampList.push(item);
     } else {
       pines.push(item);
     }
@@ -292,6 +296,7 @@ export function categorizeProps(
     stoneBridges: stoneBridgeList,
     shippingContainers: shippingContainerList,
     driftPylons: driftPylonList,
+    jumpRamps: jumpRampList,
     spatialGrid: grid,
   };
 }

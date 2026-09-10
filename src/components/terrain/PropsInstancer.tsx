@@ -133,6 +133,7 @@ export function PropsInstancer() {
     celticStandingStoneTexture,
     _highlandCottageWallTexture,
     highlandCottageThatchTexture,
+    jumpRampTexture,
   ] = useTexture([
     '/textures/foliage/tree_bark.jpg',
     '/textures/foliage/pine_branch.jpg',
@@ -156,6 +157,7 @@ export function PropsInstancer() {
     '/textures/props/celtic_standing_stone.jpg',
     '/textures/props/highland_cottage_wall.jpg',
     '/textures/props/highland_cottage_thatch.jpg',
+    '/textures/props/jump_ramp_diffuse.png',
   ]);
 
   useMemo(() => {
@@ -184,6 +186,7 @@ export function PropsInstancer() {
       celticStandingStoneTexture,
       _highlandCottageWallTexture,
       highlandCottageThatchTexture,
+      jumpRampTexture,
     ].forEach((tex) => {
       tex.wrapS = RepeatWrapping;
       tex.wrapT = RepeatWrapping;
@@ -214,6 +217,7 @@ export function PropsInstancer() {
     celticStandingStoneTexture,
     _highlandCottageWallTexture,
     highlandCottageThatchTexture,
+    jumpRampTexture,
   ]);
 
   const levelId = levelData.id.toLowerCase();
@@ -248,6 +252,7 @@ export function PropsInstancer() {
         initialStoneBridges={categorized.stoneBridges.slice(0, 4)}
         initialShippingContainers={categorized.shippingContainers.slice(0, 30)}
         initialDriftPylons={categorized.driftPylons.slice(0, 30)}
+        initialJumpRamps={categorized.jumpRamps.slice(0, 10)}
       />
 
       {/* 1. GPU-Instanced Vegetation (Pines, Birch, Acacia + Wind Displacement) */}
@@ -318,10 +323,12 @@ export function PropsInstancer() {
         cabinRedWallTexture={cabinRedWallTexture}
       />
 
-      {/* 5. GPU-Instanced Gymkhana Arena Props (Freight Containers, High-Vis Drift Pylons) */}
+      {/* 5. GPU-Instanced Gymkhana Arena Props (Freight Containers, High-Vis Drift Pylons, Jump Ramps) */}
       <GymkhanaPropsInstancer
         shippingContainers={categorized.shippingContainers}
         driftPylons={categorized.driftPylons}
+        jumpRamps={categorized.jumpRamps}
+        jumpRampTexture={jumpRampTexture}
         canShadow={canShadow}
       />
     </>

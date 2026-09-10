@@ -235,6 +235,16 @@ function GymkhanaCompleteModalContent() {
             <span style={styles.statLabel}>DRIFT CHAINS</span>
             <span style={styles.statValue}>{stats.totalDrifts}</span>
           </div>
+          <div style={styles.statBox}>
+            <span style={styles.statIcon}>🚀</span>
+            <span style={styles.statLabel}>LONGEST JUMP</span>
+            <span style={styles.statValue}>{(stats.longestJumpSeconds ?? 0).toFixed(1)}s</span>
+          </div>
+          <div style={styles.statBox}>
+            <span style={styles.statIcon}>🪂</span>
+            <span style={styles.statLabel}>TOTAL AIR TIME</span>
+            <span style={styles.statValue}>{(stats.totalAirTime ?? 0).toFixed(1)}s</span>
+          </div>
         </div>
 
         {/* Multiplayer 20-Second Intermission & Leaderboard */}

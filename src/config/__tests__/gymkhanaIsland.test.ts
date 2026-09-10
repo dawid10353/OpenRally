@@ -33,13 +33,15 @@ describe('Apex Gymkhana Arena Level Preset', () => {
     expect(clearance.errors).toHaveLength(0);
   });
 
-  it('contains bespoke gymkhana obstacles: shipping containers and drift pylons', () => {
+  it('contains bespoke gymkhana obstacles: shipping containers, drift pylons, and jump ramps', () => {
     const props = LEVEL_PRESET_GYMKHANA.data.props;
     const containers = props.filter((p) => p.type === 'shipping_container');
     const pylons = props.filter((p) => p.type === 'drift_pylon');
+    const jumpRamps = props.filter((p) => p.type === 'jump_ramp');
 
     expect(containers.length).toBeGreaterThanOrEqual(10);
     expect(pylons.length).toBeGreaterThanOrEqual(8);
+    expect(jumpRamps.length).toBeGreaterThanOrEqual(5);
   });
 
   it('spawns safely above ground level on the tarmac arena plateau', () => {

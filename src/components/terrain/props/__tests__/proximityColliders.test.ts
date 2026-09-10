@@ -44,9 +44,11 @@ describe('ProximityColliders core logic & memory safety', () => {
     state.stoneBridges.push(createMockProp('sb1', 'stone_bridge', 0, 0));
     state.shippingContainers.push(createMockProp('cont1', 'shipping_container', 0, 0));
     state.driftPylons.push(createMockProp('pylon1', 'drift_pylon', 0, 0));
+    state.jumpRamps.push(createMockProp('ramp1', 'jump_ramp', 0, 0));
 
     expect(state.shippingContainers.length).toBe(1);
     expect(state.driftPylons.length).toBe(1);
+    expect(state.jumpRamps.length).toBe(1);
 
     resetCollidersState(state);
 
@@ -68,6 +70,7 @@ describe('ProximityColliders core logic & memory safety', () => {
     expect(state.stoneBridges.length).toBe(0);
     expect(state.shippingContainers.length).toBe(0);
     expect(state.driftPylons.length).toBe(0);
+    expect(state.jumpRamps.length).toBe(0);
   });
 
   it('queryNearbyProps does NOT accumulate duplicate shipping containers or drift pylons over successive queries (prevents memory and physics leak)', () => {

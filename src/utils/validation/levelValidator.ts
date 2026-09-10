@@ -104,8 +104,14 @@ export function validateLevelTrackClearance(data: LevelData): ValidationResult {
   };
 
   for (const prop of data.props) {
-    // Exempt road spanning features, roadside signs, apex hay bales, and drift clipping pylons
-    if (prop.type === 'castle_gate' || prop.type === 'rally_sign' || prop.type === 'hay_bale' || prop.type === 'drift_pylon') continue;
+    // Exempt road spanning features, roadside signs, apex hay bales, drift clipping pylons, and jump ramps
+    if (
+      prop.type === 'castle_gate' ||
+      prop.type === 'rally_sign' ||
+      prop.type === 'hay_bale' ||
+      prop.type === 'drift_pylon' ||
+      prop.type === 'jump_ramp'
+    ) continue;
 
     const dist = getMinDist(prop.position[0], prop.position[2]);
     const roadDrivableRadius = data.track.width;

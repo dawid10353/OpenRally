@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, Fragment } from 'react';
+import { Euler, Quaternion } from 'three';
 import { useFrame } from '@react-three/fiber';
 import {
   RigidBody,
@@ -29,6 +30,7 @@ export interface ActiveCollidersState {
   stoneBridges: PropItem[];
   shippingContainers: PropItem[];
   driftPylons: PropItem[];
+  jumpRamps: PropItem[];
 }
 
 export function createEmptyCollidersState(): ActiveCollidersState {
@@ -51,6 +53,7 @@ export function createEmptyCollidersState(): ActiveCollidersState {
     stoneBridges: [],
     shippingContainers: [],
     driftPylons: [],
+    jumpRamps: [],
   };
 }
 
@@ -73,6 +76,7 @@ export function resetCollidersState(target: ActiveCollidersState): void {
   target.stoneBridges.length = 0;
   target.shippingContainers.length = 0;
   target.driftPylons.length = 0;
+  target.jumpRamps.length = 0;
 }
 
 export function cloneCollidersState(source: ActiveCollidersState): ActiveCollidersState {
@@ -95,6 +99,7 @@ export function cloneCollidersState(source: ActiveCollidersState): ActiveCollide
     stoneBridges: source.stoneBridges.slice(),
     shippingContainers: source.shippingContainers.slice(),
     driftPylons: source.driftPylons.slice(),
+    jumpRamps: source.jumpRamps.slice(),
   };
 }
 
@@ -115,6 +120,7 @@ export function hasCollidersStateChanged(
     hasPropListChanged(prev.rocks, next.rocks) ||
     hasPropListChanged(prev.shippingContainers, next.shippingContainers) ||
     hasPropListChanged(prev.driftPylons, next.driftPylons) ||
+    hasPropListChanged(prev.jumpRamps, next.jumpRamps) ||
     hasPropListChanged(prev.cabins, next.cabins) ||
     hasPropListChanged(prev.fences, next.fences) ||
     hasPropListChanged(prev.castleTowers, next.castleTowers) ||
@@ -185,6 +191,8 @@ export function queryNearbyProps(
               scratch.shippingContainers.push(item);
             } else if (item.type === 'drift_pylon') {
               scratch.driftPylons.push(item);
+            } else if (item.type === 'jump_ramp') {
+              scratch.jumpRamps.push(item);
             } else if (item.type.startsWith('tree')) {
               scratch.trees.push(item);
             } else {
@@ -217,6 +225,7 @@ export function ProximityColliders({
   initialStoneBridges,
   initialShippingContainers = [],
   initialDriftPylons = [],
+  initialJumpRamps = [],
 }: ProximityCollidersProps) {
   const lastCarPosRef = useRef<[number, number]>([-9999, -9999]);
   const activeCollidersRef = useRef<ActiveCollidersState>({
@@ -238,6 +247,7 @@ export function ProximityColliders({
     stoneBridges: initialStoneBridges,
     shippingContainers: initialShippingContainers,
     driftPylons: initialDriftPylons,
+    jumpRamps: initialJumpRamps,
   });
   const [activeColliders, setActiveColliders] = useState<ActiveCollidersState>(activeCollidersRef.current);
   const lastCellKeyRef = useRef('');
@@ -499,6 +509,65 @@ export function ProximityColliders({
           restitution={0.05}
         />
       ))}
+      {activeColliders.jumpRamps.map((jr) => {
+        const tf = getJumpRampColliderTransform(jr);
+        return (
+          <Fragment key={jr.id}>
+            {/* Tilted launch incline deck */}
+            <CuboidCollider
+              args={[2.75 * jr.scale[0], 0.1 * jr.scale[1], 4.123 * jr.scale[2]]}
+              position={tf.inclinePos}
+              rotation={tf.inclineRot}
+              friction={0.88}
+              restitution={0.0}
+            />
+            {/* Rear vertical barrier */}
+            <CuboidCollider
+              args={[2.7 * jr.scale[0], 0.9 * jr.scale[1], 0.18 * jr.scale[2]]}
+              position={tf.backWallPos}
+              rotation={jr.rotation}
+              friction={0.8}
+              restitution={0.05}
+            />
+          </Fragment>
+        );
+      })}
     </RigidBody>
   );
+}
+
+const _rampEuler = new Euler(0, 0, 0, 'YXZ');
+const _rampQuat = new Quaternion();
+const _rampStdEuler = new Euler(0, 0, 0, 'XYZ');
+
+function getJumpRampColliderTransform(jr: PropItem): {
+  inclinePos: [number, number, number];
+  inclineRot: [number, number, number];
+  backWallPos: [number, number, number];
+} {
+  const theta = 0.24498;
+  const yaw = jr.rotation[1];
+  _rampEuler.set(-theta, yaw, 0, 'YXZ');
+  _rampQuat.setFromEuler(_rampEuler);
+  _rampStdEuler.setFromQuaternion(_rampQuat, 'XYZ');
+
+  const inclinePos: [number, number, number] = [
+    jr.position[0],
+    jr.position[1] + 0.85 * jr.scale[1],
+    jr.position[2],
+  ];
+  const inclineRot: [number, number, number] = [
+    _rampStdEuler.x,
+    _rampStdEuler.y,
+    _rampStdEuler.z,
+  ];
+
+  const backDist = 3.85 * jr.scale[2];
+  const backWallPos: [number, number, number] = [
+    jr.position[0] + Math.sin(yaw) * backDist,
+    jr.position[1] + 0.9 * jr.scale[1],
+    jr.position[2] + Math.cos(yaw) * backDist,
+  ];
+
+  return { inclinePos, inclineRot, backWallPos };
 }

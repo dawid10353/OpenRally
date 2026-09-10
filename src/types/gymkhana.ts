@@ -15,6 +15,10 @@ export interface GymkhanaStats {
   longestDriftSeconds: number;
   /** Total number of banked drift chains during the round */
   totalDrifts: number;
+  /** Total cumulative air time during the round in seconds */
+  totalAirTime?: number;
+  /** Longest single jump flight time in seconds */
+  longestJumpSeconds?: number;
 }
 
 /**
@@ -37,6 +41,10 @@ export interface GymkhanaStore {
   driftAngleDeg: number;
   /** Transition grace timer remaining in seconds (e.g., 1.2s to switch directions without losing combo) */
   graceTimer: number;
+  /** Whether the vehicle is currently airborne (all wheels off ground) */
+  isAirborne: boolean;
+  /** Current continuous air time in seconds */
+  airTime: number;
   /** Best score for active level */
   bestScore: number | null;
   /** High scores dictionary indexed by level ID */
@@ -61,6 +69,7 @@ export interface GymkhanaStore {
     speedKmh: number,
     slipAngleRad: number,
     isGrounded: boolean,
+    isAirborne?: boolean,
   ) => void;
   bankDrift: () => void;
   failDrift: () => void;

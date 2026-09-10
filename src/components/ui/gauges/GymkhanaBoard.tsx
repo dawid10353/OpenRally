@@ -140,8 +140,8 @@ export const GymkhanaBoard = memo(function GymkhanaBoard() {
         bestScoreRef.current.innerText = state.bestScore !== null ? `${formatScore(state.bestScore)} PTS` : '--- PTS';
       }
 
-      // 4. Active drift card
-      const showDriftCard = state.currentDriftScore > 0 || state.isDrifting;
+      // 4. Active drift / stunt card
+      const showDriftCard = state.currentDriftScore > 0 || state.isDrifting || state.isAirborne;
       if (driftCardRef.current) {
         driftCardRef.current.style.opacity = showDriftCard ? '1' : '0';
         driftCardRef.current.style.transform = showDriftCard
@@ -169,26 +169,43 @@ export const GymkhanaBoard = memo(function GymkhanaBoard() {
         }
 
         if (driftQualityRef.current) {
-          const angle = state.driftAngleDeg;
-          if (angle >= 45) {
-            driftQualityRef.current.innerText = 'DRIFT KING!';
-            driftQualityRef.current.style.color = '#f43f5e';
-          } else if (angle >= 30) {
-            driftQualityRef.current.innerText = 'AWESOME ANGLE!';
-            driftQualityRef.current.style.color = '#f59e0b';
-          } else if (angle >= 18) {
-            driftQualityRef.current.innerText = 'GREAT SLIDE!';
-            driftQualityRef.current.style.color = '#10b981';
+          if (state.isAirborne) {
+            if (state.airTime >= 1.5) {
+              driftQualityRef.current.innerText = 'INSANE AIR!';
+              driftQualityRef.current.style.color = '#ec4899';
+            } else if (state.airTime >= 0.8) {
+              driftQualityRef.current.innerText = 'BIG AIR!';
+              driftQualityRef.current.style.color = '#f59e0b';
+            } else {
+              driftQualityRef.current.innerText = 'AIR TIME!';
+              driftQualityRef.current.style.color = '#38bdf8';
+            }
           } else {
-            driftQualityRef.current.innerText = 'DRIFTING...';
-            driftQualityRef.current.style.color = '#38bdf8';
+            const angle = state.driftAngleDeg;
+            if (angle >= 45) {
+              driftQualityRef.current.innerText = 'DRIFT KING!';
+              driftQualityRef.current.style.color = '#f43f5e';
+            } else if (angle >= 30) {
+              driftQualityRef.current.innerText = 'AWESOME ANGLE!';
+              driftQualityRef.current.style.color = '#f59e0b';
+            } else if (angle >= 18) {
+              driftQualityRef.current.innerText = 'GREAT SLIDE!';
+              driftQualityRef.current.style.color = '#10b981';
+            } else {
+              driftQualityRef.current.innerText = 'DRIFTING...';
+              driftQualityRef.current.style.color = '#38bdf8';
+            }
           }
         }
 
         if (graceBarRef.current) {
           const graceRatio = Math.max(0, Math.min(1, state.graceTimer / DRIFT_GRACE_PERIOD_SECONDS));
           graceBarRef.current.style.width = `${graceRatio * 100}%`;
-          graceBarRef.current.style.background = state.isDrifting ? '#10b981' : '#f59e0b';
+          graceBarRef.current.style.background = state.isAirborne
+            ? '#38bdf8'
+            : state.isDrifting
+            ? '#10b981'
+            : '#f59e0b';
         }
       }
     };
