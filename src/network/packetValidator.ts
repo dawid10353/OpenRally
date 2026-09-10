@@ -603,7 +603,7 @@ export function parseServerMessage(raw: unknown): ServerMessage | null {
   if (type === 'tag_spectate') {
     if (typeof msg.isSpectator !== 'boolean') return null;
     const targetId = typeof msg.targetId === 'string' ? msg.targetId : null;
-    const targetNickname = typeof msg.targetNickname === 'string' ? msg.targetNickname : undefined;
+    const targetNickname = typeof msg.targetNickname === 'string' ? msg.targetNickname : null;
     const roundTimeRemaining = isValidNumber(msg.roundTimeRemaining, 0, 3600) ? msg.roundTimeRemaining : 180;
     return {
       type: 'tag_spectate',
