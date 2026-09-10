@@ -44,7 +44,6 @@ describe('Menu Return Safety & Navigation Flow', () => {
         maxPlayers: 8,
         gameMode: 'gymkhana_blitz',
         levelId: 'level5_gymkhana',
-        status: 'racing',
         createdAt: Date.now(),
       },
       isHost: false,
@@ -52,7 +51,7 @@ describe('Menu Return Safety & Navigation Flow', () => {
 
     useGymkhanaStore.setState({
       showResultsModal: true,
-      status: 'finished',
+      status: 'completed',
       totalScore: 45000,
     });
 
@@ -98,7 +97,6 @@ describe('Menu Return Safety & Navigation Flow', () => {
         maxPlayers: 8,
         gameMode: 'freeroam',
         levelId: 'level5_gymkhana',
-        status: 'waiting',
         createdAt: Date.now(),
       },
       isHost: true,
