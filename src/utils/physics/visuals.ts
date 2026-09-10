@@ -38,6 +38,7 @@ export function syncWheelVisuals(
 
       // Check if wheel has ground contact
       const isContact = controller.wheelIsInContact ? controller.wheelIsInContact(i) : true;
+      wheelObj.userData.isGrounded = Boolean(isContact);
 
       let effectiveSpeed = forwardSpeed;
       if (!isContact && wheelConfig.powered) {

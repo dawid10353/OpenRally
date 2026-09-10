@@ -108,17 +108,22 @@ export function useTireTracksLogic(
     const slipAngle = Math.abs(gameState.slipAngle);
     const slipRatio = lateralSpeed + slipAngle * 3.0;
 
+    const isAirborne = gameState.isAirborne;
+
     for (let i = 0; i < 4; i++) {
       const wheel = wheels[i];
       const buf = ribbonBuffers[i];
       const geo = geometries[i];
       if (!wheel || !geo) continue;
 
-      // Wheel suspension compression check: when on ground, wheel.position.y > -0.49
-      const isGrounded = wheel.position.y > -0.49;
+      // Check physical contact status from Rapier wheel raycast
+      const isWheelContact =
+        typeof wheel.userData.isGrounded === 'boolean'
+          ? wheel.userData.isGrounded
+          : !isAirborne;
 
-      // Skip terrain height interpolations when stopped (< 0.2 m/s) or airborne
-      if (speedMps < 0.2 || !isGrounded) {
+      // Skip tire tracks when vehicle is stopped (< 0.2 m/s), vehicle is airborne, or wheel has no contact
+      if (speedMps < 0.2 || isAirborne || !isWheelContact) {
         buf.notifyAirborne();
       } else {
         wheel.getWorldPosition(_wheelPos);
@@ -134,17 +139,27 @@ export function useTireTracksLogic(
           buf.config.normalOffset,
         );
 
-        buf.addContactPoint(
-          _contactPos,
-          _contactNormal,
-          surfaceType,
-          speedMps,
-          slipRatio,
-          isGrounded,
-          currentTime,
-          heightmapData,
-          levelData,
-        );
+        // Approximate wheel radius is ~0.35m.
+        // If the wheel bottom is elevated above the sampled ground (e.g. airborne or on an elevated ramp structure),
+        // disconnect the ribbon and do not draw ghost tracks on the terrain below!
+        const wheelBottomY = _wheelPos.y - 0.35;
+        const heightAboveGround = wheelBottomY - _contactPos.y;
+
+        if (heightAboveGround > 0.25 || heightAboveGround < -0.6) {
+          buf.notifyAirborne();
+        } else {
+          buf.addContactPoint(
+            _contactPos,
+            _contactNormal,
+            surfaceType,
+            speedMps,
+            slipRatio,
+            true,
+            currentTime,
+            heightmapData,
+            levelData,
+          );
+        }
       }
 
       const hasActive = buf.updateLifetime(currentTime);

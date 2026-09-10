@@ -139,7 +139,12 @@ export function DustParticles({ wheelsRef, chassisRef }: DustParticlesProps) {
     timeAccumulator.current = Math.min(timeAccumulator.current + safeDelta, 0.15);
     const EMIT_RATE = isDrifting ? 0.02 : 0.05; // 50 particles/sec drift, 20 particles/sec drive
 
-    if (isDriving || isDrifting) {
+    const isAirborne = useGameStore.getState().isAirborne;
+    if (isAirborne) {
+      timeAccumulator.current = 0;
+    }
+
+    if ((isDriving || isDrifting) && !isAirborne) {
       let emissionsToDo = Math.floor(timeAccumulator.current / EMIT_RATE);
       // Cap at 3 per frame to prevent lag spikes if tab was in background
       emissionsToDo = Math.min(emissionsToDo, 3);
@@ -158,9 +163,12 @@ export function DustParticles({ wheelsRef, chassisRef }: DustParticlesProps) {
             const wheel = wheels[wheelIdx];
             if (!wheel) continue;
 
-            // Check if wheel is touching the ground (suspension compressed)
-            const isGrounded = wheel.position.y > -0.49;
-            if (!isGrounded) continue;
+            // Check if wheel has physical ground contact
+            const isWheelGrounded =
+              typeof wheel.userData.isGrounded === 'boolean'
+                ? wheel.userData.isGrounded
+                : true;
+            if (!isWheelGrounded) continue;
 
             if (freeCountRef.current <= 0) break; // pool exhausted
 

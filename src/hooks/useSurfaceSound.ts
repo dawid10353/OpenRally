@@ -129,16 +129,19 @@ export function useSurfaceSound(wheelsRef: React.RefObject<(Object3D | null)[]>)
       return;
     }
 
-    // Check if at least one wheel is touching the ground (suspension is compressed)
-    let isGrounded = false;
-    if (wheelsRef.current) {
+    // Check if at least one wheel is touching the ground (not airborne and has physical contact)
+    const isAirborne = useGameStore.getState().isAirborne;
+    let isGrounded = !isAirborne;
+    if (isGrounded && wheelsRef.current) {
+      let anyWheelContact = false;
       for (let i = 0; i < 4; i++) {
         const wheel = wheelsRef.current[i];
-        if (wheel && wheel.position.y > -0.49) {
-          isGrounded = true;
+        if (wheel && wheel.userData.isGrounded !== false) {
+          anyWheelContact = true;
           break;
         }
       }
+      isGrounded = anyWheelContact;
     }
 
     const speed = useGameStore.getState().speed;
